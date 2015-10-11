@@ -72,6 +72,8 @@ InstructionSelection<JITAssembler>::InstructionSelection(QQmlEnginePrivate *qmlE
     , compilationUnit(new CompilationUnit)
     , qmlEngine(qmlEngine)
 {
+    checkRequiredCpuSupport();
+
     compilationUnit->codeRefs.resize(module->functions.size());
     module->unitFlags |= QV4::CompiledData::Unit::ContainsMachineCode;
 }
