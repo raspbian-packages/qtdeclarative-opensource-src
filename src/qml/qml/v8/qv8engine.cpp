@@ -64,7 +64,6 @@
 #include <QtCore/qjsonvalue.h>
 #include <QtCore/qdatetime.h>
 #include <QtCore/qdatastream.h>
-#include <private/qsimd_p.h>
 
 #include <private/qv4value_p.h>
 #include <private/qv4dateobject_p.h>
@@ -129,12 +128,6 @@ QV8Engine::QV8Engine(QJSEngine* qq)
     , m_xmlHttpRequestData(0)
     , m_listModelData(0)
 {
-#ifdef Q_PROCESSOR_X86_32
-    if (!qCpuHasFeature(SSE2)) {
-        qFatal("This program requires an X86 processor that supports SSE2 extension, at least a Pentium 4 or newer");
-    }
-#endif
-
     QML_MEMORY_SCOPE_STRING("QV8Engine::QV8Engine");
     qMetaTypeId<QJSValue>();
     qMetaTypeId<QList<int> >();

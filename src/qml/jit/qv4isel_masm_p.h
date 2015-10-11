@@ -60,6 +60,7 @@
 
 #include <QtCore/QHash>
 #include <QtCore/QStack>
+#include <private/qsimd_p.h>
 #include <config.h>
 #include <wtf/Vector.h>
 
@@ -71,6 +72,23 @@ QT_BEGIN_NAMESPACE
 
 namespace QV4 {
 namespace JIT {
+
+Q_QML_PRIVATE_EXPORT inline bool hasRequiredCpuSupport()
+{
+#ifdef Q_PROCESSOR_X86_32
+    return qCpuHasFeature(SSE2);
+#else
+    return true;
+#endif
+}
+
+Q_QML_PRIVATE_EXPORT inline void checkRequiredCpuSupport()
+{
+#ifdef Q_PROCESSOR_X86_32
+    if (!qCpuHasFeature(SSE2))
+        qFatal("This program requires an X86 processor that supports SSE2 extension, at least a Pentium 4 or newer");
+#endif
+}
 
 template <typename JITAssembler = Assembler<DefaultAssemblerTargetConfiguration>>
 class Q_QML_EXPORT InstructionSelection:
