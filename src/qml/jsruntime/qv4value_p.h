@@ -92,10 +92,16 @@ struct Q_QML_PRIVATE_EXPORT Value
 
     Q_ALWAYS_INLINE quint64 val() const { return _val; }
     Q_ALWAYS_INLINE void setVal(quint64 v) { _val = v; }
+
+#if defined(QV4_USE_64_BIT_VALUE_ENCODING) && Q_BYTE_ORDER == Q_BIG_ENDIAN
+    Q_ALWAYS_INLINE void setValue(quint32 t) { memcpy(4 + (quint8 *)&_val, &t, 4); }
+    Q_ALWAYS_INLINE void setTag(quint32 v) { memcpy(&_val, &v, 4); }
+#else
     Q_ALWAYS_INLINE void setValue(quint32 v) { memcpy(&_val, &v, 4); }
     Q_ALWAYS_INLINE void setTag(quint32 t) { memcpy(4 + (quint8 *)&_val, &t, 4); }
+#endif
 
-#if Q_BYTE_ORDER == Q_LITTLE_ENDIAN
+#if Q_BYTE_ORDER == Q_LITTLE_ENDIAN || defined(QV4_USE_64_BIT_VALUE_ENCODING)
     static inline int valueOffset() { return 0; }
     static inline int tagOffset() { return 4; }
     Q_ALWAYS_INLINE void setTagValue(quint32 tag, quint32 value) { _val = quint64(tag) << 32 | value; }
