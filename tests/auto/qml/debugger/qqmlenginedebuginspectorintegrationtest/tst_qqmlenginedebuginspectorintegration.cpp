@@ -102,8 +102,7 @@ void tst_QQmlEngineDebugInspectorIntegration::init(bool restrictServices)
                                     QString());
 
     // ### Still using qmlscene because of QTBUG-33376
-    m_process = new QQmlDebugProcess(QLibraryInfo::location(QLibraryInfo::BinariesPath)
-                                     + "/qmlscene", this);
+    m_process = new QQmlDebugProcess(TESTBINDIR "/qmlscene", this);
     m_process->start(QStringList() << argument << testFile("qtquick2.qml"));
     QVERIFY2(m_process->waitForSessionStart(),
              "Could not launch application, or did not get 'Waiting for connection'.");
