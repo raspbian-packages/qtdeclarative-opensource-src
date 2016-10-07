@@ -21,7 +21,6 @@ PUBLICTESTS += \
     qqmlmoduleplugin \
     qqmlnotifier \
     qqmlqt \
-    qqmlxmlhttprequest \
     qtqmlmodules \
     qquickfolderlistmodel \
     qqmlapplicationengine \
@@ -70,8 +69,7 @@ qtHaveModule(widgets) {
         qjsvalue
 }
 
-SUBDIRS += $$PUBLICTESTS \
-    qqmlextensionplugin
+SUBDIRS += $$PUBLICTESTS
 SUBDIRS += $$METATYPETESTS
 !winrt { # no QProcess on winrt
     !contains(QT_CONFIG, no-qml-debug): SUBDIRS += debugger
