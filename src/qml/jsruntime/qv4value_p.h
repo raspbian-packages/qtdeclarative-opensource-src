@@ -92,22 +92,25 @@ struct Q_QML_PRIVATE_EXPORT Value
 
     Q_ALWAYS_INLINE quint64 val() const { return _val; }
     Q_ALWAYS_INLINE void setVal(quint64 v) { _val = v; }
+
+#if Q_BYTE_ORDER == Q_BIG_ENDIAN
+    Q_ALWAYS_INLINE void setValue(quint32 t) { memcpy(4 + (quint8 *)&_val, &t, 4); }
+    Q_ALWAYS_INLINE void setTag(quint32 v) { memcpy(&_val, &v, 4); }
+#else
     Q_ALWAYS_INLINE void setValue(quint32 v) { memcpy(&_val, &v, 4); }
     Q_ALWAYS_INLINE void setTag(quint32 t) { memcpy(4 + (quint8 *)&_val, &t, 4); }
+#endif
 
 #if Q_BYTE_ORDER == Q_LITTLE_ENDIAN
     static inline int valueOffset() { return 0; }
     static inline int tagOffset() { return 4; }
-    Q_ALWAYS_INLINE void setTagValue(quint32 tag, quint32 value) { _val = quint64(tag) << 32 | value; }
-    Q_ALWAYS_INLINE quint32 value() const { return _val & quint64(~quint32(0)); }
-    Q_ALWAYS_INLINE quint32 tag() const { return _val >> 32; }
 #else // !Q_LITTLE_ENDIAN
     static inline int valueOffset() { return 4; }
     static inline int tagOffset() { return 0; }
-    Q_ALWAYS_INLINE void setTagValue(quint32 tag, quint32 value) { _val = quint64(value) << 32 | tag; }
-    Q_ALWAYS_INLINE quint32 tag() const { return _val & quint64(~quint32(0)); }
-    Q_ALWAYS_INLINE quint32 value() const { return _val >> 32; }
 #endif
+    Q_ALWAYS_INLINE void setTagValue(quint32 tag, quint32 value) { _val = quint64(tag) << 32 | value; }
+    Q_ALWAYS_INLINE quint32 value() const { return _val & quint64(~quint32(0)); }
+    Q_ALWAYS_INLINE quint32 tag() const { return _val >> 32; }
 
 #if defined(V4_BOOTSTRAP)
     Q_ALWAYS_INLINE Heap::Base *m() const { Q_UNREACHABLE(); return Q_NULLPTR; }
