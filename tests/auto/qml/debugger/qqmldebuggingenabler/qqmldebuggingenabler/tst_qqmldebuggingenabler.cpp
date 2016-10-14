@@ -89,7 +89,7 @@ bool tst_QQmlDebuggingEnabler::init(bool blockMode, bool qmlscene, int portFrom,
     connection = new QQmlDebugConnection();
 
     if (qmlscene) {
-        process = new QQmlDebugProcess(QLibraryInfo::location(QLibraryInfo::BinariesPath) + "/qmlscene", this);
+        process = new QQmlDebugProcess(TESTBINDIR "/qmlscene", this);
         process->setMaximumBindErrors(1);
     } else {
         process = new QQmlDebugProcess(QCoreApplication::applicationDirPath() + QLatin1String("/qqmldebuggingenablerserver"), this);

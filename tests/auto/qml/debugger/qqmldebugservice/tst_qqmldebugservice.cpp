@@ -99,7 +99,7 @@ void tst_QQmlDebugService::initTestCase()
 void tst_QQmlDebugService::checkPortRange()
 {
     QQmlDebugConnection *connection1 = new QQmlDebugConnection();
-    QQmlDebugProcess *process1 = new QQmlDebugProcess(QLibraryInfo::location(QLibraryInfo::BinariesPath) + "/qmlscene", this);
+    QQmlDebugProcess *process1 = new QQmlDebugProcess(TESTBINDIR "/qmlscene", this);
 
     process1->start(QStringList() << QLatin1String("-qmljsdebugger=port:3782,3792") << testFile("test.qml"));
 
@@ -113,7 +113,7 @@ void tst_QQmlDebugService::checkPortRange()
 
     // Second instance
     QQmlDebugConnection *connection2 = new QQmlDebugConnection();
-    QQmlDebugProcess *process2 = new QQmlDebugProcess(QLibraryInfo::location(QLibraryInfo::BinariesPath) + "/qmlscene", this);
+    QQmlDebugProcess *process2 = new QQmlDebugProcess(TESTBINDIR "/qmlscene", this);
 
     process2->start(QStringList() << QLatin1String("-qmljsdebugger=port:3782,3792") << testFile("test.qml"));
 

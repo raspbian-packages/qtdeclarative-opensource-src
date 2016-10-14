@@ -153,7 +153,7 @@ void QQmlEngineControlClient::messageReceived(const QByteArray &message)
 
 void tst_QQmlEngineControl::connect(const QString &testFile, bool restrictServices)
 {
-    const QString executable = QLibraryInfo::location(QLibraryInfo::BinariesPath) + "/qmlscene";
+    const QString executable = TESTBINDIR "/qmlscene";
     QStringList arguments;
     arguments << QString::fromLatin1("-qmljsdebugger=port:%1,%2,block%3")
                  .arg(STR_PORT_FROM).arg(STR_PORT_TO)
