@@ -674,14 +674,8 @@ bool QObjectWrapper::isEqualTo(Managed *a, Managed *b)
 
 ReturnedValue QObjectWrapper::create(ExecutionEngine *engine, QObject *object)
 {
-    if (QJSEngine *jsEngine = engine->jsEngine()) {
-        if (QQmlPropertyCache *cache = QQmlData::ensurePropertyCache(jsEngine, object)) {
-            ReturnedValue result = QV4::Encode::null();
-            void *args[] = { &result, &engine };
-            if (cache->callJSFactoryMethod(object, args))
-                return result;
-        }
-    }
+    if (engine->jsEngine())
+        QQmlData::ensurePropertyCache(engine->jsEngine(), object);
     return (engine->memoryManager->allocObject<QV4::QObjectWrapper>(object))->asReturnedValue();
 }
 

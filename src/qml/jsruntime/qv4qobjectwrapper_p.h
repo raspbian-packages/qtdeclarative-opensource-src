@@ -77,7 +77,7 @@ namespace Heap {
 
 struct QQmlValueTypeWrapper;
 
-struct Q_QML_EXPORT QObjectWrapper : Object {
+struct QObjectWrapper : Object {
     QObjectWrapper(QObject *object);
     QPointer<QObject> object;
 };

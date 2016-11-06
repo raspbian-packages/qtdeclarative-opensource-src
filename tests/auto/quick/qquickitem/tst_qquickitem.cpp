@@ -1771,56 +1771,56 @@ static void gc(QQmlEngine &engine)
 
 void tst_qquickitem::visualParentOwnership()
 {
-    QQmlEngine engine;
-    QQmlComponent component(&engine, testFileUrl("visualParentOwnership.qml"));
+    QQuickView view;
+    view.setSource(testFileUrl("visualParentOwnership.qml"));
 
-    QScopedPointer<QQuickItem> root(qobject_cast<QQuickItem*>(component.create()));
+    QQuickItem *root = qobject_cast<QQuickItem*>(view.rootObject());
     QVERIFY(root);
 
     QVariant newObject;
     {
-        QVERIFY(QMetaObject::invokeMethod(root.data(), "createItemWithoutParent", Q_RETURN_ARG(QVariant, newObject)));
+        QVERIFY(QMetaObject::invokeMethod(root, "createItemWithoutParent", Q_RETURN_ARG(QVariant, newObject)));
         QPointer<QQuickItem> newItem = qvariant_cast<QQuickItem*>(newObject);
         QVERIFY(!newItem.isNull());
 
         QVERIFY(!newItem->parent());
         QVERIFY(!newItem->parentItem());
 
-        newItem->setParentItem(root.data());
+        newItem->setParentItem(root);
 
-        gc(engine);
+        gc(*view.engine());
 
         QVERIFY(!newItem.isNull());
         newItem->setParentItem(0);
 
-        gc(engine);
+        gc(*view.engine());
         QVERIFY(newItem.isNull());
     }
     {
-        QVERIFY(QMetaObject::invokeMethod(root.data(), "createItemWithoutParent", Q_RETURN_ARG(QVariant, newObject)));
+        QVERIFY(QMetaObject::invokeMethod(root, "createItemWithoutParent", Q_RETURN_ARG(QVariant, newObject)));
         QPointer<QQuickItem> firstItem = qvariant_cast<QQuickItem*>(newObject);
         QVERIFY(!firstItem.isNull());
 
-        firstItem->setParentItem(root.data());
+        firstItem->setParentItem(root);
 
-        QVERIFY(QMetaObject::invokeMethod(root.data(), "createItemWithoutParent", Q_RETURN_ARG(QVariant, newObject)));
+        QVERIFY(QMetaObject::invokeMethod(root, "createItemWithoutParent", Q_RETURN_ARG(QVariant, newObject)));
         QPointer<QQuickItem> secondItem = qvariant_cast<QQuickItem*>(newObject);
         QVERIFY(!firstItem.isNull());
 
         secondItem->setParentItem(firstItem);
 
-        gc(engine);
+        gc(*view.engine());
 
         delete firstItem;
 
         root->setProperty("keepAliveProperty", newObject);
 
-        gc(engine);
+        gc(*view.engine());
         QVERIFY(!secondItem.isNull());
 
         root->setProperty("keepAliveProperty", QVariant());
 
-        gc(engine);
+        gc(*view.engine());
         QVERIFY(secondItem.isNull());
     }
 }
