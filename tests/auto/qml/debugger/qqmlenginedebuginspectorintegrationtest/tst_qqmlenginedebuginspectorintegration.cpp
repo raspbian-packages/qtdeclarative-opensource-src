@@ -106,7 +106,7 @@ void tst_QQmlEngineDebugInspectorIntegration::init(bool restrictServices)
             .arg(restrictServices ? QStringLiteral(",services:QmlDebugger,QmlInspector") :
                                     QString());
 
-    m_process = new QQmlDebugProcess(QLibraryInfo::location(QLibraryInfo::BinariesPath) + "/qml",
+    m_process = new QQmlDebugProcess(TESTBINDIR "/qml",
                                      this);
     m_process->start(QStringList() << argument << testFile("qtquick2.qml"));
     QVERIFY2(m_process->waitForSessionStart(),
