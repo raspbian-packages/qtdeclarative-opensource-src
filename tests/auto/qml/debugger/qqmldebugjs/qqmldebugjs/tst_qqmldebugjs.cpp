@@ -780,8 +780,7 @@ void tst_QQmlDebugJS::init(bool qmlscene, const QString &qmlFile, bool blockMode
 {
     connection = new QQmlDebugConnection();
     if (qmlscene)
-        process = new QQmlDebugProcess(QLibraryInfo::location(QLibraryInfo::BinariesPath) +
-                                       "/qmlscene", this);
+        process = new QQmlDebugProcess(TESTBINDIR "/qmlscene", this);
     else
         process = new QQmlDebugProcess(QCoreApplication::applicationDirPath() +
                                        QLatin1String("/qqmldebugjsserver"), this);
