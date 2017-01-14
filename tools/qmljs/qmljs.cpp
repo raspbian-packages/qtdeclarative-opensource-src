@@ -135,11 +135,10 @@ int main(int argc, char *argv[])
     enum {
         use_masm,
         use_moth
-    } mode;
+    } mode = use_moth;
 #ifdef V4_ENABLE_JIT
-    mode = use_masm;
-#else
-    mode = use_moth;
+    if (QV4::JIT::hasRequiredCpuSupport())
+        mode = use_masm;
 #endif
 
     bool runAsQml = false;

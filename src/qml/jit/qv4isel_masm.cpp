@@ -265,6 +265,8 @@ InstructionSelection::InstructionSelection(QQmlEnginePrivate *qmlEngine, QV4::Ex
     , compilationUnit(new CompilationUnit)
     , qmlEngine(qmlEngine)
 {
+    checkRequiredCpuSupport();
+
     compilationUnit->codeRefs.resize(module->functions.size());
 }
 

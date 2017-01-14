@@ -1,4 +1,4 @@
-qtdeclarative-opensource-src (5.7.1-1+rpi1) stretch-staging; urgency=medium
+qtdeclarative-opensource-src (5.7.1-2+rpi1) stretch-staging; urgency=medium
 
   [changes brought forward from 5.3.2-4+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Fri, 03 Oct 2014 08:10:59 +0000]
   * Fix clean target.
@@ -13,7 +13,19 @@ qtdeclarative-opensource-src (5.7.1-1+rpi1) stretch-staging; urgency=medium
     or similar crap).
   * Further fixes to clean target.
 
- -- Raspbian forward porter <root@raspbian.org>  Fri, 30 Dec 2016 01:01:26 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Sat, 14 Jan 2017 12:07:36 +0000
+
+qtdeclarative-opensource-src (5.7.1-2) unstable; urgency=medium
+
+  [ Dmitry Shachnev ]
+  * Drop obsolete Breaks/Replaces. Qt versions before 5.3.2 were never part
+    of a stable release (Jessie and Wheezy-backports have 5.3.2).
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * Do not make lack of SSE2 support on x86-32 fatal by using Guillem Jover's
+    patch (Closes: #792594). Thanks Guillem!
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Mon, 02 Jan 2017 12:15:42 -0300
 
 qtdeclarative-opensource-src (5.7.1-1) unstable; urgency=medium
 
