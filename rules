@@ -1,0 +1,70 @@
+#!/usr/bin/make -f
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+
+export CFLAGS := $(shell dpkg-buildflags --get CFLAGS) $(shell dpkg-buildflags --get CPPFLAGS)
+export CXXFLAGS := $(shell dpkg-buildflags --get CXXFLAGS) $(shell dpkg-buildflags --get CPPFLAGS)
+export LDFLAGS := $(shell dpkg-buildflags --get LDFLAGS) -Wl,--as-needed
+export QT_SELECT := qt5
+
+%:
+	dh $@ --with pkgkde_symbolshelper
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -rf $(CURDIR)/test_root
+	rm -rf $(CURDIR)/docs
+	rm -rf $(CURDIR)/.local
+
+override_dh_auto_configure:
+	qmake QT_BUILD_PARTS+=" tests"
+
+override_dh_auto_build-indep:
+	dh_auto_build -- docs
+
+override_dh_auto_install-arch:
+	dh_auto_install
+
+	# Remove libtool-like files
+	rm -f debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/*.la
+
+	# Remove CMake files for plugins, we don't need them.
+	rm -fv debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/cmake/Qt5Qml/*Plugin.cmake
+
+	# Fix wrong permissions in examples.
+	find $(CURDIR)/debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/qt5/ -type f \( \
+	-name '*.png' \
+	-o -name '*.php' \
+	-o -name '*.xsl' \
+	-o -name '*.xml' \
+	-o -name '*.js' \
+	-o -name '*.jpg' \
+	-o -name '*.qml' \
+	\) -print0 | xargs -0 chmod a-x
+
+override_dh_auto_install-indep:
+	dh_auto_build -- INSTALL_ROOT=$(CURDIR)/debian/tmp install_docs
+
+override_dh_install:
+	dh_install --fail-missing
+
+override_dh_makeshlibs:
+	dh_makeshlibs -V
+
+override_dh_auto_test-arch:
+	$(MAKE) install -Csrc/imports INSTALL_ROOT=$(CURDIR)/test_root
+	mkdir -p $(CURDIR)/.local/share/QtProject/tst_qqmlengine
+	# Make the tests non-fatal, see the 5.7.1~20161021-2 changelog.
+	-QT_LOGGING_RULES="default.debug=true;qml.debug=true;js.debug=true" xvfb-run -a \
+	         -s "-screen 0 1024x768x24 +extension RANDR +extension RENDER +extension GLX" \
+	         dh_auto_test --max-parallel=1 -- -k -Ctests/auto \
+	         QML2_IMPORT_PATH=$(CURDIR)/test_root/usr/lib/$(DEB_HOST_MULTIARCH)/qt5/qml \
+	         HOME=$(CURDIR) LD_LIBRARY_PATH=$(CURDIR)/lib XDG_RUNTIME_DIR=$(CURDIR)
+
+override_dh_auto_test-indep:
+
+override_dh_strip:
+	dh_strip --dbgsym-migration='qtdeclarative5-dbg (<< 5.7.0-7~)'
