@@ -53,9 +53,9 @@
 
 #include <QtQuick/qtquickglobal.h>
 #include <private/qobject_p.h>
-
-#include <QtGui/qopengl.h>
-
+#if QT_CONFIG(opengl)
+# include <QtGui/qopengl.h>
+#endif
 #include "qsgtexture.h"
 #include <QtQuick/private/qsgcontext_p.h>
 
@@ -69,11 +69,13 @@ public:
 
     uint wrapChanged : 1;
     uint filteringChanged : 1;
+    uint anisotropyChanged : 1;
 
     uint horizontalWrap : 1;
     uint verticalWrap : 1;
     uint mipmapMode : 2;
     uint filterMode : 2;
+    uint anisotropyLevel: 3;
 };
 
 class Q_QUICK_PRIVATE_EXPORT QSGPlainTexture : public QSGTexture
@@ -87,19 +89,19 @@ public:
     bool ownsTexture() const { return m_owns_texture; }
 
     void setTextureId(int id);
-    int textureId() const;
+    int textureId() const override;
     void setTextureSize(const QSize &size) { m_texture_size = size; }
-    QSize textureSize() const { return m_texture_size; }
+    QSize textureSize() const override { return m_texture_size; }
 
     void setHasAlphaChannel(bool alpha) { m_has_alpha = alpha; }
-    bool hasAlphaChannel() const { return m_has_alpha; }
+    bool hasAlphaChannel() const override { return m_has_alpha; }
 
-    bool hasMipmaps() const { return mipmapFiltering() != QSGTexture::None; }
+    bool hasMipmaps() const override { return mipmapFiltering() != QSGTexture::None; }
 
     void setImage(const QImage &image);
     const QImage &image() { return m_image; }
 
-    virtual void bind();
+    void bind() override;
 
     static QSGPlainTexture *fromImage(const QImage &image) {
         QSGPlainTexture *t = new QSGPlainTexture();
@@ -110,7 +112,7 @@ public:
 protected:
     QImage m_image;
 
-    GLuint m_texture_id;
+    uint m_texture_id;
     QSize m_texture_size;
     QRectF m_texture_rect;
 

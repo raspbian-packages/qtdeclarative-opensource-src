@@ -54,13 +54,13 @@
 
 #include <QHash>
 #include <private/qqmljsmemorypool_p.h>
+#include <private/qv4identifier_p.h>
 
 QT_BEGIN_NAMESPACE
 
 namespace QV4 {
 
 struct String;
-struct ExecutionEngine;
 struct Object;
 struct Identifier;
 struct VTable;
@@ -117,6 +117,20 @@ inline PropertyHash::~PropertyHash()
         delete d;
 }
 
+inline uint PropertyHash::lookup(const Identifier *identifier) const
+{
+    Q_ASSERT(d->entries);
+
+    uint idx = identifier->hashValue % d->alloc;
+    while (1) {
+        if (d->entries[idx].identifier == identifier)
+            return d->entries[idx].index;
+        if (!d->entries[idx].identifier)
+            return UINT_MAX;
+        ++idx;
+        idx %= d->alloc;
+    }
+}
 
 template <typename T>
 struct SharedInternalClassData {
@@ -206,23 +220,31 @@ private:
 
 struct InternalClassTransition
 {
-    Identifier *id;
+    union {
+        Identifier *id;
+        const VTable *vtable;
+        Heap::Object *prototype;
+    };
     InternalClass *lookup;
     int flags;
     enum {
         // range 0-0xff is reserved for attribute changes
-        NotExtensible = 0x100
+        NotExtensible = 0x100,
+        VTableChange = 0x200,
+        PrototypeChange = 0x201
     };
 
     bool operator==(const InternalClassTransition &other) const
     { return id == other.id && flags == other.flags; }
 
     bool operator<(const InternalClassTransition &other) const
-    { return id < other.id; }
+    { return id < other.id || (id == other.id && flags < other.flags); }
 };
 
 struct InternalClass : public QQmlJS::Managed {
     ExecutionEngine *engine;
+    const VTable *vtable;
+    Heap::Object *prototype;
 
     PropertyHash propertyTable; // id to valueIndex
     SharedInternalClassData<Identifier *> nameMap;
@@ -238,23 +260,43 @@ struct InternalClass : public QQmlJS::Managed {
     uint size;
     bool extensible;
 
-    InternalClass *nonExtensible();
+    Q_REQUIRED_RESULT InternalClass *nonExtensible();
+    Q_REQUIRED_RESULT InternalClass *changeVTable(const VTable *vt) {
+        if (vtable == vt)
+            return this;
+        return changeVTableImpl(vt);
+    }
+    Q_REQUIRED_RESULT InternalClass *changePrototype(Heap::Object *proto) {
+        if (prototype == proto)
+            return this;
+        return changePrototypeImpl(proto);
+    }
+
     static void addMember(Object *object, String *string, PropertyAttributes data, uint *index);
-    InternalClass *addMember(String *string, PropertyAttributes data, uint *index = 0);
-    InternalClass *addMember(Identifier *identifier, PropertyAttributes data, uint *index = 0);
-    InternalClass *changeMember(Identifier *identifier, PropertyAttributes data, uint *index = 0);
+    Q_REQUIRED_RESULT InternalClass *addMember(String *string, PropertyAttributes data, uint *index = 0);
+    Q_REQUIRED_RESULT InternalClass *addMember(Identifier *identifier, PropertyAttributes data, uint *index = 0);
+    Q_REQUIRED_RESULT InternalClass *changeMember(Identifier *identifier, PropertyAttributes data, uint *index = 0);
     static void changeMember(Object *object, String *string, PropertyAttributes data, uint *index = 0);
     static void removeMember(Object *object, Identifier *id);
-    uint find(const String *s);
-    uint find(const Identifier *id);
+    uint find(const String *string);
+    uint find(const Identifier *id)
+    {
+        uint index = propertyTable.lookup(id);
+        if (index < size)
+            return index;
 
-    InternalClass *sealed();
-    InternalClass *frozen();
-    InternalClass *propertiesFrozen() const;
+        return UINT_MAX;
+    }
+
+    Q_REQUIRED_RESULT InternalClass *sealed();
+    Q_REQUIRED_RESULT InternalClass *frozen();
+    Q_REQUIRED_RESULT InternalClass *propertiesFrozen() const;
 
     void destroy();
 
 private:
+    Q_QML_EXPORT InternalClass *changeVTableImpl(const VTable *vt);
+    Q_QML_EXPORT InternalClass *changePrototypeImpl(Heap::Object *proto);
     InternalClass *addMemberImpl(Identifier *identifier, PropertyAttributes data, uint *index);
     friend struct ExecutionEngine;
     InternalClass(ExecutionEngine *engine);

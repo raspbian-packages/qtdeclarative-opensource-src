@@ -42,7 +42,9 @@
 #include "qquickstateoperations_p.h"
 
 #include <private/qqmlproperty_p.h>
+#if QT_CONFIG(quick_path)
 #include <private/qquickpath_p.h>
+#endif
 #include "private/qparallelanimationgroupjob_p.h"
 #include "private/qsequentialanimationgroupjob_p.h"
 
@@ -302,7 +304,7 @@ QAbstractAnimationJob* QQuickParentAnimation::transition(QQuickStateActions &act
                 bool ok;
                 const QTransform &transform = targetParent->itemTransform(d->via, &ok);
                 if (transform.type() >= QTransform::TxShear || !ok) {
-                    qmlInfo(this) << QQuickParentAnimation::tr("Unable to preserve appearance under complex transform");
+                    qmlWarning(this) << QQuickParentAnimation::tr("Unable to preserve appearance under complex transform");
                     ok = false;
                 }
 
@@ -313,21 +315,21 @@ QAbstractAnimationJob* QQuickParentAnimation::transition(QQuickStateActions &act
                     if (transform.m11() == transform.m22())
                         scale = transform.m11();
                     else {
-                        qmlInfo(this) << QQuickParentAnimation::tr("Unable to preserve appearance under non-uniform scale");
+                        qmlWarning(this) << QQuickParentAnimation::tr("Unable to preserve appearance under non-uniform scale");
                         ok = false;
                     }
                 } else if (ok && isRotate) {
                     if (transform.m11() == transform.m22())
                         scale = qSqrt(transform.m11()*transform.m11() + transform.m12()*transform.m12());
                     else {
-                        qmlInfo(this) << QQuickParentAnimation::tr("Unable to preserve appearance under non-uniform scale");
+                        qmlWarning(this) << QQuickParentAnimation::tr("Unable to preserve appearance under non-uniform scale");
                         ok = false;
                     }
 
                     if (scale != 0)
                         rotation = qAtan2(transform.m12()/scale, transform.m11()/scale) * 180/M_PI;
                     else {
-                        qmlInfo(this) << QQuickParentAnimation::tr("Unable to preserve appearance under scale of 0");
+                        qmlWarning(this) << QQuickParentAnimation::tr("Unable to preserve appearance under scale of 0");
                         ok = false;
                     }
                 }
@@ -339,9 +341,9 @@ QAbstractAnimationJob* QQuickParentAnimation::transition(QQuickStateActions &act
                     qreal w = target->width();
                     qreal h = target->height();
                     if (pc->widthIsSet() && i < actions.size() - 1)
-                        w = actions[++i].toValue.toReal();
+                        w = actions.at(++i).toValue.toReal();
                     if (pc->heightIsSet() && i < actions.size() - 1)
-                        h = actions[++i].toValue.toReal();
+                        h = actions.at(++i).toValue.toReal();
                     const QPointF &transformOrigin
                             = d->computeTransformOrigin(target->transformOrigin(), w,h);
                     qreal tempxt = transformOrigin.x();
@@ -472,7 +474,7 @@ int QQuickAnchorAnimation::duration() const
 void QQuickAnchorAnimation::setDuration(int duration)
 {
     if (duration < 0) {
-        qmlInfo(this) << tr("Cannot set a duration of < 0");
+        qmlWarning(this) << tr("Cannot set a duration of < 0");
         return;
     }
 
@@ -554,6 +556,8 @@ QAbstractAnimationJob* QQuickAnchorAnimation::transition(QQuickStateActions &act
     return initInstance(animator);
 }
 
+
+#if QT_CONFIG(quick_path)
 /*!
     \qmltype PathAnimation
     \instantiates QQuickPathAnimation
@@ -609,7 +613,7 @@ int QQuickPathAnimation::duration() const
 void QQuickPathAnimation::setDuration(int duration)
 {
     if (duration < 0) {
-        qmlInfo(this) << tr("Cannot set a duration of < 0");
+        qmlWarning(this) << tr("Cannot set a duration of < 0");
         return;
     }
 
@@ -865,7 +869,7 @@ QAbstractAnimationJob* QQuickPathAnimation::transition(QQuickStateActions &actio
     data->reverse = direction == Backward ? true : false;
     data->fromSourced = false;
     data->fromDefined = (d->path && d->path->hasStartX() && d->path->hasStartY()) ? true : false;
-    data->toDefined = d->path ? d->path->hasEnd() : false;
+    data->toDefined = d->path ? true : false;
     int origModifiedSize = modified.count();
 
     for (int i = 0; i < actions.count(); ++i) {
@@ -1044,4 +1048,8 @@ QQuickPathAnimationAnimator::~QQuickPathAnimationAnimator()
     }
 }
 
+#endif // quick_path
+
 QT_END_NAMESPACE
+
+#include "moc_qquickitemanimation_p.cpp"

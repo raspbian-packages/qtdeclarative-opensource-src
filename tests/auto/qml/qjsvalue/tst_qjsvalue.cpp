@@ -431,6 +431,12 @@ void tst_QJSValue::toString()
         QVERIFY(!o.engine());
         QCOMPARE(o.toString(), QStringLiteral("1,2,3"));
     }
+
+    {
+        QByteArray hello = QByteArrayLiteral("Hello World");
+        QJSValue jsValue = eng.toScriptValue(hello);
+        QCOMPARE(jsValue.toString(), QString::fromUtf8(hello));
+    }
 }
 
 void tst_QJSValue::toNumber()
@@ -978,8 +984,8 @@ void tst_QJSValue::toVariant()
     QCOMPARE(qjsvalue_cast<QVariant>(undefined), QVariant());
 
     QJSValue null = eng.evaluate("null");
-    QCOMPARE(null.toVariant(), QVariant(QMetaType::VoidStar, 0));
-    QCOMPARE(qjsvalue_cast<QVariant>(null), QVariant(QMetaType::VoidStar, 0));
+    QCOMPARE(null.toVariant(), QVariant::fromValue(nullptr));
+    QCOMPARE(qjsvalue_cast<QVariant>(null), QVariant::fromValue(nullptr));
 
     {
         QJSValue number = eng.toScriptValue(123.0);
@@ -1055,8 +1061,8 @@ void tst_QJSValue::toVariant()
         QCOMPARE(qjsvalue_cast<QVariant>(undef), QVariant());
 
         QJSValue nil = QJSValue(QJSValue::NullValue);
-        QCOMPARE(nil.toVariant(), QVariant(QMetaType::VoidStar, 0));
-        QCOMPARE(qjsvalue_cast<QVariant>(nil), QVariant(QMetaType::VoidStar, 0));
+        QCOMPARE(nil.toVariant(), QVariant::fromValue(nullptr));
+        QCOMPARE(qjsvalue_cast<QVariant>(nil), QVariant::fromValue(nullptr));
     }
 
     // array
@@ -1364,6 +1370,33 @@ void tst_QJSValue::hasProperty_changePrototype()
     obj.setProperty("foo", 456); // override prototype property
     QVERIFY(obj.hasProperty("foo"));
     QVERIFY(obj.hasOwnProperty("foo"));
+}
+
+void tst_QJSValue::hasProperty_QTBUG56830_data()
+{
+    QTest::addColumn<QString>("key");
+    QTest::addColumn<QString>("lookup");
+
+    QTest::newRow("bugreport-1") << QStringLiteral("240000000000") << QStringLiteral("3776798720");
+    QTest::newRow("bugreport-2") << QStringLiteral("240000000001") << QStringLiteral("3776798721");
+    QTest::newRow("biggest-ok-before-bug") << QStringLiteral("238609294221") << QStringLiteral("2386092941");
+    QTest::newRow("smallest-bugged") << QStringLiteral("238609294222") << QStringLiteral("2386092942");
+    QTest::newRow("biggest-bugged") << QStringLiteral("249108103166") << QStringLiteral("12884901886");
+    QTest::newRow("smallest-ok-after-bug") << QStringLiteral("249108103167") << QStringLiteral("12884901887");
+}
+
+void tst_QJSValue::hasProperty_QTBUG56830()
+{
+    QFETCH(QString, key);
+    QFETCH(QString, lookup);
+
+    QJSEngine eng;
+    const QJSValue value(42);
+
+    QJSValue obj = eng.newObject();
+    obj.setProperty(key, value);
+    QVERIFY(obj.hasProperty(key));
+    QVERIFY(!obj.hasProperty(lookup));
 }
 
 void tst_QJSValue::deleteProperty_basic()

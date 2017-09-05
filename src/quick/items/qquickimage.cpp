@@ -69,7 +69,7 @@ public:
         emit textureChanged();
     }
 
-    QSGTexture *texture() const {
+    QSGTexture *texture() const override {
         if (m_texture) {
             m_texture->setFiltering(m_smooth ? QSGTexture::Linear : QSGTexture::Nearest);
             m_texture->setMipmapFiltering(m_mipmap ? QSGTexture::Linear : QSGTexture::None);
@@ -87,6 +87,7 @@ public:
 };
 
 #include "qquickimage.moc"
+#include "moc_qquickimage_p.cpp"
 
 QQuickImagePrivate::QQuickImagePrivate()
     : fillMode(QQuickImage::Stretch)
@@ -304,6 +305,15 @@ void QQuickImage::setFillMode(FillMode mode)
     if (d->fillMode == mode)
         return;
     d->fillMode = mode;
+    if ((mode == PreserveAspectCrop) != d->providerOptions.preserveAspectRatioCrop()) {
+        d->providerOptions.setPreserveAspectRatioCrop(mode == PreserveAspectCrop);
+        if (isComponentComplete())
+            load();
+    } else if ((mode == PreserveAspectFit) != d->providerOptions.preserveAspectRatioFit()) {
+        d->providerOptions.setPreserveAspectRatioFit(mode == PreserveAspectFit);
+        if (isComponentComplete())
+            load();
+    }
     update();
     updatePaintedGeometry();
     emit fillModeChanged();
@@ -423,7 +433,9 @@ qreal QQuickImage::paintedHeight() const
     (The \l fillMode is independent of this.)
 
     If both the sourceSize.width and sourceSize.height are set the image will be scaled
-    down to fit within the specified size, maintaining the image's aspect ratio.  The actual
+    down to fit within the specified size (unless PreserveAspectCrop or PreserveAspectFit
+    are used, then it will be scaled to match the optimal size for cropping/fitting),
+    maintaining the image's aspect ratio.  The actual
     size of the image after scaling is available via \l Item::implicitWidth and \l Item::implicitHeight.
 
     If the source is an intrinsically scalable image (eg. SVG), this property
@@ -614,10 +626,10 @@ QSGNode *QQuickImage::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *)
         return 0;
     }
 
-    QSGImageNode *node = static_cast<QSGImageNode *>(oldNode);
+    QSGInternalImageNode *node = static_cast<QSGInternalImageNode *>(oldNode);
     if (!node) {
         d->pixmapChanged = true;
-        node = d->sceneGraphContext()->createImageNode();
+        node = d->sceneGraphContext()->createInternalImageNode();
     }
 
     QRectF targetRect;

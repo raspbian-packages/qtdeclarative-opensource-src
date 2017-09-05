@@ -54,7 +54,7 @@
 #include <private/qtqmlglobal_p.h>
 #include <QtCore/QObject>
 #include <QtCore/private/qabstractanimation_p.h>
-#include "private/qpodvector_p.h"
+#include <vector>
 
 QT_BEGIN_NAMESPACE
 
@@ -164,7 +164,7 @@ protected:
         QAbstractAnimationJob::ChangeTypes types;
         bool operator==(const ChangeListener &other) const { return listener == other.listener && types == other.types; }
     };
-    QPODVector<ChangeListener,1> changeListeners;
+    std::vector<ChangeListener> changeListeners;
 
     QAbstractAnimationJob *m_nextSibling;
     QAbstractAnimationJob *m_previousSibling;
@@ -218,11 +218,11 @@ public:
     */
     static void updateAnimationTimer();
 
-    void restartAnimationTimer();
-    void updateAnimationsTime(qint64 timeStep);
+    void restartAnimationTimer() override;
+    void updateAnimationsTime(qint64 timeStep) override;
 
     //useful for profiling/debugging
-    int runningAnimationCount() { return animations.count(); }
+    int runningAnimationCount() override { return animations.count(); }
 
     bool hasStartAnimationPending() const { return startAnimationPending; }
 

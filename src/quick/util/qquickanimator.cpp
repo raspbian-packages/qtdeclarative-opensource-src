@@ -50,6 +50,7 @@ QT_BEGIN_NAMESPACE
     \inqmlmodule QtQuick
     \since 5.2
     \ingroup qtquick-transitions-animations
+    \inherits Animation
     \brief Is the base of all QML animators.
 
     Animator types are a special type of animation which operate
@@ -503,6 +504,7 @@ QQuickRotationAnimator::RotationDirection QQuickRotationAnimator::direction() co
     return d->direction;
 }
 
+#if QT_CONFIG(quick_shadereffect) && QT_CONFIG(opengl)
 /*!
     \qmltype UniformAnimator
     \instantiates QQuickUniformAnimator
@@ -580,5 +582,8 @@ QQuickAnimatorJob *QQuickUniformAnimator::createJob() const
     job->setUniform(u.toLatin1());
     return job;
 }
+#endif
 
 QT_END_NAMESPACE
+
+#include "moc_qquickanimator_p.cpp"

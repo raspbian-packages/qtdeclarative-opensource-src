@@ -72,7 +72,7 @@ void TimeoutTransition::componentComplete()
 {
     QState *state = qobject_cast<QState*>(parent());
     if (!state) {
-        qmlInfo(this) << "Parent needs to be a State";
+        qmlWarning(this) << "Parent needs to be a State";
         return;
     }
 
@@ -110,3 +110,5 @@ void TimeoutTransition::componentComplete()
 
     \brief The timeout interval in milliseconds.
 */
+
+#include "moc_timeouttransition.cpp"

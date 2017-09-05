@@ -61,7 +61,7 @@ namespace QV4 {
 namespace Heap {
 
 struct NumberCtor : FunctionObject {
-    NumberCtor(QV4::ExecutionContext *scope);
+    void init(QV4::ExecutionContext *scope);
 };
 
 }
@@ -79,20 +79,23 @@ struct NumberCtor: FunctionObject
 {
     V4_OBJECT2(NumberCtor, FunctionObject)
 
-    static ReturnedValue construct(const Managed *that, CallData *callData);
-    static ReturnedValue call(const Managed *, CallData *callData);
+    static void construct(const Managed *that, Scope &scope, CallData *callData);
+    static void call(const Managed *, Scope &scope, CallData *callData);
 };
 
 struct NumberPrototype: NumberObject
 {
+    V4_PROTOTYPE(objectPrototype)
     void init(ExecutionEngine *engine, Object *ctor);
 
-    static ReturnedValue method_toString(CallContext *ctx);
-    static ReturnedValue method_toLocaleString(CallContext *ctx);
-    static ReturnedValue method_valueOf(CallContext *ctx);
-    static ReturnedValue method_toFixed(CallContext *ctx);
-    static ReturnedValue method_toExponential(CallContext *ctx);
-    static ReturnedValue method_toPrecision(CallContext *ctx);
+    static void method_isFinite(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_isNaN(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_toString(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_toLocaleString(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_valueOf(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_toFixed(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_toExponential(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_toPrecision(const BuiltinFunction *, Scope &scope, CallData *callData);
 };
 
 

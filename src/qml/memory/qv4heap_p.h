@@ -52,14 +52,31 @@
 
 #include <QtCore/QString>
 #include <private/qv4global_p.h>
+#include <private/qv4mmdefs_p.h>
+#include <private/qv4internalclass_p.h>
+#include <QSharedPointer>
+
+// To check if Heap::Base::init is called (meaning, all subclasses did their init and called their
+// parent's init all up the inheritance chain), define QML_CHECK_INIT_DESTROY_CALLS below.
+#undef QML_CHECK_INIT_DESTROY_CALLS
+
+#if defined(_MSC_VER) && (_MSC_VER < 1900) // broken compilers:
+#  define V4_ASSERT_IS_TRIVIAL(x)
+#else // working compilers:
+#  define V4_ASSERT_IS_TRIVIAL(x) Q_STATIC_ASSERT(std::is_trivial< x >::value);
+#endif
 
 QT_BEGIN_NAMESPACE
 
 namespace QV4 {
 
+struct InternalClass;
+
 struct VTable
 {
     const VTable * const parent;
+    uint inlinePropertyOffset : 16;
+    uint nInlineProperties : 16;
     uint isExecutionContext : 1;
     uint isString : 1;
     uint isObject : 1;
@@ -77,55 +94,85 @@ struct VTable
 namespace Heap {
 
 struct Q_QML_EXPORT Base {
-    quintptr mm_data; // vtable and markbit
+    void *operator new(size_t) = delete;
+
+    InternalClass *internalClass;
 
     inline ReturnedValue asReturnedValue() const;
     inline void mark(QV4::ExecutionEngine *engine);
 
-    enum {
-        MarkBit = 0x1,
-        NotInUse = 0x2,
-        PointerMask = ~0x3
-    };
-
-    void setVtable(const VTable *v) {
-        Q_ASSERT(!(mm_data & MarkBit));
-        mm_data = reinterpret_cast<quintptr>(v);
-    }
-    VTable *vtable() const {
-        return reinterpret_cast<VTable *>(mm_data & PointerMask);
-    }
+    const VTable *vtable() const { return internalClass->vtable; }
     inline bool isMarked() const {
-        return mm_data & MarkBit;
+        const HeapItem *h = reinterpret_cast<const HeapItem *>(this);
+        Chunk *c = h->chunk();
+        Q_ASSERT(!Chunk::testBit(c->extendsBitmap, h - c->realBase()));
+        return Chunk::testBit(c->blackBitmap, h - c->realBase());
     }
     inline void setMarkBit() {
-        mm_data |= MarkBit;
-    }
-    inline void clearMarkBit() {
-        mm_data &= ~MarkBit;
+        const HeapItem *h = reinterpret_cast<const HeapItem *>(this);
+        Chunk *c = h->chunk();
+        Q_ASSERT(!Chunk::testBit(c->extendsBitmap, h - c->realBase()));
+        return Chunk::setBit(c->blackBitmap, h - c->realBase());
     }
 
     inline bool inUse() const {
-        return !(mm_data & NotInUse);
-    }
-
-    Base *nextFree() {
-        return reinterpret_cast<Base *>(mm_data & PointerMask);
-    }
-    void setNextFree(Base *m) {
-        mm_data = (reinterpret_cast<quintptr>(m) | NotInUse);
+        const HeapItem *h = reinterpret_cast<const HeapItem *>(this);
+        Chunk *c = h->chunk();
+        Q_ASSERT(!Chunk::testBit(c->extendsBitmap, h - c->realBase()));
+        return Chunk::testBit(c->objectBitmap, h - c->realBase());
     }
 
     void *operator new(size_t, Managed *m) { return m; }
     void *operator new(size_t, Heap::Base *m) { return m; }
     void operator delete(void *, Heap::Base *) {}
+
+    void init() { _setInitialized(); }
+    void destroy() { _setDestroyed(); }
+#ifdef QML_CHECK_INIT_DESTROY_CALLS
+    enum { Uninitialized = 0, Initialized, Destroyed } _livenessStatus;
+    void _checkIsInitialized() {
+        if (_livenessStatus == Uninitialized)
+            fprintf(stderr, "ERROR: use of object '%s' before call to init() !!\n",
+                    vtable()->className);
+        else if (_livenessStatus == Destroyed)
+            fprintf(stderr, "ERROR: use of object '%s' after call to destroy() !!\n",
+                    vtable()->className);
+        Q_ASSERT(_livenessStatus == Initialized);
+    }
+    void _checkIsDestroyed() {
+        if (_livenessStatus == Initialized)
+            fprintf(stderr, "ERROR: object '%s' was never destroyed completely !!\n",
+                    vtable()->className);
+        Q_ASSERT(_livenessStatus == Destroyed);
+    }
+    void _setInitialized() { Q_ASSERT(_livenessStatus == Uninitialized); _livenessStatus = Initialized; }
+    void _setDestroyed() {
+        if (_livenessStatus == Uninitialized)
+            fprintf(stderr, "ERROR: attempting to destroy an uninitialized object '%s' !!\n",
+                    vtable()->className);
+        else if (_livenessStatus == Destroyed)
+            fprintf(stderr, "ERROR: attempting to destroy repeatedly object '%s' !!\n",
+                    vtable()->className);
+        Q_ASSERT(_livenessStatus == Initialized);
+        _livenessStatus = Destroyed;
+    }
+#else
+    Q_ALWAYS_INLINE void _checkIsInitialized() {}
+    Q_ALWAYS_INLINE void _checkIsDestroyed() {}
+    Q_ALWAYS_INLINE void _setInitialized() {}
+    Q_ALWAYS_INLINE void _setDestroyed() {}
+#endif
 };
+V4_ASSERT_IS_TRIVIAL(Base)
+// This class needs to consist only of pointer sized members to allow
+// for a size/offset translation when cross-compiling between 32- and
+// 64-bit.
+Q_STATIC_ASSERT(std::is_standard_layout<Base>::value);
+Q_STATIC_ASSERT(offsetof(Base, internalClass) == 0);
+Q_STATIC_ASSERT(sizeof(Base) == QT_POINTER_SIZE);
 
 template <typename T>
 struct Pointer {
-    Pointer() {}
-    Pointer(T *t) : ptr(t) {}
-
     T *operator->() const { return ptr; }
     operator T *() const { return ptr; }
 
@@ -136,8 +183,64 @@ struct Pointer {
 
     T *ptr;
 };
+V4_ASSERT_IS_TRIVIAL(Pointer<void>)
 
 }
+
+#ifdef QT_NO_QOBJECT
+template <class T>
+struct QQmlQPointer {
+};
+#else
+template <class T>
+struct QQmlQPointer {
+    void init()
+    {
+        d = nullptr;
+        qObject = nullptr;
+    }
+
+    void init(T *o)
+    {
+        Q_ASSERT(d == nullptr);
+        Q_ASSERT(qObject == nullptr);
+        if (o) {
+            d = QtSharedPointer::ExternalRefCountData::getAndRef(o);
+            qObject = o;
+        }
+    }
+
+    void destroy()
+    {
+        if (d && !d->weakref.deref())
+            delete d;
+        d = nullptr;
+        qObject = nullptr;
+    }
+
+    T *data() const {
+        return d == nullptr || d->strongref.load() == 0 ? nullptr : qObject;
+    }
+    operator T*() const { return data(); }
+    inline T* operator->() const { return data(); }
+    QQmlQPointer &operator=(T *o)
+    {
+        if (d)
+            destroy();
+        init(o);
+        return *this;
+    }
+    bool isNull() const Q_DECL_NOTHROW
+    {
+        return d == nullptr || qObject == nullptr || d->strongref.load() == 0;
+    }
+
+private:
+    QtSharedPointer::ExternalRefCountData *d;
+    QObject *qObject;
+};
+V4_ASSERT_IS_TRIVIAL(QQmlQPointer<QObject>)
+#endif
 
 }
 

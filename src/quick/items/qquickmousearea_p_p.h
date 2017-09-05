@@ -52,6 +52,7 @@
 //
 
 #include "qquickitem_p.h"
+#include "qquickevents_p_p.h"
 
 #include <QtGui/qevent.h>
 #include <QtCore/qbasictimer.h>
@@ -94,7 +95,8 @@ public:
     bool propagateComposedEvents : 1;
     bool overThreshold : 1;
     Qt::MouseButtons pressed;
-#ifndef QT_NO_DRAGANDDROP
+    int pressAndHoldInterval;
+#if QT_CONFIG(draganddrop)
     QQuickDrag *drag;
 #endif
     QPointF startScene;
@@ -105,9 +107,11 @@ public:
     Qt::MouseButtons lastButtons;
     Qt::KeyboardModifiers lastModifiers;
     QBasicTimer pressAndHoldTimer;
-#ifndef QT_NO_CURSOR
+#if QT_CONFIG(cursor)
     QCursor *cursor;
 #endif
+    QQuickMouseEvent quickMouseEvent;
+    QQuickWheelEvent quickWheelEvent;
 };
 
 QT_END_NAMESPACE

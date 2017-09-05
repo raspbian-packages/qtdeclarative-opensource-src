@@ -51,18 +51,20 @@
 // We mean it.
 //
 
-#if defined(QT_BUILD_QMLDEVTOOLS_LIB) || defined(QT_QMLDEVTOOLS_LIB)
-#define V4_BOOTSTRAP
-#endif
-
 #include <QtCore/qglobal.h>
 #include <QString>
 
-#ifdef V4_BOOTSTRAP
-#include <private/qtqmldevtoolsglobal_p.h>
+#ifdef QT_NO_DEBUG
+#define QML_NEARLY_ALWAYS_INLINE Q_ALWAYS_INLINE
 #else
+#define QML_NEARLY_ALWAYS_INLINE inline
+#endif
+
 #include <qtqmlglobal.h>
 #include <private/qtqmlglobal_p.h>
+
+#ifdef QT_QML_BOOTSTRAPPED
+#define V4_BOOTSTRAP
 #endif
 
 #if defined(Q_CC_MSVC)
@@ -83,31 +85,29 @@ inline bool signbit(double d) { return _copysign(1.0, d) < 0; }
 inline double trunc(double d) { return d > 0 ? floor(d) : ceil(d); }
 #endif
 
-#define qOffsetOf(s, m) ((size_t)((((char *)&(((s *)64)->m)) - 64)))
-
 // Decide whether to enable or disable the JIT
 
 // White list architectures
 //
 // NOTE: This should match the logic in qv4targetplatform_p.h!
 
-#if defined(Q_PROCESSOR_X86) && !defined(__ILP32__) \
+#if defined(Q_PROCESSOR_X86) && (QT_POINTER_SIZE == 4) \
     && (defined(Q_OS_WIN) || defined(Q_OS_LINUX) || defined(Q_OS_QNX) || defined(Q_OS_FREEBSD))
 #  define V4_ENABLE_JIT
-#elif defined(Q_PROCESSOR_X86_64) && !defined(__ILP32__) \
+#elif defined(Q_PROCESSOR_X86_64) && (QT_POINTER_SIZE == 8) \
     && (defined(Q_OS_WIN) || defined(Q_OS_LINUX) || defined(Q_OS_MAC) || defined(Q_OS_FREEBSD))
 #  define V4_ENABLE_JIT
-#elif defined(Q_PROCESSOR_ARM_32)
+#elif defined(Q_PROCESSOR_ARM_32) && (QT_POINTER_SIZE == 4)
 #  if defined(thumb2) || defined(__thumb2__) || ((defined(__thumb) || defined(__thumb__)) && __TARGET_ARCH_THUMB-0 == 4)
 #    define V4_ENABLE_JIT
 #  elif defined(__ARM_ARCH_ISA_THUMB) && __ARM_ARCH_ISA_THUMB == 2 // clang 3.5 and later will set this if the core supports the Thumb-2 ISA.
 #    define V4_ENABLE_JIT
 #  endif
-#elif defined(Q_PROCESSOR_ARM_64)
+#elif defined(Q_PROCESSOR_ARM_64) && (QT_POINTER_SIZE == 8)
 #  if defined(Q_OS_LINUX)
 #    define V4_ENABLE_JIT
 #  endif
-#elif defined(Q_PROCESSOR_MIPS_32) && defined(Q_OS_LINUX)
+#elif defined(Q_PROCESSOR_MIPS_32) && 0
 #  define V4_ENABLE_JIT
 #endif
 
@@ -202,6 +202,7 @@ struct StringObject;
 struct ArrayObject;
 struct DateObject;
 struct FunctionObject;
+struct BuiltinFunction;
 struct ErrorObject;
 struct ArgumentsObject;
 struct Managed;

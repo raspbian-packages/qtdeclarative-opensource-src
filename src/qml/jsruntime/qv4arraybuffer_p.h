@@ -60,13 +60,13 @@ namespace QV4 {
 namespace Heap {
 
 struct ArrayBufferCtor : FunctionObject {
-    ArrayBufferCtor(QV4::ExecutionContext *scope);
+    void init(QV4::ExecutionContext *scope);
 };
 
 struct Q_QML_PRIVATE_EXPORT ArrayBuffer : Object {
-    ArrayBuffer(size_t length);
-    ArrayBuffer(const QByteArray& array);
-    ~ArrayBuffer();
+    void init(size_t length);
+    void init(const QByteArray& array);
+    void destroy();
     QTypedArrayData<char> *data;
 
     uint byteLength() const { return data->size; }
@@ -78,10 +78,10 @@ struct ArrayBufferCtor: FunctionObject
 {
     V4_OBJECT2(ArrayBufferCtor, FunctionObject)
 
-    static ReturnedValue construct(const Managed *m, CallData *callData);
-    static ReturnedValue call(const Managed *that, CallData *callData);
+    static void construct(const Managed *m, Scope &scope, CallData *callData);
+    static void call(const Managed *that, Scope &scope, CallData *callData);
 
-    static ReturnedValue method_isView(CallContext *ctx);
+    static void method_isView(const BuiltinFunction *, Scope &scope, CallData *callData);
 
 };
 
@@ -104,8 +104,9 @@ struct ArrayBufferPrototype: Object
 {
     void init(ExecutionEngine *engine, Object *ctor);
 
-    static ReturnedValue method_get_byteLength(CallContext *ctx);
-    static ReturnedValue method_slice(CallContext *ctx);
+    static void method_get_byteLength(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_slice(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_toString(const BuiltinFunction *, Scope &scope, CallData *callData);
 };
 
 

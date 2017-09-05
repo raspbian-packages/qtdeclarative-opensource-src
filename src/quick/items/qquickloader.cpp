@@ -65,11 +65,12 @@ QQuickLoaderPrivate::~QQuickLoaderPrivate()
     disposeInitialPropertyValues();
 }
 
-void QQuickLoaderPrivate::itemGeometryChanged(QQuickItem *resizeItem, const QRectF &newGeometry, const QRectF &oldGeometry)
+void QQuickLoaderPrivate::itemGeometryChanged(QQuickItem *resizeItem, QQuickGeometryChange change,
+                                              const QRectF &oldGeometry)
 {
     if (resizeItem == item)
         _q_updateSize(false);
-    QQuickItemChangeListener::itemGeometryChanged(resizeItem, newGeometry, oldGeometry);
+    QQuickItemChangeListener::itemGeometryChanged(resizeItem, change, oldGeometry);
 }
 
 void QQuickLoaderPrivate::itemImplicitWidthChanged(QQuickItem *)
@@ -970,7 +971,7 @@ QV4::ReturnedValue QQuickLoaderPrivate::extractInitialPropertyValues(QQmlV4Funct
         QV4::ScopedValue v(scope, (*args)[1]);
         if (!v->isObject() || v->as<QV4::ArrayObject>()) {
             *error = true;
-            qmlInfo(loader) << QQuickLoader::tr("setSource: value is not an object");
+            qmlWarning(loader) << QQuickLoader::tr("setSource: value is not an object");
         } else {
             *error = false;
             valuemap = v;

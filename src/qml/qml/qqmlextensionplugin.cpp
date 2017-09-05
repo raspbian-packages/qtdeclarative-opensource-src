@@ -117,4 +117,16 @@ void QQmlExtensionPlugin::initializeEngine(QQmlEngine *engine, const char *uri)
     Q_UNUSED(uri);
 }
 
+/*!
+  \class QQmlExtensionInterface
+  \internal
+  \inmodule QtQml
+
+  \class QQmlTypesExtensionInterface
+  \internal
+  \inmodule QtQml
+*/
+
 QT_END_NAMESPACE
+
+#include "moc_qqmlextensionplugin.cpp"

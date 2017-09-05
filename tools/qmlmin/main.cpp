@@ -120,7 +120,7 @@ protected:
     static QString quote(const QString &string)
     {
         QString quotedString;
-        foreach (const QChar &ch, string) {
+        for (const QChar &ch : string) {
             if (ch == QLatin1Char('"'))
                 quotedString += QLatin1String("\\\"");
             else {
@@ -533,6 +533,7 @@ static void usage(bool showHelp = false)
 int runQmlmin(int argc, char *argv[])
 {
     QCoreApplication app(argc, argv);
+    QCoreApplication::setApplicationVersion(QLatin1String(QT_VERSION_STR));
 
     const QStringList args = app.arguments();
 

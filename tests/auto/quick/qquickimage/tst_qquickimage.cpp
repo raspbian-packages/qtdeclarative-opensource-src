@@ -145,9 +145,9 @@ void tst_qquickimage::imageSource_data()
     QTest::newRow("remote") << "/colors.png" << 120.0 << 120.0 << true << false << true << "";
     QTest::newRow("remote redirected") << "/oldcolors.png" << 120.0 << 120.0 << true << false << false << "";
     if (QImageReader::supportedImageFormats().contains("svg"))
-        QTest::newRow("remote svg") << "/heart.svg" << 550.0 << 500.0 << true << false << false << "";
+        QTest::newRow("remote svg") << "/heart.svg" << 595.0 << 841.0 << true << false << false << "";
     if (QImageReader::supportedImageFormats().contains("svgz"))
-        QTest::newRow("remote svgz") << "/heart.svgz" << 550.0 << 500.0 << true << false << false << "";
+        QTest::newRow("remote svgz") << "/heart.svgz" << 595.0 << 841.0 << true << false << false << "";
     QTest::newRow("remote not found") << "/no-such-file.png" << 0.0 << 0.0 << true
         << false << true << "<Unknown File>:2:1: QML Image: Error transferring {{ServerBaseUrl}}/no-such-file.png - server replied: Not found";
 
@@ -306,12 +306,9 @@ void tst_qquickimage::mirror()
 
     qreal width = 300;
     qreal height = 250;
+    qreal devicePixelRatio = 1.0;
 
     foreach (QQuickImage::FillMode fillMode, fillModes) {
-#if defined(Q_OS_BLACKBERRY)
-        QWindow dummy;          // On BlackBerry first window is always full screen,
-        dummy.showFullScreen(); // so make test window a second window.
-#endif
         QScopedPointer<QQuickView> window(new QQuickView);
         window->setSource(testFileUrl("mirror.qml"));
 
@@ -325,13 +322,15 @@ void tst_qquickimage::mirror()
 
         QImage screenshot = window->grabWindow();
         screenshots[fillMode] = screenshot;
+        devicePixelRatio = window->devicePixelRatio();
     }
 
     foreach (QQuickImage::FillMode fillMode, fillModes) {
         QPixmap srcPixmap;
         QVERIFY(srcPixmap.load(testFile("pattern.png")));
 
-        QPixmap expected(width, height);
+        QPixmap expected(width * (int)devicePixelRatio, height * (int)devicePixelRatio);
+        expected.setDevicePixelRatio(devicePixelRatio);
         expected.fill();
         QPainter p_e(&expected);
         QTransform transform;
@@ -374,7 +373,7 @@ void tst_qquickimage::mirror()
         }
 
         QImage img = expected.toImage();
-        QCOMPARE(screenshots[fillMode], img);
+        QCOMPARE(screenshots[fillMode].convertToFormat(img.format()), img);
     }
 }
 
@@ -399,12 +398,12 @@ void tst_qquickimage::svg()
     component.setData(componentStr.toLatin1(), QUrl::fromLocalFile(""));
     QQuickImage *obj = qobject_cast<QQuickImage*>(component.create());
     QVERIFY(obj != 0);
-    QCOMPARE(obj->width(), 300.0);
-    QCOMPARE(obj->height(), 273.0);
+    QCOMPARE(obj->width(), 212.0);
+    QCOMPARE(obj->height(), 300.0);
     obj->setSourceSize(QSize(200,200));
 
-    QCOMPARE(obj->width(), 200.0);
-    QCOMPARE(obj->height(), 182.0);
+    QCOMPARE(obj->width(), 141.0);
+    QCOMPARE(obj->height(), 200.0);
     delete obj;
 }
 

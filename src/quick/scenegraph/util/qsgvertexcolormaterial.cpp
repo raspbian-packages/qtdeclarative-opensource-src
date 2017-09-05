@@ -38,9 +38,9 @@
 ****************************************************************************/
 
 #include "qsgvertexcolormaterial.h"
-
-#include <qopenglshaderprogram.h>
-
+#if QT_CONFIG(opengl)
+# include <qopenglshaderprogram.h>
+#endif
 QT_BEGIN_NAMESPACE
 
 class QSGVertexColorMaterialShader : public QSGMaterialShader
@@ -55,9 +55,10 @@ public:
 
 private:
     virtual void initialize();
-
+#if QT_CONFIG(opengl)
     int m_matrix_id;
     int m_opacity_id;
+#endif
 };
 
 QSGMaterialType QSGVertexColorMaterialShader::type;
@@ -65,17 +66,23 @@ QSGMaterialType QSGVertexColorMaterialShader::type;
 QSGVertexColorMaterialShader::QSGVertexColorMaterialShader()
     : QSGMaterialShader()
 {
+#if QT_CONFIG(opengl)
     setShaderSourceFile(QOpenGLShader::Vertex, QStringLiteral(":/qt-project.org/scenegraph/shaders/vertexcolor.vert"));
     setShaderSourceFile(QOpenGLShader::Fragment, QStringLiteral(":/qt-project.org/scenegraph/shaders/vertexcolor.frag"));
+#endif
 }
 
 void QSGVertexColorMaterialShader::updateState(const RenderState &state, QSGMaterial * /*newEffect*/, QSGMaterial *)
 {
+#if QT_CONFIG(opengl)
     if (state.isOpacityDirty())
         program()->setUniformValue(m_opacity_id, state.opacity());
 
     if (state.isMatrixDirty())
         program()->setUniformValue(m_matrix_id, state.combinedMatrix());
+#else
+    Q_UNUSED(state)
+#endif
 }
 
 char const *const *QSGVertexColorMaterialShader::attributeNames() const
@@ -86,8 +93,10 @@ char const *const *QSGVertexColorMaterialShader::attributeNames() const
 
 void QSGVertexColorMaterialShader::initialize()
 {
+#if QT_CONFIG(opengl)
     m_matrix_id = program()->uniformLocation("matrix");
     m_opacity_id = program()->uniformLocation("opacity");
+#endif
 }
 
 
@@ -98,6 +107,9 @@ void QSGVertexColorMaterialShader::initialize()
 
     \inmodule QtQuick
     \ingroup qtquick-scenegraph-materials
+
+    \warning This utility class is only functional when running with the OpenGL
+    backend of the Qt Quick scenegraph.
 
     The vertex color material will give each vertex in a geometry a color. Pixels between
     vertices will be linearly interpolated. The colors can contain transparency.

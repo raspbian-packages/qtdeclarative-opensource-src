@@ -72,10 +72,8 @@ public:
 signals:
     void messageToClient(const QString &name, const QByteArray &data);
 
-private slots:
-    void sendResult(int requestId, bool success);
-
 private:
+    void sendResult(int requestId, bool success);
     void sendCurrentObjects(const QList<QObject *> &objects);
     void removeFromSelectedItems(QObject *object);
     QString titleForItem(QQuickItem *item) const;
@@ -86,7 +84,7 @@ private:
     bool syncSelectedItems(const QList<QQuickItem *> &items);
 
     // Hash< object to be destroyed, QPair<destroy eventId, object debugId> >
-    QList<QPointer<QQuickItem> > m_selectedItems;
+    QList<QQuickItem *> m_selectedItems;
     QHash<QQuickItem *, SelectionHighlight *> m_highlightItems;
     QList<QQuickWindowInspector *> m_windowInspectors;
     int m_eventId;

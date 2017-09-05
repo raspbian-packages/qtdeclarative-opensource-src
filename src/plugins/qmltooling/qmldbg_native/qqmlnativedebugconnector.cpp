@@ -183,7 +183,7 @@ QQmlNativeDebugConnector::QQmlNativeDebugConnector()
     : m_blockingMode(false)
 {
     const QString args = commandLineArguments();
-    const auto lstjsDebugArguments = args.splitRef(QLatin1Char(','));
+    const auto lstjsDebugArguments = args.splitRef(QLatin1Char(','), QString::SkipEmptyParts);
     QStringList services;
     for (const QStringRef &strArgument : lstjsDebugArguments) {
         if (strArgument == QLatin1String("block")) {
@@ -195,7 +195,7 @@ QQmlNativeDebugConnector::QQmlNativeDebugConnector()
             services.append(strArgument.mid(9).toString());
         } else if (!services.isEmpty()) {
             services.append(strArgument.toString());
-        } else {
+        } else if (!strArgument.startsWith(QLatin1String("connector:"))) {
             qWarning("QML Debugger: Invalid argument \"%s\" detected. Ignoring the same.",
                      strArgument.toUtf8().constData());
         }
@@ -205,7 +205,7 @@ QQmlNativeDebugConnector::QQmlNativeDebugConnector()
 
 QQmlNativeDebugConnector::~QQmlNativeDebugConnector()
 {
-    foreach (QQmlDebugService *service, m_services) {
+    for (QQmlDebugService *service : qAsConst(m_services)) {
         service->stateAboutToBeChanged(QQmlDebugService::NotConnected);
         service->setState(QQmlDebugService::NotConnected);
         service->stateChanged(QQmlDebugService::NotConnected);
@@ -232,12 +232,12 @@ void QQmlNativeDebugConnector::addEngine(QJSEngine *engine)
     Q_ASSERT(!m_engines.contains(engine));
 
     TRACE_PROTOCOL("Add engine to connector:" << engine);
-    foreach (QQmlDebugService *service, m_services)
+    for (QQmlDebugService *service : qAsConst(m_services))
         service->engineAboutToBeAdded(engine);
 
     announceObjectAvailability(QLatin1String("qmlengine"), engine, true);
 
-    foreach (QQmlDebugService *service, m_services)
+    for (QQmlDebugService *service : qAsConst(m_services))
         service->engineAdded(engine);
 
     m_engines.append(engine);
@@ -248,12 +248,12 @@ void QQmlNativeDebugConnector::removeEngine(QJSEngine *engine)
     Q_ASSERT(m_engines.contains(engine));
 
     TRACE_PROTOCOL("Remove engine from connector:" << engine);
-    foreach (QQmlDebugService *service, m_services)
+    for (QQmlDebugService *service : qAsConst(m_services))
         service->engineAboutToBeRemoved(engine);
 
     announceObjectAvailability(QLatin1String("qmlengine"), engine, false);
 
-    foreach (QQmlDebugService *service, m_services)
+    for (QQmlDebugService *service : qAsConst(m_services))
         service->engineRemoved(engine);
 
     m_engines.removeOne(engine);
@@ -364,3 +364,5 @@ QQmlDebugConnector *QQmlNativeDebugConnectorFactory::create(const QString &key)
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qqmlnativedebugconnector.cpp"

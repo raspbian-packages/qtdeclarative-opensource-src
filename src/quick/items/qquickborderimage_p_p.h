@@ -58,17 +58,20 @@
 
 QT_BEGIN_NAMESPACE
 
+#if QT_CONFIG(qml_network)
 class QNetworkReply;
+#endif
 class QQuickBorderImagePrivate : public QQuickImageBasePrivate
 {
     Q_DECLARE_PUBLIC(QQuickBorderImage)
 
 public:
     QQuickBorderImagePrivate()
-      : border(0), sciReply(0),
-        horizontalTileMode(QQuickBorderImage::Stretch),
-        verticalTileMode(QQuickBorderImage::Stretch),
-        redirectCount(0), pixmapChanged(false)
+      : border(0), horizontalTileMode(QQuickBorderImage::Stretch),
+        verticalTileMode(QQuickBorderImage::Stretch), pixmapChanged(false)
+#if QT_CONFIG(qml_network)
+      , sciReply(0), redirectCount(0)
+#endif
     {
     }
 
@@ -88,14 +91,27 @@ public:
         return border;
     }
 
+    static void calculateRects(const QQuickScaleGrid *border,
+                               const QSize &sourceSize,
+                               const QSizeF &targetSize,
+                               int horizontalTileMode,
+                               int verticalTileMode,
+                               qreal devicePixelRatio,
+                               QRectF *targetRect,
+                               QRectF *innerTargetRect,
+                               QRectF *innerSourceRect,
+                               QRectF *subSourceRect);
+
     QQuickScaleGrid *border;
     QUrl sciurl;
-    QNetworkReply *sciReply;
     QQuickBorderImage::TileMode horizontalTileMode;
     QQuickBorderImage::TileMode verticalTileMode;
-    int redirectCount;
-
     bool pixmapChanged : 1;
+
+#if QT_CONFIG(qml_network)
+    QNetworkReply *sciReply;
+    int redirectCount;
+#endif
 };
 
 QT_END_NAMESPACE

@@ -58,8 +58,9 @@
 
 #include <QtCore/qmimedata.h>
 #include <QtCore/qstringlist.h>
+#include <QtCore/qurl.h>
 
-#ifndef QT_NO_DRAGANDDROP
+#if QT_CONFIG(draganddrop)
 
 QT_BEGIN_NAMESPACE
 
@@ -76,7 +77,7 @@ class QQuickDragGrabber
 
         QIntrusiveListNode node;
     protected:
-        void objectDestroyed(QQuickItem *) { delete this; }
+        void objectDestroyed(QQuickItem *) override { delete this; }
     };
 
     typedef QIntrusiveList<Item, &Item::node> ItemList;
@@ -247,6 +248,7 @@ class QQuickDragAttached : public QObject
     Q_PROPERTY(QObject *source READ source WRITE setSource NOTIFY sourceChanged RESET resetSource)
     Q_PROPERTY(QObject *target READ target NOTIFY targetChanged)
     Q_PROPERTY(QPointF hotSpot READ hotSpot WRITE setHotSpot NOTIFY hotSpotChanged)
+    Q_PROPERTY(QUrl imageSource READ imageSource WRITE setImageSource NOTIFY imageSourceChanged)
     Q_PROPERTY(QStringList keys READ keys WRITE setKeys NOTIFY keysChanged)
     Q_PROPERTY(QVariantMap mimeData READ mimeData WRITE setMimeData NOTIFY mimeDataChanged)
     Q_PROPERTY(Qt::DropActions supportedActions READ supportedActions WRITE setSupportedActions NOTIFY supportedActionsChanged)
@@ -268,6 +270,9 @@ public:
     QPointF hotSpot() const;
     void setHotSpot(const QPointF &hotSpot);
 
+    QUrl imageSource() const;
+    void setImageSource(const QUrl &url);
+
     QStringList keys() const;
     void setKeys(const QStringList &keys);
 
@@ -285,7 +290,7 @@ public:
 
     Q_INVOKABLE int drop();
 
-    bool event(QEvent *event);
+    bool event(QEvent *event) override;
 
 public Q_SLOTS:
     void start(QQmlV4Function *);
@@ -300,6 +305,7 @@ Q_SIGNALS:
     void sourceChanged();
     void targetChanged();
     void hotSpotChanged();
+    void imageSourceChanged();
     void keysChanged();
     void mimeDataChanged();
     void supportedActionsChanged();
@@ -312,6 +318,6 @@ QT_END_NAMESPACE
 QML_DECLARE_TYPE(QQuickDrag)
 QML_DECLARE_TYPEINFO(QQuickDrag, QML_HAS_ATTACHED_PROPERTIES)
 
-#endif // QT_NO_DRAGANDDROP
+#endif // draganddrop
 
 #endif

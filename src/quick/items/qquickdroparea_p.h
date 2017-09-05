@@ -55,7 +55,7 @@
 
 #include <QtGui/qevent.h>
 
-#ifndef QT_NO_DRAGANDDROP
+#if QT_CONFIG(draganddrop)
 
 QT_BEGIN_NAMESPACE
 
@@ -86,7 +86,7 @@ public:
     qreal x() const { return event->pos().x(); }
     qreal y() const { return event->pos().y(); }
 
-    QObject *source();
+    QObject *source() const;
 
     Qt::DropActions supportedActions() const { return event->possibleActions(); }
     Qt::DropActions proposedAction() const { return event->proposedAction(); }
@@ -190,6 +190,6 @@ QT_END_NAMESPACE
 QML_DECLARE_TYPE(QQuickDropEvent)
 QML_DECLARE_TYPE(QQuickDropArea)
 
-#endif // QT_NO_DRAGANDDROP
+#endif // draganddrop
 
 #endif // QQUICKDROPAREA_P_H

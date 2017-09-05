@@ -52,6 +52,7 @@
 //
 
 #include "private/qabstractanimationjob_p.h"
+#include <QtCore/qdebug.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -74,7 +75,7 @@ public:
     //called by QAbstractAnimationJob
     virtual void uncontrolledAnimationFinished(QAbstractAnimationJob *animation);
 protected:
-    void topLevelAnimationLoopChanged();
+    void topLevelAnimationLoopChanged() override;
 
     virtual void animationInserted(QAbstractAnimationJob*) { }
     virtual void animationRemoved(QAbstractAnimationJob*, QAbstractAnimationJob*, QAbstractAnimationJob*);

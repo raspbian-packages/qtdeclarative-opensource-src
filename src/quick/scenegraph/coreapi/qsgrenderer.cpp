@@ -39,10 +39,14 @@
 
 #include "qsgrenderer_p.h"
 #include "qsgnodeupdater_p.h"
-
-#include <qopenglframebufferobject.h>
-
+#if QT_CONFIG(opengl)
+# include <QtGui/QOpenGLFramebufferObject>
+# include <QtGui/QOpenGLContext>
+# include <QtGui/QOpenGLFunctions>
+#endif
 #include <private/qquickprofiler_p.h>
+
+#include <QtCore/QElapsedTimer>
 
 QT_BEGIN_NAMESPACE
 
@@ -63,19 +67,25 @@ int qt_sg_envInt(const char *name, int defaultValue)
 
 void QSGBindable::clear(QSGAbstractRenderer::ClearMode mode) const
 {
+#if QT_CONFIG(opengl)
     GLuint bits = 0;
     if (mode & QSGAbstractRenderer::ClearColorBuffer) bits |= GL_COLOR_BUFFER_BIT;
     if (mode & QSGAbstractRenderer::ClearDepthBuffer) bits |= GL_DEPTH_BUFFER_BIT;
     if (mode & QSGAbstractRenderer::ClearStencilBuffer) bits |= GL_STENCIL_BUFFER_BIT;
     QOpenGLContext::currentContext()->functions()->glClear(bits);
+#else
+    Q_UNUSED(mode)
+#endif
 }
 
 // Reactivate the color buffer after switching to the stencil.
 void QSGBindable::reactivate() const
 {
+#if QT_CONFIG(opengl)
     QOpenGLContext::currentContext()->functions()->glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+#endif
 }
-
+#if QT_CONFIG(opengl)
 QSGBindableFboId::QSGBindableFboId(GLuint id)
     : m_id(id)
 {
@@ -86,10 +96,10 @@ void QSGBindableFboId::bind() const
 {
     QOpenGLContext::currentContext()->functions()->glBindFramebuffer(GL_FRAMEBUFFER, m_id);
 }
-
+#endif
 /*!
     \class QSGRenderer
-    \brief The renderer class is the abstract baseclass use for rendering the
+    \brief The renderer class is the abstract baseclass used for rendering the
     QML scene graph.
 
     The renderer is not tied to any particular surface. It expects a context to
@@ -169,8 +179,9 @@ bool QSGRenderer::isMirrored() const
     return matrix(0, 0) * matrix(1, 1) - matrix(0, 1) * matrix(1, 0) > 0;
 }
 
-void QSGRenderer::renderScene(GLuint fboId)
+void QSGRenderer::renderScene(uint fboId)
 {
+#if QT_CONFIG(opengl)
     if (fboId) {
         QSGBindableFboId bindable(fboId);
         renderScene(bindable);
@@ -182,7 +193,11 @@ void QSGRenderer::renderScene(GLuint fboId)
         } bindable;
         renderScene(bindable);
     }
+#else
+    Q_UNUSED(fboId)
+#endif
 }
+
 void QSGRenderer::renderScene(const QSGBindable &bindable)
 {
     if (!rootNode())
@@ -205,8 +220,10 @@ void QSGRenderer::renderScene(const QSGBindable &bindable)
     bindable.bind();
     if (profileFrames)
         bindTime = frameTimer.nsecsElapsed();
-    Q_QUICK_SG_PROFILE_RECORD(QQuickProfiler::SceneGraphRendererFrame);
+    Q_QUICK_SG_PROFILE_RECORD(QQuickProfiler::SceneGraphRendererFrame,
+                              QQuickProfiler::SceneGraphRendererBinding);
 
+#if QT_CONFIG(opengl)
     // Sanity check that attribute registers are disabled
     if (qsg_sanity_check) {
         GLint count = 0;
@@ -219,11 +236,13 @@ void QSGRenderer::renderScene(const QSGBindable &bindable)
             }
         }
     }
+#endif
 
     render();
     if (profileFrames)
         renderTime = frameTimer.nsecsElapsed();
-    Q_QUICK_SG_PROFILE_END(QQuickProfiler::SceneGraphRendererFrame);
+    Q_QUICK_SG_PROFILE_END(QQuickProfiler::SceneGraphRendererFrame,
+                           QQuickProfiler::SceneGraphRendererRender);
 
     m_is_rendering = false;
     m_changed_emitted = false;
@@ -273,7 +292,7 @@ void QSGRenderer::preprocess()
 
     // We need to take a copy here, in case any of the preprocess calls deletes a node that
     // is in the preprocess list and thus, changes the m_nodes_to_preprocess behind our backs
-    // For the default case, when this does not happen, the cost is neglishible.
+    // For the default case, when this does not happen, the cost is negligible.
     QSet<QSGNode *> items = m_nodes_to_preprocess;
 
     for (QSet<QSGNode *>::const_iterator it = items.constBegin();
@@ -287,13 +306,15 @@ void QSGRenderer::preprocess()
     bool profileFrames = QSG_LOG_TIME_RENDERER().isDebugEnabled();
     if (profileFrames)
         preprocessTime = frameTimer.nsecsElapsed();
-    Q_QUICK_SG_PROFILE_RECORD(QQuickProfiler::SceneGraphRendererFrame);
+    Q_QUICK_SG_PROFILE_RECORD(QQuickProfiler::SceneGraphRendererFrame,
+                              QQuickProfiler::SceneGraphRendererPreprocess);
 
     nodeUpdater()->updateStates(root);
 
     if (profileFrames)
         updatePassTime = frameTimer.nsecsElapsed();
-    Q_QUICK_SG_PROFILE_RECORD(QQuickProfiler::SceneGraphRendererFrame);
+    Q_QUICK_SG_PROFILE_RECORD(QQuickProfiler::SceneGraphRendererFrame,
+                              QQuickProfiler::SceneGraphRendererUpdate);
 }
 
 void QSGRenderer::addNodesToPreprocess(QSGNode *node)

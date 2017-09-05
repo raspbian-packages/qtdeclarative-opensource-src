@@ -44,7 +44,6 @@
 #include <private/qsgadaptationlayer_p.h>
 
 #include <QtGui/qpixmapcache.h>
-#include <QtCore/qstringbuilder.h>
 #include <QtCore/qmath.h>
 #include <QtCore/qmetaobject.h>
 
@@ -73,7 +72,7 @@ QT_BEGIN_NAMESPACE
 QQuickPen::QQuickPen(QObject *parent)
     : QObject(parent)
     , m_width(1)
-    , m_color("#000000")
+    , m_color(Qt::black)
     , m_aligned(true)
     , m_valid(false)
 {
@@ -483,8 +482,8 @@ QSGNode *QQuickRectangle::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData 
         return 0;
     }
 
-    QSGRectangleNode *rectangle = static_cast<QSGRectangleNode *>(oldNode);
-    if (!rectangle) rectangle = d->sceneGraphContext()->createRectangleNode();
+    QSGInternalRectangleNode *rectangle = static_cast<QSGInternalRectangleNode *>(oldNode);
+    if (!rectangle) rectangle = d->sceneGraphContext()->createInternalRectangleNode();
 
     rectangle->setRect(QRectF(0, 0, width(), height()));
     rectangle->setColor(d->color);
@@ -512,3 +511,5 @@ QSGNode *QQuickRectangle::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData 
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qquickrectangle_p.cpp"

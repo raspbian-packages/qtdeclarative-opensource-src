@@ -52,7 +52,6 @@
 #include <private/qqmlplatform_p.h>
 #include <private/qjsvalue_p.h>
 #include <private/qqmltypewrapper_p.h>
-#include <private/qqmlcontextwrapper_p.h>
 #include <private/qqmlvaluetypewrapper_p.h>
 #include <private/qqmllistwrapper_p.h>
 #include <private/qv4scopedvalue_p.h>
@@ -143,6 +142,7 @@ QV8Engine::QV8Engine(QJSEngine* qq)
 
     m_v4Engine = new QV4::ExecutionEngine;
     m_v4Engine->v8Engine = this;
+    m_delayedCallQueue.init(m_v4Engine);
 
     QV4::QObjectWrapper::initializeBindings(m_v4Engine);
 }
@@ -152,18 +152,23 @@ QV8Engine::~QV8Engine()
     qDeleteAll(m_extensionData);
     m_extensionData.clear();
 
+#if QT_CONFIG(xmlstreamreader) && QT_CONFIG(qml_network)
     qt_rem_qmlxmlhttprequest(m_v4Engine, m_xmlHttpRequestData);
     m_xmlHttpRequestData = 0;
+#endif
+
     delete m_listModelData;
     m_listModelData = 0;
 
     delete m_v4Engine;
 }
 
+#if QT_CONFIG(qml_network)
 QNetworkAccessManager *QV8Engine::networkAccessManager()
 {
     return QQmlEnginePrivate::get(m_engine)->getNetworkAccessManager();
 }
+#endif
 
 const QSet<QString> &QV8Engine::illegalNames() const
 {
@@ -182,8 +187,10 @@ void QV8Engine::initializeGlobal()
     QQmlDateExtension::registerExtension(m_v4Engine);
     QQmlNumberExtension::registerExtension(m_v4Engine);
 
+#if QT_CONFIG(xmlstreamreader) && QT_CONFIG(qml_network)
     qt_add_domexceptions(m_v4Engine);
     m_xmlHttpRequestData = qt_add_qmlxmlhttprequest(m_v4Engine);
+#endif
 
     qt_add_sqlexceptions(m_v4Engine);
 

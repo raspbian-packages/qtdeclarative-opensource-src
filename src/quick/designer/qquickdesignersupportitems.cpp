@@ -47,6 +47,7 @@
 #include <private/qquicktextinput_p.h>
 #include <private/qquicktextedit_p.h>
 #include <private/qquicktransition_p.h>
+#include <private/qquickloader_p.h>
 
 #include <private/qquickanimation_p.h>
 #include <private/qqmlmetatype_p.h>
@@ -77,6 +78,12 @@ static void stopAnimation(QObject *object)
     } else if (timer) {
         timer->blockSignals(true);
     }
+}
+
+static void makeLoaderSynchronous(QObject *object)
+{
+    if (QQuickLoader *loader = qobject_cast<QQuickLoader*>(object))
+        loader->setAsynchronous(false);
 }
 
 static void allSubObjects(QObject *object, QObjectList &objectList)
@@ -118,16 +125,16 @@ static void allSubObjects(QObject *object, QObjectList &objectList)
     }
 
     // search recursive in object children list
-    Q_FOREACH (QObject *childObject, object->children()) {
+    for (QObject *childObject : object->children()) {
         allSubObjects(childObject, objectList);
     }
 
     // search recursive in quick item childItems list
     QQuickItem *quickItem = qobject_cast<QQuickItem*>(object);
     if (quickItem) {
-        Q_FOREACH (QQuickItem *childItem, quickItem->childItems()) {
+        const auto childItems = quickItem->childItems();
+        for (QQuickItem *childItem : childItems)
             allSubObjects(childItem, objectList);
-        }
     }
 }
 
@@ -135,8 +142,9 @@ void QQuickDesignerSupportItems::tweakObjects(QObject *object)
 {
     QObjectList objectList;
     allSubObjects(object, objectList);
-    Q_FOREACH (QObject* childObject, objectList) {
+    for (QObject* childObject : qAsConst(objectList)) {
         stopAnimation(childObject);
+        makeLoaderSynchronous(childObject);
         if (fixResourcePathsForObjectCallBack)
             fixResourcePathsForObjectCallBack(childObject);
     }
@@ -254,7 +262,8 @@ QObject *QQuickDesignerSupportItems::createComponent(const QUrl &componentUrl, Q
 
     if (component.isError()) {
         qWarning() << "Error in:" << Q_FUNC_INFO << componentUrl;
-        Q_FOREACH (const QQmlError &error, component.errors())
+        const auto errors = component.errors();
+        for (const QQmlError &error : errors)
             qWarning() << error;
     }
     return object;
@@ -282,7 +291,8 @@ void QQuickDesignerSupportItems::disableNativeTextRendering(QQuickItem *item)
 
 void QQuickDesignerSupportItems::disableTextCursor(QQuickItem *item)
 {
-    Q_FOREACH (QQuickItem *childItem, item->childItems())
+    const auto childItems = item->childItems();
+    for (QQuickItem *childItem : childItems)
         disableTextCursor(childItem);
 
     QQuickTextInput *textInput = qobject_cast<QQuickTextInput*>(item);

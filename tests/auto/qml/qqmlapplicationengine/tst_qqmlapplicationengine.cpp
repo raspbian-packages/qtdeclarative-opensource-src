@@ -28,8 +28,11 @@
 
 #include "../../shared/util.h"
 #include <QQmlApplicationEngine>
+#include <QScopedPointer>
 #include <QSignalSpy>
+#if QT_CONFIG(process)
 #include <QProcess>
+#endif
 #include <QDebug>
 
 class tst_qqmlapplicationengine : public QQmlDataTest
@@ -42,8 +45,10 @@ public:
 private slots:
     void initTestCase();
     void basicLoading();
+    void testNonResolvedPath();
     void application();
     void applicationProperties();
+    void removeObjectsWhenDestroyed();
 private:
     QString buildDir;
     QString srcDir;
@@ -83,6 +88,29 @@ void tst_qqmlapplicationengine::basicLoading()
     delete test;
 }
 
+// make sure we resolve a relative URL to an absolute one, otherwise things
+// will break.
+void tst_qqmlapplicationengine::testNonResolvedPath()
+{
+    {
+        // NOTE NOTE NOTE! Missing testFileUrl is *WANTED* here! We want a
+        // non-resolved URL.
+        QQmlApplicationEngine test("data/nonResolvedLocal.qml");
+        QCOMPARE(test.rootObjects().size(), 1);
+        QVERIFY(test.rootObjects()[0]);
+        QVERIFY(test.rootObjects()[0]->property("success").toBool());
+    }
+    {
+        QQmlApplicationEngine test;
+        // NOTE NOTE NOTE! Missing testFileUrl is *WANTED* here! We want a
+        // non-resolved URL.
+        test.load("data/nonResolvedLocal.qml");
+        QCOMPARE(test.rootObjects().size(), 1);
+        QVERIFY(test.rootObjects()[0]);
+        QVERIFY(test.rootObjects()[0]->property("success").toBool());
+    }
+}
+
 void tst_qqmlapplicationengine::application()
 {
     /* This test batches together some tests about running an external application
@@ -96,7 +124,7 @@ void tst_qqmlapplicationengine::application()
        Note that checking the output means that on builds with extra debugging, this might fail with a false positive.
        Also the testapp is automatically built and installed in shadow builds, so it does NOT use testData
    */
-#ifndef QT_NO_PROCESS
+#if QT_CONFIG(process)
     QDir::setCurrent(buildDir);
     QProcess *testProcess = new QProcess(this);
     QStringList args;
@@ -114,9 +142,9 @@ void tst_qqmlapplicationengine::application()
     QVERIFY(QString(test_stderr).endsWith(QString(test_stderr_target)));
     delete testProcess;
     QDir::setCurrent(srcDir);
-#else // !QT_NO_PROCESS
+#else // process
     QSKIP("No process support");
-#endif // QT_NO_PROCESS
+#endif // process
 }
 
 void tst_qqmlapplicationengine::applicationProperties()
@@ -174,6 +202,23 @@ void tst_qqmlapplicationengine::applicationProperties()
 
     delete test;
 }
+
+void tst_qqmlapplicationengine::removeObjectsWhenDestroyed()
+{
+    QScopedPointer<QQmlApplicationEngine> test(new QQmlApplicationEngine);
+    QVERIFY(test->rootObjects().isEmpty());
+
+    QSignalSpy objectCreated(test.data(), SIGNAL(objectCreated(QObject*,QUrl)));
+    test->load(testFileUrl("basicTest.qml"));
+    QCOMPARE(objectCreated.count(), 1);
+
+    QSignalSpy objectDestroyed(test->rootObjects().first(), SIGNAL(destroyed()));
+    test->rootObjects().first()->deleteLater();
+    objectDestroyed.wait();
+    QCOMPARE(objectDestroyed.count(), 1);
+    QCOMPARE(test->rootObjects().size(), 0);
+}
+
 
 QTEST_MAIN(tst_qqmlapplicationengine)
 

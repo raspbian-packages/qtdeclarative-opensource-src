@@ -40,59 +40,33 @@
 #include "qsgdefaultglyphnode_p.h"
 #include "qsgdefaultglyphnode_p_p.h"
 
-#include <qopenglshaderprogram.h>
-#include <private/qfont_p.h>
-
 QT_BEGIN_NAMESPACE
 
 QSGDefaultGlyphNode::QSGDefaultGlyphNode()
-    : m_style(QQuickText::Normal)
-    , m_material(0)
-    , m_geometry(QSGGeometry::defaultAttributes_TexturedPoint2D(), 0)
+    : m_glyphNodeType(RootGlyphNode)
+    , m_dirtyGeometry(false)
 {
-    m_geometry.setDrawingMode(GL_TRIANGLES);
-    setGeometry(&m_geometry);
+    setFlag(UsePreprocess);
 }
 
 QSGDefaultGlyphNode::~QSGDefaultGlyphNode()
 {
-    delete m_material;
+    if (m_glyphNodeType == SubGlyphNode)
+        return;
+
+    qDeleteAll(m_nodesToDelete);
+    m_nodesToDelete.clear();
 }
 
-void QSGDefaultGlyphNode::setColor(const QColor &color)
+void QSGDefaultGlyphNode::setMaterialColor(const QColor &color)
 {
-    m_color = color;
-    if (m_material != 0) {
-        m_material->setColor(color);
-        markDirty(DirtyMaterial);
-    }
+    static_cast<QSGTextMaskMaterial *>(m_material)->setColor(color);
 }
 
 void QSGDefaultGlyphNode::setGlyphs(const QPointF &position, const QGlyphRun &glyphs)
 {
-    if (m_material != 0)
-        delete m_material;
-
-    m_position = position;
-    m_glyphs = glyphs;
-
-#ifdef QSG_RUNTIME_DESCRIPTION
-    qsgnode_set_description(this, QLatin1String("glyphs"));
-#endif
-}
-
-void QSGDefaultGlyphNode::setStyle(QQuickText::TextStyle style)
-{
-    if (m_style == style)
-        return;
-    m_style = style;
-}
-
-void QSGDefaultGlyphNode::setStyleColor(const QColor &color)
-{
-    if (m_styleColor == color)
-        return;
-    m_styleColor = color;
+    QSGBasicGlyphNode::setGlyphs(position, glyphs);
+    m_dirtyGeometry = true;
 }
 
 void QSGDefaultGlyphNode::update()
@@ -120,15 +94,122 @@ void QSGDefaultGlyphNode::update()
         m_material = material;
     }
 
-    m_material->setColor(m_color);
+    QSGTextMaskMaterial *textMaskMaterial = static_cast<QSGTextMaskMaterial *>(m_material);
+    textMaskMaterial->setColor(m_color);
 
     QRectF boundingRect;
-    m_material->populate(m_position, m_glyphs.glyphIndexes(), m_glyphs.positions(), geometry(),
-                         &boundingRect, &m_baseLine, margins);
+    textMaskMaterial->populate(m_position, m_glyphs.glyphIndexes(), m_glyphs.positions(), geometry(),
+                               &boundingRect, &m_baseLine, margins);
     setBoundingRect(boundingRect);
 
     setMaterial(m_material);
     markDirty(DirtyGeometry);
+}
+
+void QSGDefaultGlyphNode::preprocess()
+{
+    qDeleteAll(m_nodesToDelete);
+    m_nodesToDelete.clear();
+
+    if (m_dirtyGeometry)
+        updateGeometry();
+}
+
+void QSGDefaultGlyphNode::updateGeometry()
+{
+    // Remove previously created sub glyph nodes
+    // We assume all the children are sub glyph nodes
+    QSGNode *subnode = firstChild();
+    while (subnode) {
+        // We can't delete the node now as it might be in the preprocess list
+        // It will be deleted in the next preprocess
+        m_nodesToDelete.append(subnode);
+        subnode = subnode->nextSibling();
+    }
+    removeAllChildNodes();
+
+    GlyphInfo glyphInfo;
+
+    const QVector<quint32> indexes = m_glyphs.glyphIndexes();
+    const QVector<QPointF> positions = m_glyphs.positions();
+
+    const int maxGlyphs = (USHRT_MAX + 1) / 4; // 16384
+    const int maxVertices = maxGlyphs * 4; // 65536
+    const int maxIndexes = maxGlyphs * 6; // 98304
+
+    for (int i = 0; i < indexes.size(); ++i) {
+        const int glyphIndex = indexes.at(i);
+        const QPointF position = positions.at(i);
+
+        // As we use UNSIGNED_SHORT indexing in the geometry, we overload the
+        // "glyphsInOtherNodes" concept as overflow for if there are more than
+        // 65536 (16384 * 4) vertices to render which would otherwise exceed
+        // the maximum index size. This will cause sub-nodes to be recursively
+        // created to handle any number of glyphs.
+        if (i >= maxGlyphs) {
+            glyphInfo.indexes.append(glyphIndex);
+            glyphInfo.positions.append(position);
+            continue;
+        }
+    }
+
+    if (!glyphInfo.indexes.isEmpty()) {
+        QGlyphRun subNodeGlyphRun(m_glyphs);
+        subNodeGlyphRun.setGlyphIndexes(glyphInfo.indexes);
+        subNodeGlyphRun.setPositions(glyphInfo.positions);
+
+        QSGDefaultGlyphNode *subNode = new QSGDefaultGlyphNode();
+        subNode->setGlyphNodeType(SubGlyphNode);
+        subNode->setColor(m_color);
+        subNode->setStyle(m_style);
+        subNode->setStyleColor(m_styleColor);
+        subNode->setGlyphs(m_position, subNodeGlyphRun);
+        subNode->update();
+        subNode->updateGeometry(); // we have to explicitly call this now as preprocess won't be called before it's rendered
+        appendChildNode(subNode);
+
+        QSGGeometry *g = geometry();
+
+        QSGGeometry::TexturedPoint2D *vertexData = g->vertexDataAsTexturedPoint2D();
+        quint16 *indexData = g->indexDataAsUShort();
+
+        QVector<QSGGeometry::TexturedPoint2D> tempVertexData(maxVertices);
+        QVector<quint16> tempIndexData(maxIndexes);
+
+        for (int i = 0; i < maxGlyphs; i++) {
+            tempVertexData[i * 4 + 0] = vertexData[i * 4 + 0];
+            tempVertexData[i * 4 + 1] = vertexData[i * 4 + 1];
+            tempVertexData[i * 4 + 2] = vertexData[i * 4 + 2];
+            tempVertexData[i * 4 + 3] = vertexData[i * 4 + 3];
+
+            tempIndexData[i * 6 + 0] = indexData[i * 6 + 0];
+            tempIndexData[i * 6 + 1] = indexData[i * 6 + 1];
+            tempIndexData[i * 6 + 2] = indexData[i * 6 + 2];
+            tempIndexData[i * 6 + 3] = indexData[i * 6 + 3];
+            tempIndexData[i * 6 + 4] = indexData[i * 6 + 4];
+            tempIndexData[i * 6 + 5] = indexData[i * 6 + 5];
+        }
+
+        g->allocate(maxVertices, maxIndexes);
+        vertexData = g->vertexDataAsTexturedPoint2D();
+        indexData = g->indexDataAsUShort();
+
+        for (int i = 0; i < maxGlyphs; i++) {
+            vertexData[i * 4 + 0] = tempVertexData[i * 4 + 0];
+            vertexData[i * 4 + 1] = tempVertexData[i * 4 + 1];
+            vertexData[i * 4 + 2] = tempVertexData[i * 4 + 2];
+            vertexData[i * 4 + 3] = tempVertexData[i * 4 + 3];
+
+            indexData[i * 6 + 0] = tempIndexData[i * 6 + 0];
+            indexData[i * 6 + 1] = tempIndexData[i * 6 + 1];
+            indexData[i * 6 + 2] = tempIndexData[i * 6 + 2];
+            indexData[i * 6 + 3] = tempIndexData[i * 6 + 3];
+            indexData[i * 6 + 4] = tempIndexData[i * 6 + 4];
+            indexData[i * 6 + 5] = tempIndexData[i * 6 + 5];
+        }
+    }
+
+    m_dirtyGeometry = false;
 }
 
 QT_END_NAMESPACE

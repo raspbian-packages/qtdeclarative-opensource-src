@@ -87,7 +87,7 @@ public:
     ~QQuickWidgetPrivate();
 
     void execute();
-    void itemGeometryChanged(QQuickItem *item, const QRectF &newGeometry, const QRectF &oldGeometry) Q_DECL_OVERRIDE;
+    void itemGeometryChanged(QQuickItem *item, QQuickGeometryChange change, const QRectF &oldGeometry) Q_DECL_OVERRIDE;
     void initResize();
     void updateSize();
     void updatePosition();
@@ -99,10 +99,12 @@ public:
     void destroyContext();
     void handleContextCreationFailure(const QSurfaceFormat &format, bool isEs);
 
-    QObject *focusObject() Q_DECL_OVERRIDE;
-
+#if QT_CONFIG(opengl)
     GLuint textureId() const Q_DECL_OVERRIDE;
     QImage grabFramebuffer() Q_DECL_OVERRIDE;
+#else
+    QImage grabFramebuffer();
+#endif
 
     void init(QQmlEngine* e = 0);
     void ensureEngine() const;
@@ -121,9 +123,12 @@ public:
     QQuickWindow *offscreenWindow;
     QOffscreenSurface *offscreenSurface;
     QQuickRenderControl *renderControl;
+
+#if QT_CONFIG(opengl)
     QOpenGLFramebufferObject *fbo;
     QOpenGLFramebufferObject *resolvedFbo;
     QOpenGLContext *context;
+#endif
 
     QQuickWidget::ResizeMode resizeMode;
     QSize initialSize;
@@ -135,6 +140,10 @@ public:
     bool fakeHidden;
 
     int requestedSamples;
+
+    bool useSoftwareRenderer;
+    QImage softwareImage;
+    QRegion updateRegion;
 };
 
 QT_END_NAMESPACE

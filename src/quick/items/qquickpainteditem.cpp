@@ -43,6 +43,7 @@
 #include <QtQuick/private/qsgdefaultpainternode_p.h>
 #include <QtQuick/private/qsgcontext_p.h>
 #include <private/qsgadaptationlayer_p.h>
+#include <qsgtextureprovider.h>
 
 #include <qmath.h>
 
@@ -52,7 +53,7 @@ class QQuickPaintedItemTextureProvider : public QSGTextureProvider
 {
 public:
     QSGPainterNode *node;
-    QSGTexture *texture() const { return node ? node->texture() : 0; }
+    QSGTexture *texture() const override { return node ? node->texture() : 0; }
     void fireTextureChanged() { emit textureChanged(); }
 };
 
@@ -63,13 +64,14 @@ public:
 
     \inmodule QtQuick
 
-    The QQuickPaintedItem makes it possible to use the QPainter API with the QML Scene Graph.
-    It sets up a textured rectangle in the Scene Graph and uses a QPainter to paint
-    onto the texture. The render target can be either a QImage or a QOpenGLFramebufferObject.
-    When the render target is a QImage, QPainter first renders into the image then
-    the content is uploaded to the texture.
-    When a QOpenGLFramebufferObject is used, QPainter paints directly onto the texture.
-    Call update() to trigger a repaint.
+    The QQuickPaintedItem makes it possible to use the QPainter API with the
+    QML Scene Graph. It sets up a textured rectangle in the Scene Graph and
+    uses a QPainter to paint onto the texture. The render target can be either
+    a QImage or, when OpenGL is in use, a QOpenGLFramebufferObject. When the
+    render target is a QImage, QPainter first renders into the image then the
+    content is uploaded to the texture. When a QOpenGLFramebufferObject is
+    used, QPainter paints directly onto the texture. Call update() to trigger a
+    repaint.
 
     To enable QPainter to do anti-aliased rendering, use setAntialiasing().
 
@@ -78,6 +80,10 @@ public:
     public function: paint(), which implements the actual painting. The
     painting will be inside the rectangle spanning from 0,0 to
     width(),height().
+
+    \note It important to understand the performance implications such items
+    can incur. See QQuickPaintedItem::RenderTarget and
+    QQuickPaintedItem::renderTarget.
 */
 
 /*!
@@ -171,8 +177,6 @@ QQuickPaintedItem::~QQuickPaintedItem()
     This function does not cause an immediate paint; instead it schedules a paint request that
     is processed by the QML Scene Graph when the next frame is rendered. The item will only be
     redrawn if it is visible.
-
-    Note that calling this function will trigger a repaint of the whole scene.
 
     \sa paint()
 */
@@ -499,6 +503,12 @@ void QQuickPaintedItem::setFillColor(const QColor &c)
     the QQuickPaintedItem::FramebufferObject render target if the item gets resized often.
 
     By default, the render target is QQuickPaintedItem::Image.
+
+    \note Some Qt Quick backends may not support all render target options. For
+    example, it is likely that non-OpenGL backends will lack support for
+    QQuickPaintedItem::FramebufferObject and
+    QQuickPaintedItem::InvertedYFramebufferObject. Requesting these will then
+    be ignored.
 */
 QQuickPaintedItem::RenderTarget QQuickPaintedItem::renderTarget() const
 {
@@ -652,11 +662,13 @@ QSGTextureProvider *QQuickPaintedItem::textureProvider() const
         return QQuickItem::textureProvider();
 
     Q_D(const QQuickPaintedItem);
+#if QT_CONFIG(opengl)
     QQuickWindow *w = window();
     if (!w || !w->openglContext() || QThread::currentThread() != w->openglContext()->thread()) {
         qWarning("QQuickPaintedItem::textureProvider: can only be queried on the rendering thread of an exposed window");
         return 0;
     }
+#endif
     if (!d->textureProvider)
         d->textureProvider = new QQuickPaintedItemTextureProvider();
     d->textureProvider->node = d->node;
@@ -671,3 +683,5 @@ void QQuickPaintedItem::itemChange(ItemChange change, const ItemChangeData &valu
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qquickpainteditem.cpp"

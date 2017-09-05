@@ -135,6 +135,7 @@ private slots:
 
     // Bugs
     void crashOnValueProperty();
+    void aliasPropertyBindings_data();
     void aliasPropertyBindings();
     void noContext();
     void assignEmptyVariantMap();
@@ -157,7 +158,7 @@ void tst_qqmlproperty::qmlmetaproperty()
 
     QObject *obj = new QObject;
 
-    QQmlAbstractBinding::Ptr binding(new QQmlBinding(QLatin1String("null"), 0, engine.rootContext()));
+    QQmlAbstractBinding::Ptr binding(QQmlBinding::create(nullptr, QLatin1String("null"), 0, QQmlContextData::get(engine.rootContext())));
     QVERIFY(binding);
     QQmlBoundSignalExpression *sigExpr = new QQmlBoundSignalExpression(obj, QObjectPrivate::get(obj)->signalIndex("destroyed()"), QQmlContextData::get(engine.rootContext()), 0, QLatin1String("null"), QString(), -1, -1);
     QQmlJavaScriptExpression::DeleteWatcher sigExprWatcher(sigExpr);
@@ -194,7 +195,8 @@ void tst_qqmlproperty::qmlmetaproperty()
     QQmlPropertyPrivate::takeSignalExpression(prop, sigExpr);
     QVERIFY(sigExprWatcher.wasDeleted());
     QCOMPARE(prop.index(), -1);
-    QCOMPARE(QQmlPropertyPrivate::valueTypeCoreIndex(prop), -1);
+    QCOMPARE(QQmlPropertyPrivate::propertyIndex(prop).valueTypeIndex(), -1);
+    QVERIFY(!QQmlPropertyPrivate::propertyIndex(prop).hasValueTypeIndex());
 
     delete obj;
 }
@@ -398,7 +400,7 @@ void tst_qqmlproperty::qmlmetaproperty_object()
     {
         QQmlProperty prop(&object);
 
-        QQmlAbstractBinding::Ptr binding(new QQmlBinding(QLatin1String("null"), 0, engine.rootContext()));
+        QQmlAbstractBinding::Ptr binding(QQmlBinding::create(&QQmlPropertyPrivate::get(prop)->core, QLatin1String("null"), 0, QQmlContextData::get(engine.rootContext())));
         QVERIFY(binding);
         QQmlBoundSignalExpression *sigExpr = new QQmlBoundSignalExpression(&object, QObjectPrivate::get(&object)->signalIndex("destroyed()"), QQmlContextData::get(engine.rootContext()), 0, QLatin1String("null"), QString(), -1, -1);
         QQmlJavaScriptExpression::DeleteWatcher sigExprWatcher(sigExpr);
@@ -437,7 +439,8 @@ void tst_qqmlproperty::qmlmetaproperty_object()
         QQmlPropertyPrivate::takeSignalExpression(prop, sigExpr);
         QVERIFY(sigExprWatcher.wasDeleted());
         QCOMPARE(prop.index(), -1);
-        QCOMPARE(QQmlPropertyPrivate::valueTypeCoreIndex(prop), -1);
+        QCOMPARE(QQmlPropertyPrivate::propertyIndex(prop).valueTypeIndex(), -1);
+        QVERIFY(!QQmlPropertyPrivate::propertyIndex(prop).hasValueTypeIndex());
 
         delete obj;
     }
@@ -445,7 +448,7 @@ void tst_qqmlproperty::qmlmetaproperty_object()
     {
         QQmlProperty prop(&dobject);
 
-        QQmlAbstractBinding::Ptr binding(new QQmlBinding(QLatin1String("null"), 0, engine.rootContext()));
+        QQmlAbstractBinding::Ptr binding(QQmlBinding::create(&QQmlPropertyPrivate::get(prop)->core, QLatin1String("null"), 0, QQmlContextData::get(engine.rootContext())));
         static_cast<QQmlBinding *>(binding.data())->setTarget(prop);
         QVERIFY(binding);
         QQmlBoundSignalExpression *sigExpr = new QQmlBoundSignalExpression(&dobject, QObjectPrivate::get(&dobject)->signalIndex("clicked()"), QQmlContextData::get(engine.rootContext()), 0, QLatin1String("null"), QString(), -1, -1);
@@ -487,7 +490,8 @@ void tst_qqmlproperty::qmlmetaproperty_object()
         QQmlPropertyPrivate::takeSignalExpression(prop, sigExpr);
         QVERIFY(sigExprWatcher.wasDeleted());
         QCOMPARE(prop.index(), dobject.metaObject()->indexOfProperty("defaultProperty"));
-        QCOMPARE(QQmlPropertyPrivate::valueTypeCoreIndex(prop), -1);
+        QCOMPARE(QQmlPropertyPrivate::propertyIndex(prop).valueTypeIndex(), -1);
+        QVERIFY(!QQmlPropertyPrivate::propertyIndex(prop).hasValueTypeIndex());
 
         delete obj;
     }
@@ -501,7 +505,7 @@ void tst_qqmlproperty::qmlmetaproperty_object_string()
     {
         QQmlProperty prop(&object, QString("defaultProperty"));
 
-        QQmlAbstractBinding::Ptr binding(new QQmlBinding(QLatin1String("null"), 0, engine.rootContext()));
+        QQmlAbstractBinding::Ptr binding(QQmlBinding::create(&QQmlPropertyPrivate::get(prop)->core, QLatin1String("null"), 0, QQmlContextData::get(engine.rootContext())));
         QVERIFY(binding);
         QQmlBoundSignalExpression *sigExpr = new QQmlBoundSignalExpression(&object, QObjectPrivate::get(&object)->signalIndex("destroyed()"), QQmlContextData::get(engine.rootContext()), 0, QLatin1String("null"), QString(), -1, -1);
         QQmlJavaScriptExpression::DeleteWatcher sigExprWatcher(sigExpr);
@@ -540,7 +544,8 @@ void tst_qqmlproperty::qmlmetaproperty_object_string()
         QQmlPropertyPrivate::takeSignalExpression(prop, sigExpr);
         QVERIFY(sigExprWatcher.wasDeleted());
         QCOMPARE(prop.index(), -1);
-        QCOMPARE(QQmlPropertyPrivate::valueTypeCoreIndex(prop), -1);
+        QCOMPARE(QQmlPropertyPrivate::propertyIndex(prop).valueTypeIndex(), -1);
+        QVERIFY(!QQmlPropertyPrivate::propertyIndex(prop).hasValueTypeIndex());
 
         delete obj;
     }
@@ -548,7 +553,7 @@ void tst_qqmlproperty::qmlmetaproperty_object_string()
     {
         QQmlProperty prop(&dobject, QString("defaultProperty"));
 
-        QQmlAbstractBinding::Ptr binding(new QQmlBinding(QLatin1String("null"), 0, engine.rootContext()));
+        QQmlAbstractBinding::Ptr binding(QQmlBinding::create(&QQmlPropertyPrivate::get(prop)->core, QLatin1String("null"), 0, QQmlContextData::get(engine.rootContext())));
         static_cast<QQmlBinding *>(binding.data())->setTarget(prop);
         QVERIFY(binding);
         QQmlBoundSignalExpression *sigExpr = new QQmlBoundSignalExpression(&dobject, QObjectPrivate::get(&dobject)->signalIndex("clicked()"), QQmlContextData::get(engine.rootContext()), 0, QLatin1String("null"), QString(), -1, -1);
@@ -590,7 +595,8 @@ void tst_qqmlproperty::qmlmetaproperty_object_string()
         QQmlPropertyPrivate::takeSignalExpression(prop, sigExpr);
         QVERIFY(sigExprWatcher.wasDeleted());
         QCOMPARE(prop.index(), dobject.metaObject()->indexOfProperty("defaultProperty"));
-        QCOMPARE(QQmlPropertyPrivate::valueTypeCoreIndex(prop), -1);
+        QCOMPARE(QQmlPropertyPrivate::propertyIndex(prop).valueTypeIndex(), -1);
+        QVERIFY(!QQmlPropertyPrivate::propertyIndex(prop).hasValueTypeIndex());
 
         delete obj;
     }
@@ -598,7 +604,7 @@ void tst_qqmlproperty::qmlmetaproperty_object_string()
     {
         QQmlProperty prop(&dobject, QString("onClicked"));
 
-        QQmlAbstractBinding::Ptr binding(new QQmlBinding(QLatin1String("null"), 0, engine.rootContext()));
+        QQmlAbstractBinding::Ptr binding(QQmlBinding::create(&QQmlPropertyPrivate::get(prop)->core, QLatin1String("null"), 0, QQmlContextData::get(engine.rootContext())));
         static_cast<QQmlBinding *>(binding.data())->setTarget(prop);
         QVERIFY(binding);
         QQmlBoundSignalExpression *sigExpr = new QQmlBoundSignalExpression(&dobject, QQmlPropertyPrivate::get(prop)->signalIndex(), QQmlContextData::get(engine.rootContext()), 0, QLatin1String("null"), QString(), -1, -1);
@@ -639,7 +645,8 @@ void tst_qqmlproperty::qmlmetaproperty_object_string()
         QVERIFY(!sigExprWatcher.wasDeleted());
         QCOMPARE(QQmlPropertyPrivate::signalExpression(prop), sigExpr);
         QCOMPARE(prop.index(), dobject.metaObject()->indexOfMethod("clicked()"));
-        QCOMPARE(QQmlPropertyPrivate::valueTypeCoreIndex(prop), -1);
+        QCOMPARE(QQmlPropertyPrivate::propertyIndex(prop).valueTypeIndex(), -1);
+        QVERIFY(!QQmlPropertyPrivate::propertyIndex(prop).hasValueTypeIndex());
 
         delete obj;
     }
@@ -647,7 +654,7 @@ void tst_qqmlproperty::qmlmetaproperty_object_string()
     {
         QQmlProperty prop(&dobject, QString("onPropertyWithNotifyChanged"));
 
-        QQmlAbstractBinding::Ptr binding(new QQmlBinding(QLatin1String("null"), 0, engine.rootContext()));
+        QQmlAbstractBinding::Ptr binding(QQmlBinding::create(&QQmlPropertyPrivate::get(prop)->core, QLatin1String("null"), 0, QQmlContextData::get(engine.rootContext())));
         static_cast<QQmlBinding *>(binding.data())->setTarget(prop);
         QVERIFY(binding);
         QQmlBoundSignalExpression *sigExpr = new QQmlBoundSignalExpression(&dobject, QQmlPropertyPrivate::get(prop)->signalIndex(), QQmlContextData::get(engine.rootContext()), 0, QLatin1String("null"), QString(), -1, -1);
@@ -688,7 +695,8 @@ void tst_qqmlproperty::qmlmetaproperty_object_string()
         QVERIFY(!sigExprWatcher.wasDeleted());
         QCOMPARE(QQmlPropertyPrivate::signalExpression(prop), sigExpr);
         QCOMPARE(prop.index(), dobject.metaObject()->indexOfMethod("oddlyNamedNotifySignal()"));
-        QCOMPARE(QQmlPropertyPrivate::valueTypeCoreIndex(prop), -1);
+        QCOMPARE(QQmlPropertyPrivate::propertyIndex(prop).valueTypeIndex(), -1);
+        QVERIFY(!QQmlPropertyPrivate::propertyIndex(prop).hasValueTypeIndex());
 
         delete obj;
     }
@@ -702,7 +710,7 @@ void tst_qqmlproperty::qmlmetaproperty_object_context()
     {
         QQmlProperty prop(&object, engine.rootContext());
 
-        QQmlAbstractBinding::Ptr binding(new QQmlBinding(QLatin1String("null"), 0, engine.rootContext()));
+        QQmlAbstractBinding::Ptr binding(QQmlBinding::create(&QQmlPropertyPrivate::get(prop)->core, QLatin1String("null"), 0, QQmlContextData::get(engine.rootContext())));
         QVERIFY(binding);
         QQmlBoundSignalExpression *sigExpr = new QQmlBoundSignalExpression(&object, QObjectPrivate::get(&object)->signalIndex("destroyed()"), QQmlContextData::get(engine.rootContext()), 0, QLatin1String("null"), QString(), -1, -1);
         QQmlJavaScriptExpression::DeleteWatcher sigExprWatcher(sigExpr);
@@ -741,7 +749,8 @@ void tst_qqmlproperty::qmlmetaproperty_object_context()
         QQmlPropertyPrivate::takeSignalExpression(prop, sigExpr);
         QVERIFY(sigExprWatcher.wasDeleted());
         QCOMPARE(prop.index(), -1);
-        QCOMPARE(QQmlPropertyPrivate::valueTypeCoreIndex(prop), -1);
+        QCOMPARE(QQmlPropertyPrivate::propertyIndex(prop).valueTypeIndex(), -1);
+        QVERIFY(!QQmlPropertyPrivate::propertyIndex(prop).hasValueTypeIndex());
 
         delete obj;
     }
@@ -749,7 +758,7 @@ void tst_qqmlproperty::qmlmetaproperty_object_context()
     {
         QQmlProperty prop(&dobject, engine.rootContext());
 
-        QQmlAbstractBinding::Ptr binding(new QQmlBinding(QLatin1String("null"), 0, engine.rootContext()));
+        QQmlAbstractBinding::Ptr binding(QQmlBinding::create(&QQmlPropertyPrivate::get(prop)->core, QLatin1String("null"), 0, QQmlContextData::get(engine.rootContext())));
         static_cast<QQmlBinding *>(binding.data())->setTarget(prop);
         QVERIFY(binding);
         QQmlBoundSignalExpression *sigExpr = new QQmlBoundSignalExpression(&dobject, QObjectPrivate::get(&dobject)->signalIndex("clicked()"), QQmlContextData::get(engine.rootContext()), 0, QLatin1String("null"), QString(), -1, -1);
@@ -791,7 +800,8 @@ void tst_qqmlproperty::qmlmetaproperty_object_context()
         QQmlPropertyPrivate::takeSignalExpression(prop, sigExpr);
         QVERIFY(sigExprWatcher.wasDeleted());
         QCOMPARE(prop.index(), dobject.metaObject()->indexOfProperty("defaultProperty"));
-        QCOMPARE(QQmlPropertyPrivate::valueTypeCoreIndex(prop), -1);
+        QCOMPARE(QQmlPropertyPrivate::propertyIndex(prop).valueTypeIndex(), -1);
+        QVERIFY(!QQmlPropertyPrivate::propertyIndex(prop).hasValueTypeIndex());
 
         delete obj;
     }
@@ -805,7 +815,7 @@ void tst_qqmlproperty::qmlmetaproperty_object_string_context()
     {
         QQmlProperty prop(&object, QString("defaultProperty"), engine.rootContext());
 
-        QQmlAbstractBinding::Ptr binding(new QQmlBinding(QLatin1String("null"), 0, engine.rootContext()));
+        QQmlAbstractBinding::Ptr binding(QQmlBinding::create(&QQmlPropertyPrivate::get(prop)->core, QLatin1String("null"), 0, QQmlContextData::get(engine.rootContext())));
         QVERIFY(binding);
         QQmlBoundSignalExpression *sigExpr = new QQmlBoundSignalExpression(&object, QObjectPrivate::get(&object)->signalIndex("destroyed()"), QQmlContextData::get(engine.rootContext()), 0, QLatin1String("null"), QString(), -1, -1);
         QQmlJavaScriptExpression::DeleteWatcher sigExprWatcher(sigExpr);
@@ -844,7 +854,8 @@ void tst_qqmlproperty::qmlmetaproperty_object_string_context()
         QQmlPropertyPrivate::takeSignalExpression(prop, sigExpr);
         QVERIFY(sigExprWatcher.wasDeleted());
         QCOMPARE(prop.index(), -1);
-        QCOMPARE(QQmlPropertyPrivate::valueTypeCoreIndex(prop), -1);
+        QCOMPARE(QQmlPropertyPrivate::propertyIndex(prop).valueTypeIndex(), -1);
+        QVERIFY(!QQmlPropertyPrivate::propertyIndex(prop).hasValueTypeIndex());
 
         delete obj;
     }
@@ -852,7 +863,7 @@ void tst_qqmlproperty::qmlmetaproperty_object_string_context()
     {
         QQmlProperty prop(&dobject, QString("defaultProperty"), engine.rootContext());
 
-        QQmlAbstractBinding::Ptr binding(new QQmlBinding(QLatin1String("null"), 0, engine.rootContext()));
+        QQmlAbstractBinding::Ptr binding(QQmlBinding::create(&QQmlPropertyPrivate::get(prop)->core, QLatin1String("null"), 0, QQmlContextData::get(engine.rootContext())));
         static_cast<QQmlBinding *>(binding.data())->setTarget(prop);
         QVERIFY(binding);
         QQmlBoundSignalExpression *sigExpr = new QQmlBoundSignalExpression(&dobject, QObjectPrivate::get(&dobject)->signalIndex("clicked()"), QQmlContextData::get(engine.rootContext()), 0, QLatin1String("null"), QString(), -1, -1);
@@ -894,7 +905,8 @@ void tst_qqmlproperty::qmlmetaproperty_object_string_context()
         QQmlPropertyPrivate::takeSignalExpression(prop, sigExpr);
         QVERIFY(sigExprWatcher.wasDeleted());
         QCOMPARE(prop.index(), dobject.metaObject()->indexOfProperty("defaultProperty"));
-        QCOMPARE(QQmlPropertyPrivate::valueTypeCoreIndex(prop), -1);
+        QCOMPARE(QQmlPropertyPrivate::propertyIndex(prop).valueTypeIndex(), -1);
+        QVERIFY(!QQmlPropertyPrivate::propertyIndex(prop).hasValueTypeIndex());
 
         delete obj;
     }
@@ -902,7 +914,7 @@ void tst_qqmlproperty::qmlmetaproperty_object_string_context()
     {
         QQmlProperty prop(&dobject, QString("onClicked"), engine.rootContext());
 
-        QQmlAbstractBinding::Ptr binding(new QQmlBinding(QLatin1String("null"), 0, engine.rootContext()));
+        QQmlAbstractBinding::Ptr binding(QQmlBinding::create(&QQmlPropertyPrivate::get(prop)->core, QLatin1String("null"), 0, QQmlContextData::get(engine.rootContext())));
         static_cast<QQmlBinding *>(binding.data())->setTarget(prop);
         QVERIFY(binding);
         QQmlBoundSignalExpression *sigExpr = new QQmlBoundSignalExpression(&dobject, QQmlPropertyPrivate::get(prop)->signalIndex(), QQmlContextData::get(engine.rootContext()), 0, QLatin1String("null"), QString(), -1, -1);
@@ -943,7 +955,8 @@ void tst_qqmlproperty::qmlmetaproperty_object_string_context()
         QVERIFY(!sigExprWatcher.wasDeleted());
         QCOMPARE(QQmlPropertyPrivate::signalExpression(prop), sigExpr);
         QCOMPARE(prop.index(), dobject.metaObject()->indexOfMethod("clicked()"));
-        QCOMPARE(QQmlPropertyPrivate::valueTypeCoreIndex(prop), -1);
+        QCOMPARE(QQmlPropertyPrivate::propertyIndex(prop).valueTypeIndex(), -1);
+        QVERIFY(!QQmlPropertyPrivate::propertyIndex(prop).hasValueTypeIndex());
 
         delete obj;
     }
@@ -951,7 +964,7 @@ void tst_qqmlproperty::qmlmetaproperty_object_string_context()
     {
         QQmlProperty prop(&dobject, QString("onPropertyWithNotifyChanged"), engine.rootContext());
 
-        QQmlAbstractBinding::Ptr binding(new QQmlBinding(QLatin1String("null"), 0, engine.rootContext()));
+        QQmlAbstractBinding::Ptr binding(QQmlBinding::create(&QQmlPropertyPrivate::get(prop)->core, QLatin1String("null"), 0, QQmlContextData::get(engine.rootContext())));
         static_cast<QQmlBinding *>(binding.data())->setTarget(prop);
         QVERIFY(binding);
         QQmlBoundSignalExpression *sigExpr = new QQmlBoundSignalExpression(&dobject, QQmlPropertyPrivate::get(prop)->signalIndex(), QQmlContextData::get(engine.rootContext()), 0, QLatin1String("null"), QString(), -1, -1);
@@ -992,7 +1005,8 @@ void tst_qqmlproperty::qmlmetaproperty_object_string_context()
         QVERIFY(!sigExprWatcher.wasDeleted());
         QCOMPARE(QQmlPropertyPrivate::signalExpression(prop), sigExpr);
         QCOMPARE(prop.index(), dobject.metaObject()->indexOfMethod("oddlyNamedNotifySignal()"));
-        QCOMPARE(QQmlPropertyPrivate::valueTypeCoreIndex(prop), -1);
+        QCOMPARE(QQmlPropertyPrivate::propertyIndex(prop).valueTypeIndex(), -1);
+        QVERIFY(!QQmlPropertyPrivate::propertyIndex(prop).hasValueTypeIndex());
 
         delete obj;
     }
@@ -1820,23 +1834,40 @@ void tst_qqmlproperty::crashOnValueProperty()
     QCOMPARE(p.read(), QVariant(20));
 }
 
-// QTBUG-13719
+void tst_qqmlproperty::aliasPropertyBindings_data()
+{
+    QTest::addColumn<QString>("file");
+    QTest::addColumn<QString>("subObject");
+
+    QTest::newRow("same object") << "aliasPropertyBindings.qml" << "";
+    QTest::newRow("different objects") << "aliasPropertyBindings2.qml" << "innerObject";
+}
+
+// QTBUG-13719, QTBUG-58271
 void tst_qqmlproperty::aliasPropertyBindings()
 {
-    QQmlComponent component(&engine, testFileUrl("aliasPropertyBindings.qml"));
+    QFETCH(QString, file);
+    QFETCH(QString, subObject);
+
+    QQmlComponent component(&engine, testFileUrl(file));
 
     QObject *object = component.create();
     QVERIFY(object != 0);
 
-    QCOMPARE(object->property("realProperty").toReal(), 90.);
+    // the object where realProperty lives
+    QObject *realPropertyObject = object;
+    if (!subObject.isEmpty())
+       realPropertyObject = object->property(subObject.toLatin1()).value<QObject*>();
+
+    QCOMPARE(realPropertyObject->property("realProperty").toReal(), 90.);
     QCOMPARE(object->property("aliasProperty").toReal(), 90.);
 
     object->setProperty("test", 10);
 
-    QCOMPARE(object->property("realProperty").toReal(), 110.);
+    QCOMPARE(realPropertyObject->property("realProperty").toReal(), 110.);
     QCOMPARE(object->property("aliasProperty").toReal(), 110.);
 
-    QQmlProperty realProperty(object, QLatin1String("realProperty"));
+    QQmlProperty realProperty(realPropertyObject, QLatin1String("realProperty"));
     QQmlProperty aliasProperty(object, QLatin1String("aliasProperty"));
 
     // Check there is a binding on these two properties
@@ -1855,18 +1886,18 @@ void tst_qqmlproperty::aliasPropertyBindings()
     QCOMPARE(QQmlPropertyPrivate::binding(realProperty),
              QQmlPropertyPrivate::binding(aliasProperty));
 
-    QCOMPARE(object->property("realProperty").toReal(), 96.);
+    QCOMPARE(realPropertyObject->property("realProperty").toReal(), 96.);
     QCOMPARE(object->property("aliasProperty").toReal(), 96.);
 
     // Check the old binding really has not effect any more
     object->setProperty("test", 4);
 
-    QCOMPARE(object->property("realProperty").toReal(), 96.);
+    QCOMPARE(realPropertyObject->property("realProperty").toReal(), 96.);
     QCOMPARE(object->property("aliasProperty").toReal(), 96.);
 
     object->setProperty("test2", 9);
 
-    QCOMPARE(object->property("realProperty").toReal(), 288.);
+    QCOMPARE(realPropertyObject->property("realProperty").toReal(), 288.);
     QCOMPARE(object->property("aliasProperty").toReal(), 288.);
 
     // Revert
@@ -1877,12 +1908,12 @@ void tst_qqmlproperty::aliasPropertyBindings()
     QCOMPARE(QQmlPropertyPrivate::binding(realProperty),
              QQmlPropertyPrivate::binding(aliasProperty));
 
-    QCOMPARE(object->property("realProperty").toReal(), 20.);
+    QCOMPARE(realPropertyObject->property("realProperty").toReal(), 20.);
     QCOMPARE(object->property("aliasProperty").toReal(), 20.);
 
     object->setProperty("test2", 3);
 
-    QCOMPARE(object->property("realProperty").toReal(), 20.);
+    QCOMPARE(realPropertyObject->property("realProperty").toReal(), 20.);
     QCOMPARE(object->property("aliasProperty").toReal(), 20.);
 
     delete object;
@@ -1983,7 +2014,7 @@ void tst_qqmlproperty::warnOnInvalidBinding()
     QTest::ignoreMessage(QtWarningMsg, expectedWarning.toLatin1().constData());
 
     // V8 error message for invalid binding to anchor
-    expectedWarning = testUrl.toString() + QString::fromLatin1(":14:33: Unable to assign QQuickItem_QML_6 to QQuickAnchorLine");
+    expectedWarning = testUrl.toString() + QString::fromLatin1(":14:33: Unable to assign QQuickItem_QML_8 to QQuickAnchorLine");
     QTest::ignoreMessage(QtWarningMsg, expectedWarning.toLatin1().constData());
 
     QQmlComponent component(&engine, testUrl);

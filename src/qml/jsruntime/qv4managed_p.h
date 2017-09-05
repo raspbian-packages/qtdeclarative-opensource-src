@@ -52,6 +52,7 @@
 
 #include "qv4global_p.h"
 #include "qv4value_p.h"
+#include "qv4enginebase_p.h"
 #include <private/qv4heap_p.h>
 
 QT_BEGIN_NAMESPACE
@@ -74,7 +75,7 @@ inline void qYouForgotTheQ_MANAGED_Macro(T1, T2) {}
 #define V4_MANAGED_SIZE_TEST
 #endif
 
-#define V4_NEEDS_DESTROY static void destroy(QV4::Heap::Base *b) { static_cast<Data *>(b)->~Data(); }
+#define V4_NEEDS_DESTROY static void destroy(QV4::Heap::Base *b) { static_cast<Data *>(b)->destroy(); }
 
 
 #define V4_MANAGED_ITSELF(DataClass, superClass) \
@@ -85,7 +86,13 @@ inline void qYouForgotTheQ_MANAGED_Macro(T1, T2) {}
         static const QV4::VTable static_vtbl; \
         static inline const QV4::VTable *staticVTable() { return &static_vtbl; } \
         V4_MANAGED_SIZE_TEST \
-        QV4::Heap::DataClass *d() const { return static_cast<QV4::Heap::DataClass *>(m()); }
+        QV4::Heap::DataClass *d_unchecked() const { return static_cast<QV4::Heap::DataClass *>(m()); } \
+        QV4::Heap::DataClass *d() const { \
+            QV4::Heap::DataClass *dptr = d_unchecked(); \
+            dptr->_checkIsInitialized(); \
+            return dptr; \
+        } \
+        V4_ASSERT_IS_TRIVIAL(QV4::Heap::DataClass)
 
 #define V4_MANAGED(DataClass, superClass) \
     private: \
@@ -100,10 +107,32 @@ inline void qYouForgotTheQ_MANAGED_Macro(T1, T2) {}
 #define Q_VTABLE_FUNCTION(classname, func) \
     (classname::func == QV4::Managed::func ? 0 : classname::func)
 
+// Q_VTABLE_FUNCTION triggers a bogus tautological-compare warning in GCC6+
+#if (defined(Q_CC_GNU) && Q_CC_GNU >= 600)
+#define QT_WARNING_SUPPRESS_GCC_TAUTOLOGICAL_COMPARE_ON \
+    QT_WARNING_PUSH; \
+    QT_WARNING_DISABLE_GCC("-Wtautological-compare")
+
+#define QT_WARNING_SUPPRESS_GCC_TAUTOLOGICAL_COMPARE_OFF \
+    ;QT_WARNING_POP
+#elif defined(Q_CC_CLANG) && Q_CC_CLANG >= 306
+#define QT_WARNING_SUPPRESS_GCC_TAUTOLOGICAL_COMPARE_ON \
+    QT_WARNING_PUSH; \
+    QT_WARNING_DISABLE_CLANG("-Wtautological-compare")
+
+#define QT_WARNING_SUPPRESS_GCC_TAUTOLOGICAL_COMPARE_OFF \
+    ;QT_WARNING_POP
+#else
+#define QT_WARNING_SUPPRESS_GCC_TAUTOLOGICAL_COMPARE_ON
+#define QT_WARNING_SUPPRESS_GCC_TAUTOLOGICAL_COMPARE_OFF
+#endif
 
 #define DEFINE_MANAGED_VTABLE_INT(classname, parentVTable) \
 {     \
     parentVTable, \
+    (sizeof(classname::Data) + sizeof(QV4::Value) - 1)/sizeof(QV4::Value), \
+    (sizeof(classname::Data) + (std::is_same<classname, Object>::value ? 2*sizeof(QV4::Value) : 0) + QV4::Chunk::SlotSize - 1)/QV4::Chunk::SlotSize*QV4::Chunk::SlotSize/sizeof(QV4::Value) \
+        - (sizeof(classname::Data) + sizeof(QV4::Value) - 1)/sizeof(QV4::Value), \
     classname::IsExecutionContext,   \
     classname::IsString,   \
     classname::IsObject,   \
@@ -119,7 +148,13 @@ inline void qYouForgotTheQ_MANAGED_Macro(T1, T2) {}
 }
 
 #define DEFINE_MANAGED_VTABLE(classname) \
-const QV4::VTable classname::static_vtbl = DEFINE_MANAGED_VTABLE_INT(classname, 0)
+QT_WARNING_SUPPRESS_GCC_TAUTOLOGICAL_COMPARE_ON \
+const QV4::VTable classname::static_vtbl = DEFINE_MANAGED_VTABLE_INT(classname, 0) \
+QT_WARNING_SUPPRESS_GCC_TAUTOLOGICAL_COMPARE_OFF
+
+#define V4_INTERNALCLASS(c) \
+    static QV4::InternalClass *defaultInternalClass(QV4::EngineBase *e) \
+        { return e->internalClasses[QV4::EngineBase::Class_##c]; }
 
 struct Q_QML_PRIVATE_EXPORT Managed : Value
 {
@@ -163,6 +198,9 @@ public:
     };
     Q_MANAGED_TYPE(Invalid)
 
+    InternalClass *internalClass() const { return d()->internalClass; }
+    inline ExecutionEngine *engine() const { return internalClass()->engine; }
+
     bool isListType() const { return d()->vtable()->type == Type_QmlSequence; }
 
     bool isArrayObject() const { return d()->vtable()->type == Type_ArrayObject; }
@@ -179,6 +217,18 @@ public:
     bool markBit() const { return d()->isMarked(); }
 
     static void destroy(Heap::Base *) {}
+
+    Q_ALWAYS_INLINE Heap::Base *heapObject() const {
+        return m();
+    }
+
+    template<typename T> inline T *cast() {
+        return static_cast<T *>(this);
+    }
+    template<typename T> inline const T *cast() const {
+        return static_cast<const T *>(this);
+    }
+
 private:
     friend class MemoryManager;
     friend struct Identifiers;
@@ -188,14 +238,12 @@ private:
 
 template<>
 inline const Managed *Value::as() const {
-    if (isManaged())
-        return managed();
-    return 0;
+    return managed();
 }
 
 template<>
 inline const Object *Value::as() const {
-    return isManaged() && m() && m()->vtable()->isObject ? objectValue() : 0;
+    return objectValue();
 }
 
 }

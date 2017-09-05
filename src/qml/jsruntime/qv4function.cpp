@@ -55,11 +55,12 @@ Function::Function(ExecutionEngine *engine, CompiledData::CompilationUnit *unit,
         , compilationUnit(unit)
         , code(codePtr)
         , codeData(0)
+        , hasQmlDependencies(function->hasQmlDependencies())
 {
     Q_UNUSED(engine);
 
-    internalClass = engine->emptyClass;
-    const quint32 *formalsIndices = compiledFunction->formalsTable();
+    internalClass = engine->internalClasses[EngineBase::Class_Empty];
+    const CompiledData::LEUInt32 *formalsIndices = compiledFunction->formalsTable();
     // iterate backwards, so we get the right ordering for duplicate names
     Scope scope(engine);
     ScopedString arg(scope);
@@ -73,16 +74,19 @@ Function::Function(ExecutionEngine *engine, CompiledData::CompilationUnit *unit,
             }
             // duplicate arguments, need some trick to store them
             MemoryManager *mm = engine->memoryManager;
-            arg = mm->alloc<String>(mm, arg->d(), engine->newString(QString(0xfffe)));
+            arg = mm->alloc<String>(arg->d(), engine->newString(QString(0xfffe)));
         }
     }
     nFormals = compiledFunction->nFormals;
 
-    const quint32 *localsIndices = compiledFunction->localsTable();
+    const CompiledData::LEUInt32 *localsIndices = compiledFunction->localsTable();
     for (quint32 i = 0; i < compiledFunction->nLocals; ++i)
         internalClass = internalClass->addMember(compilationUnit->runtimeStrings[localsIndices[i]]->identifier, Attr_NotConfigurable);
 
     activationRequired = compiledFunction->nInnerFunctions > 0 || (compiledFunction->flags & (CompiledData::Function::HasDirectEval | CompiledData::Function::UsesArgumentsObject));
+
+    canUseSimpleCall = !needsActivation() && !(compiledFunction->flags & CompiledData::Function::HasCatchOrWith) &&
+                       !(compiledFunction->nFormals > QV4::Global::ReservedArgumentCount) && !isNamedExpression();
 }
 
 Function::~Function()
@@ -91,7 +95,7 @@ Function::~Function()
 
 void Function::updateInternalClass(ExecutionEngine *engine, const QList<QByteArray> &parameters)
 {
-    internalClass = engine->emptyClass;
+    internalClass = engine->internalClasses[EngineBase::Class_Empty];
 
     // iterate backwards, so we get the right ordering for duplicate names
     Scope scope(engine);
@@ -105,12 +109,12 @@ void Function::updateInternalClass(ExecutionEngine *engine, const QList<QByteArr
                 break;
             }
             // duplicate arguments, need some trick to store them
-            arg = engine->memoryManager->alloc<String>(engine->memoryManager, arg->d(), engine->newString(QString(0xfffe)));
+            arg = engine->memoryManager->alloc<String>(arg->d(), engine->newString(QString(0xfffe)));
         }
     }
     nFormals = parameters.size();
 
-    const quint32 *localsIndices = compiledFunction->localsTable();
+    const CompiledData::LEUInt32 *localsIndices = compiledFunction->localsTable();
     for (quint32 i = 0; i < compiledFunction->nLocals; ++i)
         internalClass = internalClass->addMember(compilationUnit->runtimeStrings[localsIndices[i]]->identifier, Attr_NotConfigurable);
 

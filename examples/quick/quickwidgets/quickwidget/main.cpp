@@ -42,6 +42,7 @@
 #include <QQuickItem>
 #include <QQmlError>
 #include <QtWidgets>
+#include "fbitem.h"
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -54,6 +55,7 @@ private slots:
     void grabFramebuffer();
     void renderToPixmap();
     void grabToImage();
+    void createQuickWidgetsInTabs(QMdiArea *mdiArea);
 
 private:
     QQuickWidget *m_quickWidget;
@@ -76,7 +78,7 @@ MainWindow::MainWindow()
     QLCDNumber *lcd = new QLCDNumber;
     lcd->display(1337);
     lcd->setMinimumSize(250,100);
-    centralWidget ->addSubWindow(lcd);
+    centralWidget->addSubWindow(lcd);
 
     QUrl source("qrc:quickwidget/rotatingsquare.qml");
 
@@ -88,7 +90,7 @@ MainWindow::MainWindow()
     m_quickWidget->setResizeMode(QQuickWidget::SizeRootObjectToView );
     m_quickWidget->setSource(source);
 
-    centralWidget ->addSubWindow(m_quickWidget);
+    centralWidget->addSubWindow(m_quickWidget);
 
     setCentralWidget(centralWidget);
 
@@ -97,13 +99,42 @@ MainWindow::MainWindow()
     fileMenu->addAction(tr("Render to pixmap"), this, &MainWindow::renderToPixmap);
     fileMenu->addAction(tr("Grab via grabToImage"), this, &MainWindow::grabToImage);
     fileMenu->addAction(tr("Quit"), qApp, &QCoreApplication::quit);
+
+    QMenu *windowMenu = menuBar()->addMenu(tr("&Window"));
+    windowMenu->addAction(tr("Add tab widget"), this,
+                          [this, centralWidget] { createQuickWidgetsInTabs(centralWidget); });
+}
+
+void MainWindow::createQuickWidgetsInTabs(QMdiArea *mdiArea)
+{
+    QTabWidget *tabWidget = new QTabWidget;
+
+    const QSize size(400, 400);
+
+    QQuickWidget *w = new QQuickWidget;
+    w->resize(size);
+    w->setResizeMode(QQuickWidget::SizeRootObjectToView);
+    w->setSource(QUrl("qrc:quickwidget/rotatingsquaretab.qml"));
+
+    tabWidget->addTab(w, tr("Plain Quick content"));
+
+    w = new QQuickWidget;
+    w->resize(size);
+    w->setResizeMode(QQuickWidget::SizeRootObjectToView);
+    w->setSource(QUrl("qrc:quickwidget/customgl.qml"));
+
+    tabWidget->addTab(w, tr("Custom OpenGL drawing"));
+
+    mdiArea->addSubWindow(tabWidget);
+    tabWidget->show();
 }
 
 void MainWindow::quickWidgetStatusChanged(QQuickWidget::Status status)
 {
     if (status == QQuickWidget::Error) {
         QStringList errors;
-        foreach (const QQmlError &error, m_quickWidget->errors())
+        const auto widgetErrors = m_quickWidget->errors();
+        for (const QQmlError &error : widgetErrors)
             errors.append(error.toString());
         statusBar()->showMessage(errors.join(QStringLiteral(", ")));
     }
@@ -152,6 +183,8 @@ void MainWindow::grabToImage()
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
+
+    qmlRegisterType<FbItem>("QuickWidgetExample", 1, 0, "FbItem");
 
     MainWindow mainWindow;
     mainWindow.show();

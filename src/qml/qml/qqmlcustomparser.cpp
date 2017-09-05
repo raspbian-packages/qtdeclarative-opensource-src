@@ -39,7 +39,6 @@
 
 #include "qqmlcustomparser_p.h"
 
-#include "qqmlcompiler_p.h"
 #include <private/qqmltypecompiler_p.h>
 
 #include <QtCore/qdebug.h>
@@ -84,7 +83,7 @@ QT_BEGIN_NAMESPACE
     by \a data, which is a block of data previously returned by a call
     to compile().
 
-    Errors should be reported using qmlInfo(object).
+    Errors should be reported using qmlWarning(object).
 
     The \a object will be an instance of the TypeClass specified by QML_REGISTER_CUSTOM_TYPE.
 */
@@ -101,11 +100,7 @@ void QQmlCustomParser::clearErrors()
 */
 void QQmlCustomParser::error(const QV4::CompiledData::Location &location, const QString &description)
 {
-    QQmlError error;
-    error.setLine(location.line);
-    error.setColumn(location.column);
-    error.setDescription(description);
-    exceptions << error;
+    exceptions << QQmlCompileError(location, description);
 }
 
 struct StaticQtMetaObject : public QObject
@@ -166,11 +161,13 @@ int QQmlCustomParser::evaluateEnum(const QByteArray& script, bool *ok) const
 */
 const QMetaObject *QQmlCustomParser::resolveType(const QString& name) const
 {
+    if (!imports.isT1())
+        return nullptr;
     QQmlType *qmltype = 0;
-    if (!validator->imports().resolveType(name, &qmltype, 0, 0, 0))
-        return 0;
+    if (!imports.asT1()->resolveType(name, &qmltype, 0, 0, 0))
+        return nullptr;
     if (!qmltype)
-        return 0;
+        return nullptr;
     return qmltype->metaObject();
 }
 

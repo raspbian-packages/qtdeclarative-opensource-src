@@ -67,15 +67,13 @@ class QQmlProfilerClient : public QQmlDebugClient
 public:
     QQmlProfilerClient(QQmlDebugConnection *connection);
     void setFeatures(quint64 features);
-
-public slots:
     void sendRecordingStatus(bool record, int engineId = -1, quint32 flushInterval = 0);
 
 protected:
     QQmlProfilerClient(QQmlProfilerClientPrivate &dd);
 
 private:
-    virtual void messageReceived(const QByteArray &message);
+    void messageReceived(const QByteArray &message) override;
 
     virtual void traceStarted(qint64 time, int engineId);
     virtual void traceFinished(qint64 time, int engineId);

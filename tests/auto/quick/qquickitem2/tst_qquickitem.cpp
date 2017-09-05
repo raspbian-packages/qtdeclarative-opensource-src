@@ -88,6 +88,7 @@ private slots:
     void keyNavigation_focusReason();
     void keyNavigation_loop();
     void layoutMirroring();
+    void layoutMirroringWindow();
     void layoutMirroringIllegalParent();
     void smooth();
     void antialiasing();
@@ -97,6 +98,7 @@ private slots:
     void mapCoordinatesRect();
     void mapCoordinatesRect_data();
     void propertyChanges();
+    void nonexistentPropertyConnection();
     void transforms();
     void transforms_data();
     void childrenRect();
@@ -1776,11 +1778,28 @@ void tst_QQuickItem::layoutMirroring()
     delete parentItem2;
 }
 
+void tst_QQuickItem::layoutMirroringWindow()
+{
+    QQmlComponent component(&engine);
+    component.loadUrl(testFileUrl("layoutmirroring_window.qml"));
+    QScopedPointer<QObject> object(component.create());
+    QQuickWindow *window = qobject_cast<QQuickWindow *>(object.data());
+    QVERIFY(window);
+    window->show();
+
+    QQuickItemPrivate *content = QQuickItemPrivate::get(window->contentItem());
+    QCOMPARE(content->effectiveLayoutMirror, true);
+    QCOMPARE(content->inheritedLayoutMirror, true);
+    QCOMPARE(content->isMirrorImplicit, false);
+    QCOMPARE(content->inheritMirrorFromParent, true);
+    QCOMPARE(content->inheritMirrorFromItem, true);
+}
+
 void tst_QQuickItem::layoutMirroringIllegalParent()
 {
     QQmlComponent component(&engine);
     component.setData("import QtQuick 2.0; QtObject { LayoutMirroring.enabled: true; LayoutMirroring.childrenInherit: true }", QUrl::fromLocalFile(""));
-    QTest::ignoreMessage(QtWarningMsg, "<Unknown File>:1:21: QML QtObject: LayoutDirection attached property only works with Items");
+    QTest::ignoreMessage(QtWarningMsg, "<Unknown File>:1:21: QML QtObject: LayoutDirection attached property only works with Items and Windows");
     QObject *object = component.create();
     QVERIFY(object != 0);
 }
@@ -2337,6 +2356,14 @@ void tst_QQuickItem::mapCoordinates()
             Q_RETURN_ARG(QVariant, result), Q_ARG(QVariant, x), Q_ARG(QVariant, y)));
     QCOMPARE(result.value<QPointF>(), qobject_cast<QQuickItem*>(a)->mapFromScene(QPointF(x, y)));
 
+    QVERIFY(QMetaObject::invokeMethod(root, "mapAToGlobal",
+            Q_RETURN_ARG(QVariant, result), Q_ARG(QVariant, x), Q_ARG(QVariant, y)));
+    QCOMPARE(result.value<QPointF>(), qobject_cast<QQuickItem*>(a)->mapToGlobal(QPointF(x, y)));
+
+    QVERIFY(QMetaObject::invokeMethod(root, "mapAFromGlobal",
+            Q_RETURN_ARG(QVariant, result), Q_ARG(QVariant, x), Q_ARG(QVariant, y)));
+    QCOMPARE(result.value<QPointF>(), qobject_cast<QQuickItem*>(a)->mapFromGlobal(QPointF(x, y)));
+
     QString warning1 = testFileUrl("mapCoordinates.qml").toString() + ":35:5: QML Item: mapToItem() given argument \"1122\" which is neither null nor an Item";
     QString warning2 = testFileUrl("mapCoordinates.qml").toString() + ":35:5: QML Item: mapFromItem() given argument \"1122\" which is neither null nor an Item";
 
@@ -2586,6 +2613,15 @@ void tst_QQuickItem::propertyChanges()
     delete window;
 }
 
+void tst_QQuickItem::nonexistentPropertyConnection()
+{
+    // QTBUG-56551: don't crash
+    QQmlComponent component(&engine, testFileUrl("nonexistentPropertyConnection.qml"));
+    QObject *o = component.create();
+    QVERIFY(o);
+    delete o;
+}
+
 void tst_QQuickItem::childrenRect()
 {
     QQuickView *window = new QQuickView(0);
@@ -2698,113 +2734,122 @@ void tst_QQuickItem::childrenRectBottomRightCorner()
 
 struct TestListener : public QQuickItemChangeListener
 {
-    TestListener(bool remove = false) : remove(remove) { reset(); }
+    TestListener(bool remove = false) : remove(remove) { }
 
-    void itemGeometryChanged(QQuickItem *, const QRectF &newGeometry, const QRectF &) override { ++itemGeometryChanges; value = newGeometry; }
-    void itemSiblingOrderChanged(QQuickItem *) override { ++itemSiblingOrderChanges; }
-    void itemVisibilityChanged(QQuickItem *) override { ++itemVisibilityChanges; }
-    void itemOpacityChanged(QQuickItem *) override { ++itemOpacityChanges; }
-    void itemRotationChanged(QQuickItem *) override { ++itemRotationChanges; }
-    void itemImplicitWidthChanged(QQuickItem *) override { ++itemImplicitWidthChanges; }
-    void itemImplicitHeightChanged(QQuickItem *) override { ++itemImplicitHeightChanges; }
-
+    void itemGeometryChanged(QQuickItem *item, QQuickGeometryChange, const QRectF &oldGeometry) override
+    {
+        record(item, QQuickItemPrivate::Geometry, oldGeometry);
+    }
+    void itemSiblingOrderChanged(QQuickItem *item) override
+    {
+        record(item, QQuickItemPrivate::SiblingOrder);
+    }
+    void itemVisibilityChanged(QQuickItem *item) override
+    {
+        record(item, QQuickItemPrivate::Visibility);
+    }
+    void itemOpacityChanged(QQuickItem *item) override
+    {
+        record(item, QQuickItemPrivate::Opacity);
+    }
+    void itemRotationChanged(QQuickItem *item) override
+    {
+        record(item, QQuickItemPrivate::Rotation);
+    }
+    void itemImplicitWidthChanged(QQuickItem *item) override
+    {
+        record(item, QQuickItemPrivate::ImplicitWidth);
+    }
+    void itemImplicitHeightChanged(QQuickItem *item) override
+    {
+        record(item, QQuickItemPrivate::ImplicitHeight);
+    }
     void itemDestroyed(QQuickItem *item) override
     {
-        ++itemDestructions;
-        // QTBUG-53453
-        if (remove)
-            QQuickItemPrivate::get(item)->removeItemChangeListener(this, QQuickItemPrivate::Destroyed);
+        record(item, QQuickItemPrivate::Destroyed);
     }
     void itemChildAdded(QQuickItem *item, QQuickItem *child) override
     {
-        ++itemChildAdditions;
-        value = QVariant::fromValue(child);
-        // QTBUG-53453
-        if (remove)
-            QQuickItemPrivate::get(item)->removeItemChangeListener(this, QQuickItemPrivate::Children);
+        record(item, QQuickItemPrivate::Children, QVariant::fromValue(child));
     }
     void itemChildRemoved(QQuickItem *item, QQuickItem *child) override
     {
-        ++itemChildRemovals;
-        value = QVariant::fromValue(child);
-        // QTBUG-53453
-        if (remove)
-            QQuickItemPrivate::get(item)->removeItemChangeListener(this, QQuickItemPrivate::Children);
+        record(item, QQuickItemPrivate::Children, QVariant::fromValue(child));
     }
     void itemParentChanged(QQuickItem *item, QQuickItem *parent) override
     {
-        ++itemParentChanges;
-        value = QVariant::fromValue(parent);
-        // QTBUG-53453
-        if (remove)
-            QQuickItemPrivate::get(item)->removeItemChangeListener(this, QQuickItemPrivate::Parent);
+        record(item, QQuickItemPrivate::Parent, QVariant::fromValue(parent));
     }
 
     QQuickAnchorsPrivate *anchorPrivate() override { return nullptr; }
 
-    void reset()
+    void record(QQuickItem *item, QQuickItemPrivate::ChangeType change, const QVariant &value = QVariant())
     {
-        value = QVariant();
-        itemGeometryChanges = 0;
-        itemSiblingOrderChanges = 0;
-        itemVisibilityChanges = 0;
-        itemOpacityChanges = 0;
-        itemDestructions = 0;
-        itemChildAdditions = 0;
-        itemChildRemovals = 0;
-        itemParentChanges = 0;
-        itemRotationChanges = 0;
-        itemImplicitWidthChanges = 0;
-        itemImplicitHeightChanges = 0;
+        changes += change;
+        values[change] = value;
+        // QTBUG-54732
+        if (remove)
+            QQuickItemPrivate::get(item)->removeItemChangeListener(this, change);
+    }
+
+    int count(QQuickItemPrivate::ChangeType change) const
+    {
+        return changes.count(change);
+    }
+
+    QVariant value(QQuickItemPrivate::ChangeType change) const
+    {
+        return values.value(change);
     }
 
     bool remove;
-    QVariant value;
-    int itemGeometryChanges;
-    int itemSiblingOrderChanges;
-    int itemVisibilityChanges;
-    int itemOpacityChanges;
-    int itemDestructions;
-    int itemChildAdditions;
-    int itemChildRemovals;
-    int itemParentChanges;
-    int itemRotationChanges;
-    int itemImplicitWidthChanges;
-    int itemImplicitHeightChanges;
+    QList<QQuickItemPrivate::ChangeType> changes;
+    QHash<QQuickItemPrivate::ChangeType, QVariant> values;
 };
 
 void tst_QQuickItem::changeListener()
 {
-    QQuickItem item;
+    QQuickWindow window;
+    window.show();
+    QTest::qWaitForWindowExposed(&window);
+
+    QQuickItem *item = new QQuickItem;
     TestListener itemListener;
-    QQuickItemPrivate::get(&item)->addItemChangeListener(&itemListener, QQuickItemPrivate::Geometry | QQuickItemPrivate::ImplicitWidth | QQuickItemPrivate::ImplicitHeight |
-                                                                        QQuickItemPrivate::Opacity | QQuickItemPrivate::Rotation);
+    QQuickItemPrivate::get(item)->addItemChangeListener(&itemListener, QQuickItemPrivate::ChangeTypes(0xffff));
 
-    item.setImplicitWidth(50);
-    QCOMPARE(itemListener.itemImplicitWidthChanges, 1);
-    QCOMPARE(itemListener.itemGeometryChanges, 1);
-    QCOMPARE(itemListener.value, QVariant(QRectF(0,0,50,0)));
+    item->setImplicitWidth(10);
+    QCOMPARE(itemListener.count(QQuickItemPrivate::ImplicitWidth), 1);
+    QCOMPARE(itemListener.count(QQuickItemPrivate::Geometry), 1);
+    QCOMPARE(itemListener.value(QQuickItemPrivate::Geometry), QVariant(QRectF(0,0,0,0)));
 
-    item.setImplicitHeight(50);
-    QCOMPARE(itemListener.itemImplicitHeightChanges, 1);
-    QCOMPARE(itemListener.itemGeometryChanges, 2);
-    QCOMPARE(itemListener.value, QVariant(QRectF(0,0,50,50)));
+    item->setImplicitHeight(20);
+    QCOMPARE(itemListener.count(QQuickItemPrivate::ImplicitHeight), 1);
+    QCOMPARE(itemListener.count(QQuickItemPrivate::Geometry), 2);
+    QCOMPARE(itemListener.value(QQuickItemPrivate::Geometry), QVariant(QRectF(0,0,10,0)));
 
-    item.setWidth(100);
-    QCOMPARE(itemListener.itemGeometryChanges, 3);
-    QCOMPARE(itemListener.value, QVariant(QRectF(0,0,100,50)));
+    item->setWidth(item->width() + 30);
+    QCOMPARE(itemListener.count(QQuickItemPrivate::Geometry), 3);
+    QCOMPARE(itemListener.value(QQuickItemPrivate::Geometry), QVariant(QRectF(0,0,10,20)));
 
-    item.setHeight(100);
-    QCOMPARE(itemListener.itemGeometryChanges, 4);
-    QCOMPARE(itemListener.value, QVariant(QRectF(0,0,100,100)));
+    item->setHeight(item->height() + 40);
+    QCOMPARE(itemListener.count(QQuickItemPrivate::Geometry), 4);
+    QCOMPARE(itemListener.value(QQuickItemPrivate::Geometry), QVariant(QRectF(0,0,40,20)));
 
-    item.setOpacity(0.5);
-    QCOMPARE(itemListener.itemOpacityChanges, 1);
+    item->setOpacity(0.5);
+    QCOMPARE(itemListener.count(QQuickItemPrivate::Opacity), 1);
 
-    item.setRotation(90);
-    QCOMPARE(itemListener.itemRotationChanges, 1);
+    item->setRotation(90);
+    QCOMPARE(itemListener.count(QQuickItemPrivate::Rotation), 1);
 
-    QQuickItem *parent = new QQuickItem;
+    item->setParentItem(window.contentItem());
+    QCOMPARE(itemListener.count(QQuickItemPrivate::Parent), 1);
+
+    item->setVisible(false);
+    QCOMPARE(itemListener.count(QQuickItemPrivate::Visibility), 1);
+
+    QQuickItemPrivate::get(item)->removeItemChangeListener(&itemListener, QQuickItemPrivate::ChangeTypes(0xffff));
+
+    QQuickItem *parent = new QQuickItem(window.contentItem());
     TestListener parentListener;
     QQuickItemPrivate::get(parent)->addItemChangeListener(&parentListener, QQuickItemPrivate::Children);
 
@@ -2816,44 +2861,71 @@ void tst_QQuickItem::changeListener()
     QQuickItemPrivate::get(child2)->addItemChangeListener(&child2Listener, QQuickItemPrivate::Parent | QQuickItemPrivate::SiblingOrder | QQuickItemPrivate::Destroyed);
 
     child1->setParentItem(parent);
-    QCOMPARE(parentListener.itemChildAdditions, 1);
-    QCOMPARE(parentListener.value, QVariant::fromValue(child1));
-    QCOMPARE(child1Listener.itemParentChanges, 1);
-    QCOMPARE(child1Listener.value, QVariant::fromValue(parent));
+    QCOMPARE(parentListener.count(QQuickItemPrivate::Children), 1);
+    QCOMPARE(parentListener.value(QQuickItemPrivate::Children), QVariant::fromValue(child1));
+    QCOMPARE(child1Listener.count(QQuickItemPrivate::Parent), 1);
+    QCOMPARE(child1Listener.value(QQuickItemPrivate::Parent), QVariant::fromValue(parent));
 
     child2->setParentItem(parent);
-    QCOMPARE(parentListener.itemChildAdditions, 2);
-    QCOMPARE(parentListener.value, QVariant::fromValue(child2));
-    QCOMPARE(child2Listener.itemParentChanges, 1);
-    QCOMPARE(child2Listener.value, QVariant::fromValue(parent));
+    QCOMPARE(parentListener.count(QQuickItemPrivate::Children), 2);
+    QCOMPARE(parentListener.value(QQuickItemPrivate::Children), QVariant::fromValue(child2));
+    QCOMPARE(child2Listener.count(QQuickItemPrivate::Parent), 1);
+    QCOMPARE(child2Listener.value(QQuickItemPrivate::Parent), QVariant::fromValue(parent));
 
     child2->stackBefore(child1);
-    QCOMPARE(child1Listener.itemSiblingOrderChanges, 1);
-    QCOMPARE(child2Listener.itemSiblingOrderChanges, 1);
+    QCOMPARE(child1Listener.count(QQuickItemPrivate::SiblingOrder), 1);
+    QCOMPARE(child2Listener.count(QQuickItemPrivate::SiblingOrder), 1);
 
     child1->setParentItem(nullptr);
-    QCOMPARE(parentListener.itemChildRemovals, 1);
-    QCOMPARE(parentListener.value, QVariant::fromValue(child1));
-    QCOMPARE(child1Listener.itemParentChanges, 2);
-    QCOMPARE(child1Listener.value, QVariant::fromValue<QQuickItem *>(nullptr));
+    QCOMPARE(parentListener.count(QQuickItemPrivate::Children), 3);
+    QCOMPARE(parentListener.value(QQuickItemPrivate::Children), QVariant::fromValue(child1));
+    QCOMPARE(child1Listener.count(QQuickItemPrivate::Parent), 2);
+    QCOMPARE(child1Listener.value(QQuickItemPrivate::Parent), QVariant::fromValue<QQuickItem *>(nullptr));
 
     delete child1;
-    QCOMPARE(child1Listener.itemDestructions, 1);
+    QCOMPARE(child1Listener.count(QQuickItemPrivate::Destroyed), 1);
 
     delete child2;
-    QCOMPARE(parentListener.itemChildRemovals, 2);
-    QCOMPARE(parentListener.value, QVariant::fromValue(child2));
-    QCOMPARE(child2Listener.itemParentChanges, 2);
-    QCOMPARE(child2Listener.value, QVariant::fromValue<QQuickItem *>(nullptr));
-    QCOMPARE(child2Listener.itemDestructions, 1);
+    QCOMPARE(parentListener.count(QQuickItemPrivate::Children), 4);
+    QCOMPARE(parentListener.value(QQuickItemPrivate::Children), QVariant::fromValue(child2));
+    QCOMPARE(child2Listener.count(QQuickItemPrivate::Parent), 2);
+    QCOMPARE(child2Listener.value(QQuickItemPrivate::Parent), QVariant::fromValue<QQuickItem *>(nullptr));
+    QCOMPARE(child2Listener.count(QQuickItemPrivate::Destroyed), 1);
 
     QQuickItemPrivate::get(parent)->removeItemChangeListener(&parentListener, QQuickItemPrivate::Children);
     QCOMPARE(QQuickItemPrivate::get(parent)->changeListeners.count(), 0);
 
-    // QTBUG-53453: all listeners should get invoked even if they remove themselves while iterating the listeners
+    // QTBUG-54732: all listeners should get invoked even if they remove themselves while iterating the listeners
     QList<TestListener *> listeners;
     for (int i = 0; i < 5; ++i)
         listeners << new TestListener(true);
+
+    // itemVisibilityChanged x 5
+    foreach (TestListener *listener, listeners)
+        QQuickItemPrivate::get(parent)->addItemChangeListener(listener, QQuickItemPrivate::Visibility);
+    QCOMPARE(QQuickItemPrivate::get(parent)->changeListeners.count(), listeners.count());
+    parent->setVisible(false);
+    foreach (TestListener *listener, listeners)
+        QCOMPARE(listener->count(QQuickItemPrivate::Visibility), 1);
+    QCOMPARE(QQuickItemPrivate::get(parent)->changeListeners.count(), 0);
+
+    // itemRotationChanged x 5
+    foreach (TestListener *listener, listeners)
+        QQuickItemPrivate::get(parent)->addItemChangeListener(listener, QQuickItemPrivate::Rotation);
+    QCOMPARE(QQuickItemPrivate::get(parent)->changeListeners.count(), listeners.count());
+    parent->setRotation(90);
+    foreach (TestListener *listener, listeners)
+        QCOMPARE(listener->count(QQuickItemPrivate::Rotation), 1);
+    QCOMPARE(QQuickItemPrivate::get(parent)->changeListeners.count(), 0);
+
+    // itemOpacityChanged x 5
+    foreach (TestListener *listener, listeners)
+        QQuickItemPrivate::get(parent)->addItemChangeListener(listener, QQuickItemPrivate::Opacity);
+    QCOMPARE(QQuickItemPrivate::get(parent)->changeListeners.count(), listeners.count());
+    parent->setOpacity(0.5);
+    foreach (TestListener *listener, listeners)
+        QCOMPARE(listener->count(QQuickItemPrivate::Opacity), 1);
+    QCOMPARE(QQuickItemPrivate::get(parent)->changeListeners.count(), 0);
 
     // itemChildAdded() x 5
     foreach (TestListener *listener, listeners)
@@ -2861,7 +2933,7 @@ void tst_QQuickItem::changeListener()
     QCOMPARE(QQuickItemPrivate::get(parent)->changeListeners.count(), listeners.count());
     child1 = new QQuickItem(parent);
     foreach (TestListener *listener, listeners)
-        QCOMPARE(listener->itemChildAdditions, 1);
+        QCOMPARE(listener->count(QQuickItemPrivate::Children), 1);
     QCOMPARE(QQuickItemPrivate::get(parent)->changeListeners.count(), 0);
 
     // itemParentChanged() x 5
@@ -2870,8 +2942,35 @@ void tst_QQuickItem::changeListener()
     QCOMPARE(QQuickItemPrivate::get(child1)->changeListeners.count(), listeners.count());
     child1->setParentItem(nullptr);
     foreach (TestListener *listener, listeners)
-        QCOMPARE(listener->itemParentChanges, 1);
+        QCOMPARE(listener->count(QQuickItemPrivate::Parent), 1);
     QCOMPARE(QQuickItemPrivate::get(child1)->changeListeners.count(), 0);
+
+    // itemImplicitWidthChanged() x 5
+    foreach (TestListener *listener, listeners)
+        QQuickItemPrivate::get(parent)->addItemChangeListener(listener, QQuickItemPrivate::ImplicitWidth);
+    QCOMPARE(QQuickItemPrivate::get(parent)->changeListeners.count(), listeners.count());
+    parent->setImplicitWidth(parent->implicitWidth() + 1);
+    foreach (TestListener *listener, listeners)
+        QCOMPARE(listener->count(QQuickItemPrivate::ImplicitWidth), 1);
+    QCOMPARE(QQuickItemPrivate::get(parent)->changeListeners.count(), 0);
+
+    // itemImplicitHeightChanged() x 5
+    foreach (TestListener *listener, listeners)
+        QQuickItemPrivate::get(parent)->addItemChangeListener(listener, QQuickItemPrivate::ImplicitHeight);
+    QCOMPARE(QQuickItemPrivate::get(parent)->changeListeners.count(), listeners.count());
+    parent->setImplicitHeight(parent->implicitHeight() + 1);
+    foreach (TestListener *listener, listeners)
+        QCOMPARE(listener->count(QQuickItemPrivate::ImplicitHeight), 1);
+    QCOMPARE(QQuickItemPrivate::get(parent)->changeListeners.count(), 0);
+
+    // itemGeometryChanged() x 5
+    foreach (TestListener *listener, listeners)
+        QQuickItemPrivate::get(parent)->addItemChangeListener(listener, QQuickItemPrivate::Geometry);
+    QCOMPARE(QQuickItemPrivate::get(parent)->changeListeners.count(), listeners.count());
+    parent->setWidth(parent->width() + 1);
+    foreach (TestListener *listener, listeners)
+        QCOMPARE(listener->count(QQuickItemPrivate::Geometry), 1);
+    QCOMPARE(QQuickItemPrivate::get(parent)->changeListeners.count(), 0);
 
     // itemChildRemoved() x 5
     child1->setParentItem(parent);
@@ -2880,7 +2979,7 @@ void tst_QQuickItem::changeListener()
     QCOMPARE(QQuickItemPrivate::get(parent)->changeListeners.count(), listeners.count());
     delete child1;
     foreach (TestListener *listener, listeners)
-        QCOMPARE(listener->itemChildRemovals, 1);
+        QCOMPARE(listener->count(QQuickItemPrivate::Children), 2);
     QCOMPARE(QQuickItemPrivate::get(parent)->changeListeners.count(), 0);
 
     // itemDestroyed() x 5
@@ -2889,7 +2988,7 @@ void tst_QQuickItem::changeListener()
     QCOMPARE(QQuickItemPrivate::get(parent)->changeListeners.count(), listeners.count());
     delete parent;
     foreach (TestListener *listener, listeners)
-        QCOMPARE(listener->itemDestructions, 1);
+        QCOMPARE(listener->count(QQuickItemPrivate::Destroyed), 1);
 }
 
 // QTBUG-13893
@@ -3044,7 +3143,7 @@ void tst_QQuickItem::parentLoop()
 {
     QQuickView *window = new QQuickView(0);
 
-#ifndef QT_NO_REGULAREXPRESSION
+#if QT_CONFIG(regularexpression)
     QRegularExpression msgRegexp = QRegularExpression("QQuickItem::setParentItem: Parent QQuickItem\\(.*\\) is already part of the subtree of QQuickItem\\(.*\\)");
     QTest::ignoreMessage(QtWarningMsg, msgRegexp);
 #endif
@@ -3215,7 +3314,7 @@ void tst_QQuickItem::grab()
     QVERIFY(root);
     QQuickItem *item = root->findChild<QQuickItem *>("myItem");
     QVERIFY(item);
-
+#if QT_CONFIG(opengl)
     { // Default size (item is 100x100)
         QSharedPointer<QQuickItemGrabResult> result = item->grabToImage();
         QSignalSpy spy(result.data(), SIGNAL(ready()));
@@ -3236,7 +3335,7 @@ void tst_QQuickItem::grab()
         QCOMPARE(image.pixel(0, 0), qRgb(255, 0, 0));
         QCOMPARE(image.pixel(49, 49), qRgb(0, 0, 255));
     }
-
+#endif
 }
 
 void tst_QQuickItem::isAncestorOf()

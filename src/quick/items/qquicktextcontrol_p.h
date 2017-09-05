@@ -59,6 +59,7 @@
 #include <QtGui/qabstracttextdocumentlayout.h>
 #include <QtGui/qtextdocumentfragment.h>
 #include <QtGui/qclipboard.h>
+#include <QtGui/private/qinputcontrol_p.h>
 #include <QtCore/qmimedata.h>
 
 QT_BEGIN_NAMESPACE
@@ -71,7 +72,7 @@ class QAbstractScrollArea;
 class QEvent;
 class QTimerEvent;
 
-class Q_AUTOTEST_EXPORT QQuickTextControl : public QObject
+class Q_AUTOTEST_EXPORT QQuickTextControl : public QInputControl
 {
     Q_OBJECT
     Q_DECLARE_PRIVATE(QQuickTextControl)
@@ -89,11 +90,13 @@ public:
 
     QString toPlainText() const;
 
-#ifndef QT_NO_TEXTHTMLPARSER
+#if QT_CONFIG(texthtmlparser)
     QString toHtml() const;
 #endif
 
     bool hasImState() const;
+    bool overwriteMode() const;
+    void setOverwriteMode(bool overwrite);
     bool cursorVisible() const;
     void setCursorVisible(bool visible);
     QRectF anchorRect() const;
@@ -127,7 +130,7 @@ public Q_SLOTS:
     void setPlainText(const QString &text);
     void setHtml(const QString &text);
 
-#ifndef QT_NO_CLIPBOARD
+#if QT_CONFIG(clipboard)
     void cut();
     void copy();
     void paste(QClipboard::Mode mode = QClipboard::Clipboard);
@@ -149,6 +152,7 @@ Q_SIGNALS:
     void copyAvailable(bool b);
     void selectionChanged();
     void cursorPositionChanged();
+    void overwriteModeChanged(bool overwriteMode);
 
     // control signals
     void updateCursorRequest();
@@ -161,7 +165,7 @@ public:
     virtual void processEvent(QEvent *e, const QMatrix &matrix);
     void processEvent(QEvent *e, const QPointF &coordinateOffset = QPointF());
 
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
     virtual QVariant inputMethodQuery(Qt::InputMethodQuery property) const;
     Q_INVOKABLE QVariant inputMethodQuery(Qt::InputMethodQuery query, QVariant argument) const;
 #endif
@@ -190,9 +194,11 @@ class QQuickTextEditMimeData : public QMimeData
 public:
     inline QQuickTextEditMimeData(const QTextDocumentFragment &aFragment) : fragment(aFragment) {}
 
-    virtual QStringList formats() const;
+    QStringList formats() const override;
+
 protected:
-    virtual QVariant retrieveData(const QString &mimeType, QVariant::Type type) const;
+    QVariant retrieveData(const QString &mimeType, QVariant::Type type) const override;
+
 private:
     void setup() const;
 

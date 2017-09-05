@@ -151,9 +151,15 @@ public:
     // Compilation unit for contexts that belong to a compiled type.
     QQmlRefPointer<QV4::CompiledData::CompilationUnit> typeCompilationUnit;
 
-    mutable QHash<int, int> objectIndexToId;
+    // object index in CompiledData::Unit to component that created this context
+    int componentObjectIndex;
+
+    void initFromTypeCompilationUnit(const QQmlRefPointer<QV4::CompiledData::CompilationUnit> &unit, int subComponentIndex);
+
+    // flag indicates whether the context owns the cache (after mutation) or not.
     mutable QV4::IdentifierHash<int> propertyNameCache;
-    QV4::IdentifierHash<int> &propertyNames() const;
+    const QV4::IdentifierHash<int> &propertyNames() const;
+    QV4::IdentifierHash<int> &detachedPropertyNames();
 
     // Context object
     QObject *contextObject;
@@ -168,7 +174,7 @@ public:
     QString urlString() const;
 
     // List of imports that apply to this context
-    QQmlTypeNameCache *imports;
+    QQmlRefPointer<QQmlTypeNameCache> imports;
 
     // My children
     QQmlContextData *childContexts;
@@ -191,7 +197,7 @@ public:
     {
         inline ContextGuard();
         inline ContextGuard &operator=(QObject *obj);
-        inline void objectDestroyed(QObject *);
+        inline void objectDestroyed(QObject *) override;
 
         inline bool wasSet() const;
 
@@ -201,7 +207,6 @@ public:
     ContextGuard *idValues;
     int idValueCount;
     void setIdProperty(int, QObject *);
-    void setIdPropertyData(const QHash<int, int> &);
 
     // Linked contexts. this owns linkedContext.
     QQmlContextData *linkedContext;
@@ -230,7 +235,7 @@ public:
     inline QQmlGuardedContextData(QQmlContextData *);
     inline ~QQmlGuardedContextData();
 
-    inline QQmlContextData *contextData();
+    inline QQmlContextData *contextData() const;
     inline void setContextData(QQmlContextData *);
 
     inline bool isNull() const { return !m_contextData; }
@@ -280,7 +285,7 @@ void QQmlGuardedContextData::setContextData(QQmlContextData *contextData)
     }
 }
 
-QQmlContextData *QQmlGuardedContextData::contextData()
+QQmlContextData *QQmlGuardedContextData::contextData() const
 {
     return m_contextData;
 }

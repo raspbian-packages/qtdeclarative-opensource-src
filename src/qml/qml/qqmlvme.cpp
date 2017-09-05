@@ -39,7 +39,6 @@
 
 #include "qqmlvme_p.h"
 
-#include "qqmlcompiler_p.h"
 #include "qqmlboundsignal_p.h"
 #include "qqmlstringconverters_p.h"
 #include <private/qmetaobjectbuilder_p.h>
@@ -63,7 +62,6 @@
 #include "qqmlpropertyvalueinterceptor_p.h"
 #include "qqmlvaluetypeproxybinding_p.h"
 #include "qqmlexpression_p.h"
-#include "qqmlcontextwrapper_p.h"
 
 #include <QStack>
 #include <QPointF>
@@ -120,6 +118,18 @@ void QQmlVMEGuard::guard(QQmlObjectCreator *creator)
     m_contextCount = 1;
     m_contexts = new QQmlGuardedContextData[m_contextCount];
     m_contexts[0] = creator->parentContextData();
+}
+
+void QQmlVMEGuard::unguard(QObject *object)
+{
+    for (int ii = 0; ii < m_objectCount; ++ii) {
+        if (m_objects[ii] == object) {
+            if (ii < m_objectCount - 1)
+                ::memmove((void *) m_objects[ii], (void *) m_objects[ii + 1], sizeof(QPointer<QObject> *));
+            delete m_objects[--m_objectCount];
+            break;
+        }
+    }
 }
 
 void QQmlVMEGuard::clear()

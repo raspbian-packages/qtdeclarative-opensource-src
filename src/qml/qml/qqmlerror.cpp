@@ -44,6 +44,7 @@
 #include <QtCore/qfile.h>
 #include <QtCore/qstringlist.h>
 #include <QtCore/qvector.h>
+#include <QtCore/qpointer.h>
 
 #include <private/qv4errorobject_p.h>
 
@@ -85,11 +86,12 @@ public:
     QString description;
     quint16 line;
     quint16 column;
-    QObject *object;
+    QtMsgType messageType;
+    QPointer<QObject> object;
 };
 
 QQmlErrorPrivate::QQmlErrorPrivate()
-: line(0), column(0), object()
+: line(0), column(0), messageType(QtMsgType::QtWarningMsg), object()
 {
 }
 
@@ -119,12 +121,14 @@ QQmlError &QQmlError::operator=(const QQmlError &other)
         delete d;
         d = 0;
     } else {
-        if (!d) d = new QQmlErrorPrivate;
+        if (!d)
+            d = new QQmlErrorPrivate;
         d->url = other.d->url;
         d->description = other.d->description;
         d->line = other.d->line;
         d->column = other.d->column;
         d->object = other.d->object;
+        d->messageType = other.d->messageType;
     }
     return *this;
 }
@@ -150,8 +154,9 @@ bool QQmlError::isValid() const
 */
 QUrl QQmlError::url() const
 {
-    if (d) return d->url;
-    else return QUrl();
+    if (d)
+        return d->url;
+    return QUrl();
 }
 
 /*!
@@ -159,7 +164,8 @@ QUrl QQmlError::url() const
 */
 void QQmlError::setUrl(const QUrl &url)
 {
-    if (!d) d = new QQmlErrorPrivate;
+    if (!d)
+        d = new QQmlErrorPrivate;
     d->url = url;
 }
 
@@ -168,8 +174,9 @@ void QQmlError::setUrl(const QUrl &url)
 */
 QString QQmlError::description() const
 {
-    if (d) return d->description;
-    else return QString();
+    if (d)
+        return d->description;
+    return QString();
 }
 
 /*!
@@ -177,7 +184,8 @@ QString QQmlError::description() const
 */
 void QQmlError::setDescription(const QString &description)
 {
-    if (!d) d = new QQmlErrorPrivate;
+    if (!d)
+        d = new QQmlErrorPrivate;
     d->description = description;
 }
 
@@ -186,8 +194,9 @@ void QQmlError::setDescription(const QString &description)
 */
 int QQmlError::line() const
 {
-    if (d) return qmlSourceCoordinate(d->line);
-    else return -1;
+    if (d)
+        return qmlSourceCoordinate(d->line);
+    return -1;
 }
 
 /*!
@@ -195,7 +204,8 @@ int QQmlError::line() const
 */
 void QQmlError::setLine(int line)
 {
-    if (!d) d = new QQmlErrorPrivate;
+    if (!d)
+        d = new QQmlErrorPrivate;
     d->line = qmlSourceCoordinate(line);
 }
 
@@ -204,8 +214,9 @@ void QQmlError::setLine(int line)
 */
 int QQmlError::column() const
 {
-    if (d) return qmlSourceCoordinate(d->column);
-    else return -1;
+    if (d)
+        return qmlSourceCoordinate(d->column);
+    return -1;
 }
 
 /*!
@@ -213,7 +224,8 @@ int QQmlError::column() const
 */
 void QQmlError::setColumn(int column)
 {
-    if (!d) d = new QQmlErrorPrivate;
+    if (!d)
+        d = new QQmlErrorPrivate;
     d->column = qmlSourceCoordinate(column);
 }
 
@@ -225,8 +237,9 @@ void QQmlError::setColumn(int column)
  */
 QObject *QQmlError::object() const
 {
-    if (d) return d->object;
-    else return 0;
+    if (d)
+        return d->object;
+    return 0;
 }
 
 /*!
@@ -234,8 +247,34 @@ QObject *QQmlError::object() const
  */
 void QQmlError::setObject(QObject *object)
 {
-    if (!d) d = new QQmlErrorPrivate;
+    if (!d)
+        d = new QQmlErrorPrivate;
     d->object = object;
+}
+
+/*!
+    \since 5.9
+
+    Returns the message type.
+ */
+QtMsgType QQmlError::messageType() const
+{
+    if (d)
+        return d->messageType;
+    return QtMsgType::QtWarningMsg;
+}
+
+/*!
+    \since 5.9
+
+    Sets the \a messageType for this message. The message type determines which
+    QDebug handlers are responsible for recieving the message.
+ */
+void QQmlError::setMessageType(QtMsgType messageType)
+{
+    if (!d)
+        d = new QQmlErrorPrivate;
+    d->messageType = messageType;
 }
 
 /*!
@@ -249,9 +288,9 @@ QString QQmlError::toString() const
     int l(line());
 
     if (u.isEmpty() || (u.isLocalFile() && u.path().isEmpty()))
-        rv = QLatin1String("<Unknown File>");
+        rv += QLatin1String("<Unknown File>");
     else
-        rv = u.toString();
+        rv += u.toString();
 
     if (l != -1) {
         rv += QLatin1Char(':') + QString::number(l);
@@ -285,7 +324,7 @@ QDebug operator<<(QDebug debug, const QQmlError &error)
         if (f.open(QIODevice::ReadOnly)) {
             QByteArray data = f.readAll();
             QTextStream stream(data, QIODevice::ReadOnly);
-#ifndef QT_NO_TEXTCODEC
+#if QT_CONFIG(textcodec)
             stream.setCodec("UTF-8");
 #endif
             const QString code = stream.readAll();

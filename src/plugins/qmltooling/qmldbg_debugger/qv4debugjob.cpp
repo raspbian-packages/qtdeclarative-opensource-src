@@ -41,7 +41,9 @@
 
 #include <private/qv4script_p.h>
 #include <private/qqmlcontext_p.h>
+#include <private/qv4qmlcontext_p.h>
 #include <private/qv4qobjectwrapper_p.h>
+#include <private/qqmldebugservice_p.h>
 
 #include <QtQml/qqmlengine.h>
 
@@ -51,9 +53,10 @@ QV4DebugJob::~QV4DebugJob()
 {
 }
 
-JavaScriptJob::JavaScriptJob(QV4::ExecutionEngine *engine, int frameNr,
-                                   const QString &script) :
-    engine(engine), frameNr(frameNr), script(script), resultIsException(false)
+JavaScriptJob::JavaScriptJob(QV4::ExecutionEngine *engine, int frameNr, int context,
+                             const QString &script) :
+    engine(engine), frameNr(frameNr), context(context), script(script),
+    resultIsException(false)
 {}
 
 void JavaScriptJob::run()
@@ -64,7 +67,23 @@ void JavaScriptJob::run()
 
     QV4::ExecutionContext *ctx = engine->currentContext;
     QObject scopeObject;
-    if (frameNr < 0) { // Use QML context if available
+
+    if (frameNr > 0) {
+        for (int i = 0; i < frameNr; ++i) {
+            ctx = engine->parentContext(ctx);
+        }
+        engine->pushContext(ctx);
+        ctx = engine->currentContext;
+    }
+
+    if (context >= 0) {
+        QQmlContext *extraContext = qmlContext(QQmlDebugService::objectForId(context));
+        if (extraContext) {
+            engine->pushContext(QV4::QmlContext::create(ctx, QQmlContextData::get(extraContext),
+                                                        &scopeObject));
+            ctx = engine->currentContext;
+        }
+    } else if (frameNr < 0) { // Use QML context if available
         QQmlEngine *qmlEngine = engine->qmlEngine();
         if (qmlEngine) {
             QQmlContext *qmlRootContext = qmlEngine->rootContext();
@@ -81,19 +100,12 @@ void JavaScriptJob::run()
                 }
             }
             if (!engine->qmlContext()) {
-                engine->pushContext(ctx->newQmlContext(QQmlContextData::get(qmlRootContext),
+                engine->pushContext(QV4::QmlContext::create(ctx, QQmlContextData::get(qmlRootContext),
                                                        &scopeObject));
                 ctx = engine->currentContext;
             }
             engine->pushContext(ctx->newWithContext(withContext->toObject(engine)));
             ctx = engine->currentContext;
-        }
-    } else {
-        if (frameNr > 0) {
-            for (int i = 0; i < frameNr; ++i) {
-                ctx = engine->parentContext(ctx);
-            }
-            engine->pushContext(ctx);
         }
     }
 
@@ -136,7 +148,7 @@ void BacktraceJob::run()
         result.insert(QStringLiteral("toFrame"), fromFrame + frameArray.size());
         result.insert(QStringLiteral("frames"), frameArray);
     }
-    collectedRefs = collector->flushCollectedRefs();
+    flushRedundantRefs();
 }
 
 FrameJob::FrameJob(QV4DataCollector *collector, int frameNr) :
@@ -151,7 +163,7 @@ void FrameJob::run()
         success = false;
     } else {
         result = collector->buildFrame(frames[frameNr], frameNr);
-        collectedRefs = collector->flushCollectedRefs();
+        flushRedundantRefs();
         success = true;
     }
 }
@@ -181,7 +193,7 @@ void ScopeJob::run()
     result[QLatin1String("index")] = scopeNr;
     result[QLatin1String("frameIndex")] = frameNr;
     result[QLatin1String("object")] = object;
-    collectedRefs = collector->flushCollectedRefs();
+    flushRedundantRefs();
 }
 
 bool ScopeJob::wasSuccessful() const
@@ -201,19 +213,19 @@ void ValueLookupJob::run()
     QV4::ExecutionEngine *engine = collector->engine();
     if (engine->qmlEngine() && !engine->qmlContext()) {
         scopeObject.reset(new QObject);
-        engine->pushContext(engine->currentContext->newQmlContext(
+        engine->pushContext(QV4::QmlContext::create(engine->currentContext,
                                 QQmlContextData::get(engine->qmlEngine()->rootContext()),
                                 scopeObject.data()));
     }
-    foreach (const QJsonValue &handle, handles) {
+    for (const QJsonValue &handle : handles) {
         QV4DataCollector::Ref ref = handle.toInt();
         if (!collector->isValidRef(ref)) {
             exception = QString::fromLatin1("Invalid Ref: %1").arg(ref);
             break;
         }
-        result[QString::number(ref)] = collector->lookupRef(ref);
+        result[QString::number(ref)] = collector->lookupRef(ref, true);
     }
-    collectedRefs = collector->flushCollectedRefs();
+    flushRedundantRefs();
     if (scopeObject)
         engine->popContext();
 }
@@ -224,8 +236,9 @@ const QString &ValueLookupJob::exceptionMessage() const
 }
 
 ExpressionEvalJob::ExpressionEvalJob(QV4::ExecutionEngine *engine, int frameNr,
-                                     const QString &expression, QV4DataCollector *collector) :
-    JavaScriptJob(engine, frameNr, expression), collector(collector)
+                                     int context, const QString &expression,
+                                     QV4DataCollector *collector) :
+    JavaScriptJob(engine, frameNr, context, expression), collector(collector)
 {
 }
 
@@ -233,8 +246,9 @@ void ExpressionEvalJob::handleResult(QV4::ScopedValue &value)
 {
     if (hasExeption())
         exception = value->toQStringNoThrow();
-    result = collector->lookupRef(collector->collect(value));
-    collectedRefs = collector->flushCollectedRefs();
+    result = collector->lookupRef(collector->collect(value), true);
+    if (collector->redundantRefs())
+        collectedRefs = collector->flushCollectedRefs();
 }
 
 const QString &ExpressionEvalJob::exceptionMessage() const
@@ -247,8 +261,10 @@ const QJsonObject &ExpressionEvalJob::returnValue() const
     return result;
 }
 
+// TODO: Drop this method once we don't need to support redundantRefs anymore
 const QJsonArray &ExpressionEvalJob::refs() const
 {
+    Q_ASSERT(collector->redundantRefs());
     return collectedRefs;
 }
 
@@ -258,7 +274,7 @@ GatherSourcesJob::GatherSourcesJob(QV4::ExecutionEngine *engine)
 
 void GatherSourcesJob::run()
 {
-    foreach (QV4::CompiledData::CompilationUnit *unit, engine->compilationUnits) {
+    for (QV4::CompiledData::CompilationUnit *unit : qAsConst(engine->compilationUnits)) {
         QString fileName = unit->fileName();
         if (!fileName.isEmpty())
             sources.append(fileName);
@@ -271,7 +287,7 @@ const QStringList &GatherSourcesJob::result() const
 }
 
 EvalJob::EvalJob(QV4::ExecutionEngine *engine, const QString &script) :
-    JavaScriptJob(engine, /*frameNr*/-1, script), result(false)
+    JavaScriptJob(engine, /*frameNr*/-1, /*context*/ -1, script), result(false)
 {}
 
 void EvalJob::handleResult(QV4::ScopedValue &result)

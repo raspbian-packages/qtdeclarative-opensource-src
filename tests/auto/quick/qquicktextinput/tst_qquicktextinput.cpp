@@ -105,6 +105,7 @@ private slots:
     void wrap();
     void selection();
     void persistentSelection();
+    void overwriteMode();
     void isRightToLeft_data();
     void isRightToLeft();
     void moveCursorSelection_data();
@@ -134,6 +135,7 @@ private slots:
 
     void signal_accepted();
     void signal_editingfinished();
+    void signal_textEdited();
 
     void passwordCharacter();
     void cursorDelegate_data();
@@ -144,7 +146,7 @@ private slots:
     void cursorRectangle();
     void navigation();
     void navigation_RTL();
-#ifndef QT_NO_CLIPBOARD
+#if QT_CONFIG(clipboard)
     void copyAndPaste();
     void copyAndPasteKeySequence();
     void canPasteEmpty();
@@ -780,6 +782,48 @@ void tst_qquicktextinput::persistentSelection()
 
     input->setFocus(true);
     QCOMPARE(input->property("selected").toString(), QLatin1String("ell"));
+}
+
+void tst_qquicktextinput::overwriteMode()
+{
+    QString componentStr = "import QtQuick 2.0\nTextInput { focus: true; }";
+    QQmlComponent textInputComponent(&engine);
+    textInputComponent.setData(componentStr.toLatin1(), QUrl());
+    QQuickTextInput *textInput = qobject_cast<QQuickTextInput*>(textInputComponent.create());
+    QVERIFY(textInput != 0);
+
+    QSignalSpy spy(textInput, SIGNAL(overwriteModeChanged(bool)));
+
+    QQuickWindow window;
+    textInput->setParentItem(window.contentItem());
+    window.show();
+    window.requestActivate();
+    QTest::qWaitForWindowActive(&window);
+
+    QVERIFY(textInput->hasActiveFocus());
+
+    textInput->setOverwriteMode(true);
+    QCOMPARE(spy.count(), 1);
+    QCOMPARE(true, textInput->overwriteMode());
+    textInput->setOverwriteMode(false);
+    QCOMPARE(spy.count(), 2);
+    QCOMPARE(false, textInput->overwriteMode());
+
+    QVERIFY(!textInput->overwriteMode());
+    QString insertString = "Some first text";
+    for (int j = 0; j < insertString.length(); j++)
+        QTest::keyClick(&window, insertString.at(j).toLatin1());
+
+    QCOMPARE(textInput->text(), QString("Some first text"));
+
+    textInput->setOverwriteMode(true);
+    QCOMPARE(spy.count(), 3);
+    textInput->setCursorPosition(5);
+
+    insertString = "shiny";
+    for (int j = 0; j < insertString.length(); j++)
+        QTest::keyClick(&window, insertString.at(j).toLatin1());
+    QCOMPARE(textInput->text(), QString("Some shiny text"));
 }
 
 void tst_qquicktextinput::isRightToLeft_data()
@@ -2398,6 +2442,57 @@ void tst_qquicktextinput::signal_editingfinished()
     QTRY_COMPARE(editingFinished2Spy.count(), 1);
 }
 
+void tst_qquicktextinput::signal_textEdited()
+{
+    QQuickWindow window;
+    window.show();
+    window.requestActivate();
+    QTest::qWaitForWindowActive(&window);
+
+    QQuickTextInput *input = new QQuickTextInput(window.contentItem());
+    QVERIFY(input);
+
+    QSignalSpy textChangedSpy(input, SIGNAL(textChanged()));
+    QVERIFY(textChangedSpy.isValid());
+
+    QSignalSpy textEditedSpy(input, SIGNAL(textEdited()));
+    QVERIFY(textEditedSpy.isValid());
+
+    input->forceActiveFocus();
+    QTRY_VERIFY(input->hasActiveFocus());
+
+    int textChanges = 0;
+    int textEdits = 0;
+
+    QTest::keyClick(&window, Qt::Key_A);
+    QCOMPARE(textChangedSpy.count(), ++textChanges);
+    QCOMPARE(textEditedSpy.count(), ++textEdits);
+
+    QTest::keyClick(&window, Qt::Key_B);
+    QCOMPARE(textChangedSpy.count(), ++textChanges);
+    QCOMPARE(textEditedSpy.count(), ++textEdits);
+
+    QTest::keyClick(&window, Qt::Key_C);
+    QCOMPARE(textChangedSpy.count(), ++textChanges);
+    QCOMPARE(textEditedSpy.count(), ++textEdits);
+
+    QTest::keyClick(&window, Qt::Key_Space);
+    QCOMPARE(textChangedSpy.count(), ++textChanges);
+    QCOMPARE(textEditedSpy.count(), ++textEdits);
+
+    QTest::keyClick(&window, Qt::Key_Backspace);
+    QCOMPARE(textChangedSpy.count(), ++textChanges);
+    QCOMPARE(textEditedSpy.count(), ++textEdits);
+
+    input->clear();
+    QCOMPARE(textChangedSpy.count(), ++textChanges);
+    QCOMPARE(textEditedSpy.count(), textEdits);
+
+    input->setText("TextInput");
+    QCOMPARE(textChangedSpy.count(), ++textChanges);
+    QCOMPARE(textEditedSpy.count(), textEdits);
+}
+
 /*
 TextInput element should only handle left/right keys until the cursor reaches
 the extent of the text, then they should ignore the keys.
@@ -2489,7 +2584,7 @@ void tst_qquicktextinput::navigation_RTL()
     QVERIFY(input->hasActiveFocus());
 }
 
-#ifndef QT_NO_CLIPBOARD
+#if QT_CONFIG(clipboard)
 void tst_qquicktextinput::copyAndPaste()
 {
     if (!PlatformQuirks::isClipboardAvailable())
@@ -2587,7 +2682,7 @@ void tst_qquicktextinput::copyAndPaste()
 }
 #endif
 
-#ifndef QT_NO_CLIPBOARD
+#if QT_CONFIG(clipboard)
 void tst_qquicktextinput::copyAndPasteKeySequence()
 {
     if (!PlatformQuirks::isClipboardAvailable())
@@ -2655,7 +2750,7 @@ void tst_qquicktextinput::copyAndPasteKeySequence()
 }
 #endif
 
-#ifndef QT_NO_CLIPBOARD
+#if QT_CONFIG(clipboard)
 void tst_qquicktextinput::canPasteEmpty()
 {
     QGuiApplication::clipboard()->clear();
@@ -2671,7 +2766,7 @@ void tst_qquicktextinput::canPasteEmpty()
 }
 #endif
 
-#ifndef QT_NO_CLIPBOARD
+#if QT_CONFIG(clipboard)
 void tst_qquicktextinput::canPaste()
 {
     QGuiApplication::clipboard()->setText("Some text");
@@ -2687,7 +2782,7 @@ void tst_qquicktextinput::canPaste()
 }
 #endif
 
-#ifndef QT_NO_CLIPBOARD
+#if QT_CONFIG(clipboard)
 void tst_qquicktextinput::middleClickPaste()
 {
     if (!PlatformQuirks::isClipboardAvailable())
@@ -3009,7 +3104,7 @@ void tst_qquicktextinput::cursorRectangle_data()
             << false;
 }
 
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
 #define COMPARE_INPUT_METHOD_QUERY(type, input, property, method, result) \
     QCOMPARE((type) input->inputMethodQuery(property).method(), result);
 #else

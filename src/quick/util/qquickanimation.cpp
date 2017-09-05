@@ -192,14 +192,14 @@ QQmlProperty QQuickAbstractAnimationPrivate::createProperty(QObject *obj, const 
         if (errorMessage)
             *errorMessage = message;
         else
-            qmlInfo(infoObj) << message;
+            qmlWarning(infoObj) << message;
         return QQmlProperty();
     } else if (!prop.isWritable()) {
         const QString message = QQuickAbstractAnimation::tr("Cannot animate read-only property \"%1\"").arg(str);
         if (errorMessage)
             *errorMessage = message;
         else
-            qmlInfo(infoObj) << message;
+            qmlWarning(infoObj) << message;
         return QQmlProperty();
     }
     return prop;
@@ -256,7 +256,7 @@ void QQuickAbstractAnimation::setRunning(bool r)
         return;
 
     if (d->group || d->disableUserControl) {
-        qmlInfo(this) << "setRunning() cannot be used on non-root animation nodes.";
+        qmlWarning(this) << "setRunning() cannot be used on non-root animation nodes.";
         return;
     }
 
@@ -322,12 +322,12 @@ void QQuickAbstractAnimation::setPaused(bool p)
         return;
 
     if (!d->running) {
-        qmlInfo(this) << "setPaused() cannot be used when animation isn't running.";
+        qmlWarning(this) << "setPaused() cannot be used when animation isn't running.";
         return;
     }
 
     if (d->group || d->disableUserControl) {
-        qmlInfo(this) << "setPaused() cannot be used on non-root animation nodes.";
+        qmlWarning(this) << "setPaused() cannot be used on non-root animation nodes.";
         return;
     }
 
@@ -709,7 +709,7 @@ int QQuickPauseAnimation::duration() const
 void QQuickPauseAnimation::setDuration(int duration)
 {
     if (duration < 0) {
-        qmlInfo(this) << tr("Cannot set a duration of < 0");
+        qmlWarning(this) << tr("Cannot set a duration of < 0");
         return;
     }
 
@@ -1004,7 +1004,7 @@ void QQuickScriptActionPrivate::execute()
         QQmlExpression expr(scriptStr);
         expr.evaluate();
         if (expr.hasError())
-            qmlInfo(q) << expr.error();
+            qmlWarning(q) << expr.error();
     }
 }
 
@@ -1198,14 +1198,14 @@ QAbstractAnimationJob* QQuickPropertyAction::transition(QQuickStateActions &acti
     struct QQuickSetPropertyAnimationAction : public QAbstractAnimationAction
     {
         QQuickStateActions actions;
-        virtual void doAction()
+        void doAction() override
         {
             for (int ii = 0; ii < actions.count(); ++ii) {
                 const QQuickStateAction &action = actions.at(ii);
-                QQmlPropertyPrivate::write(action.property, action.toValue, QQmlPropertyPrivate::BypassInterceptor | QQmlPropertyPrivate::DontRemoveBinding);
+                QQmlPropertyPrivate::write(action.property, action.toValue, QQmlPropertyData::BypassInterceptor | QQmlPropertyData::DontRemoveBinding);
             }
         }
-        virtual void debugAction(QDebug d, int indentLevel) const {
+        void debugAction(QDebug d, int indentLevel) const override {
             QByteArray ind(indentLevel, ' ');
             for (int ii = 0; ii < actions.count(); ++ii) {
                 const QQuickStateAction &action = actions.at(ii);
@@ -2077,7 +2077,7 @@ int QQuickPropertyAnimation::duration() const
 void QQuickPropertyAnimation::setDuration(int duration)
 {
     if (duration < 0) {
-        qmlInfo(this) << tr("Cannot set a duration of < 0");
+        qmlWarning(this) << tr("Cannot set a duration of < 0");
         return;
     }
 
@@ -2535,7 +2535,7 @@ void QQuickAnimationPropertyUpdater::setValue(qreal v)
         QQuickStateAction &action = actions[ii];
 
         if (v == 1.) {
-            QQmlPropertyPrivate::write(action.property, action.toValue, QQmlPropertyPrivate::BypassInterceptor | QQmlPropertyPrivate::DontRemoveBinding);
+            QQmlPropertyPrivate::write(action.property, action.toValue, QQmlPropertyData::BypassInterceptor | QQmlPropertyData::DontRemoveBinding);
         } else {
             if (!fromSourced && !fromDefined) {
                 action.fromValue = action.property.read();
@@ -2551,7 +2551,7 @@ void QQuickAnimationPropertyUpdater::setValue(qreal v)
                 }
             }
             if (interpolator)
-                QQmlPropertyPrivate::write(action.property, interpolator(action.fromValue.constData(), action.toValue.constData(), v), QQmlPropertyPrivate::BypassInterceptor | QQmlPropertyPrivate::DontRemoveBinding);
+                QQmlPropertyPrivate::write(action.property, interpolator(action.fromValue.constData(), action.toValue.constData(), v), QQmlPropertyData::BypassInterceptor | QQmlPropertyData::DontRemoveBinding);
         }
         if (deleted)
             return;
@@ -2643,8 +2643,8 @@ QQuickStateActions QQuickPropertyAnimation::createTransitionActions(QQuickStateA
         }
 
         if (!successfullyCreatedDefaultProperty) {
-            foreach (const QString &errorMessage, errorMessages)
-                qmlInfo(this) << errorMessage;
+            for (const QString &errorMessage : qAsConst(errorMessages))
+                qmlWarning(this) << errorMessage;
         }
     }
 
@@ -2718,3 +2718,5 @@ QQuickAnimationPropertyUpdater::~QQuickAnimationPropertyUpdater()
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qquickanimation_p.cpp"

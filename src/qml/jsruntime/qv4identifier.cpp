@@ -64,10 +64,31 @@ IdentifierHashData::IdentifierHashData(int numBits)
     memset(entries, 0, alloc*sizeof(IdentifierHashEntry));
 }
 
+IdentifierHashData::IdentifierHashData(IdentifierHashData *other)
+    : size(other->size)
+    , numBits(other->numBits)
+    , identifierTable(other->identifierTable)
+{
+    refCount.store(1);
+    alloc = other->alloc;
+    entries = (IdentifierHashEntry *)malloc(alloc*sizeof(IdentifierHashEntry));
+    memcpy(entries, other->entries, alloc*sizeof(IdentifierHashEntry));
+}
+
 IdentifierHashBase::IdentifierHashBase(ExecutionEngine *engine)
 {
     d = new IdentifierHashData(3);
     d->identifierTable = engine->identifierTable;
+}
+
+void IdentifierHashBase::detach()
+{
+    if (!d || d->refCount == 1)
+        return;
+    IdentifierHashData *newData = new IdentifierHashData(d);
+    if (d && !d->refCount.deref())
+        delete d;
+    d = newData;
 }
 
 
@@ -131,7 +152,7 @@ const IdentifierHashEntry *IdentifierHashBase::lookup(const QString &str) const
         return 0;
     Q_ASSERT(d->entries);
 
-    uint hash = String::createHashValue(str.constData(), str.length());
+    uint hash = String::createHashValue(str.constData(), str.length(), Q_NULLPTR);
     uint idx = hash % d->alloc;
     while (1) {
         if (!d->entries[idx].identifier)

@@ -134,8 +134,12 @@ public:
     QRecyclePool<QQmlJavaScriptExpressionGuard> jsExpressionGuardPool;
 
     QQmlContext *rootContext;
+
+#ifdef QT_NO_QML_DEBUGGER
+    static const quintptr profiler = 0;
+#else
     QQmlProfiler *profiler;
-    void enableProfiler();
+#endif
 
     bool outputWarningsToMsgLog;
 
@@ -158,12 +162,12 @@ public:
     void registerFinalizeCallback(QObject *obj, int index);
 
     QQmlObjectCreator *activeObjectCreator;
-
+#if QT_CONFIG(qml_network)
     QNetworkAccessManager *createNetworkAccessManager(QObject *parent) const;
     QNetworkAccessManager *getNetworkAccessManager() const;
     mutable QNetworkAccessManager *networkAccessManager;
     mutable QQmlNetworkAccessManagerFactory *networkAccessManagerFactory;
-
+#endif
     QHash<QString,QSharedPointer<QQmlImageProviderBase> > imageProviders;
 
     QQmlAbstractUrlInterceptor* urlInterceptor;
@@ -201,6 +205,7 @@ public:
     inline void deleteInEngineThread(T *);
     template<typename T>
     inline static void deleteInEngineThread(QQmlEngine *, T *);
+    QString offlineStorageDatabaseDirectory() const;
 
     // These methods may be called from the loader thread
     inline QQmlPropertyCache *cache(QQmlType *, int);
@@ -216,13 +221,14 @@ public:
     QQmlMetaObject metaObjectForType(int) const;
     QQmlPropertyCache *propertyCacheForType(int);
     QQmlPropertyCache *rawPropertyCacheForType(int);
-    void registerInternalCompositeType(QQmlCompiledData *);
-    void unregisterInternalCompositeType(QQmlCompiledData *);
+    void registerInternalCompositeType(QV4::CompiledData::CompilationUnit *compilationUnit);
+    void unregisterInternalCompositeType(QV4::CompiledData::CompilationUnit *compilationUnit);
 
     bool isTypeLoaded(const QUrl &url) const;
     bool isScriptLoaded(const QUrl &url) const;
 
     void sendQuit();
+    void sendExit(int retCode = 0);
     void warning(const QQmlError &);
     void warning(const QList<QQmlError> &);
     void warning(QQmlDelayedError *);
@@ -260,7 +266,7 @@ private:
     // the threaded loader.  Only access them through their respective accessor methods.
     QHash<QPair<QQmlType *, int>, QQmlPropertyCache *> typePropertyCache;
     QHash<int, int> m_qmlLists;
-    QHash<int, QQmlCompiledData *> m_compositeTypes;
+    QHash<int, QV4::CompiledData::CompilationUnit *> m_compositeTypes;
     static bool s_designerMode;
 
     // These members is protected by the full QQmlEnginePrivate::mutex mutex

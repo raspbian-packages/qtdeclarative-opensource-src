@@ -57,6 +57,10 @@
 #include <private/qtquickglobal_p.h>
 #include <QtQuick/private/qsgcontext_p.h>
 
+#if QT_CONFIG(opengl)
+# include <QtGui/QOpenGLContext>
+#endif
+
 
 QT_BEGIN_NAMESPACE
 
@@ -64,7 +68,6 @@ class QQuickWindow;
 class QSGContext;
 class QSGRenderContext;
 class QAnimationDriver;
-class QOpenGLContext;
 
 class QQuickDesignerWindowManager : public QSGRenderLoop
 {
@@ -72,29 +75,31 @@ class QQuickDesignerWindowManager : public QSGRenderLoop
 public:
     QQuickDesignerWindowManager();
 
-    void show(QQuickWindow *window);
-    void hide(QQuickWindow *window);
+    void show(QQuickWindow *window) override;
+    void hide(QQuickWindow *window) override;
 
-    void windowDestroyed(QQuickWindow *window);
+    void windowDestroyed(QQuickWindow *window) override;
 
     void makeOpenGLContext(QQuickWindow *window);
-    void exposureChanged(QQuickWindow *window);
-    QImage grab(QQuickWindow *window);
+    void exposureChanged(QQuickWindow *window) override;
+    QImage grab(QQuickWindow *window) override;
 
-    void maybeUpdate(QQuickWindow *window);
-    void update(QQuickWindow *window); // identical for this implementation.
+    void maybeUpdate(QQuickWindow *window) override;
+    void update(QQuickWindow *window) override; // identical for this implementation.
 
-    void releaseResources(QQuickWindow *) { }
+    void releaseResources(QQuickWindow *) override { }
 
-    QAnimationDriver *animationDriver() const { return 0; }
+    QAnimationDriver *animationDriver() const override { return nullptr; }
 
-    QSGContext *sceneGraphContext() const;
-    QSGRenderContext *createRenderContext(QSGContext *) const { return m_renderContext.data(); }
+    QSGContext *sceneGraphContext() const override;
+    QSGRenderContext *createRenderContext(QSGContext *) const override { return m_renderContext.data(); }
 
     static void createOpenGLContext(QQuickWindow *window);
 
 private:
+#if QT_CONFIG(opengl)
     QScopedPointer<QOpenGLContext> m_openGlContext;
+#endif
     QScopedPointer<QSGContext> m_sgContext;
     QScopedPointer<QSGRenderContext> m_renderContext;
 };

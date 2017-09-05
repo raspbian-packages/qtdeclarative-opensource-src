@@ -81,7 +81,8 @@ public:
     }
 
 protected:
-    virtual bool affectParticle(QQuickParticleData *d, qreal dt);
+    bool affectParticle(QQuickParticleData *d, qreal dt) override;
+
 Q_SIGNALS:
 
     void goalStateChanged(const QString &arg);
@@ -106,7 +107,7 @@ void setSystemStates(bool arg)
 {
     if (m_systemStates != arg) {
         //TODO: GroupGoal was added (and this deprecated) Oct 4 - remove it in a few weeks.
-        qmlInfo(this) << "systemStates is deprecated and will be removed soon. Use GroupGoal instead.";
+        qmlWarning(this) << "systemStates is deprecated and will be removed soon. Use GroupGoal instead.";
         m_systemStates = arg;
         Q_EMIT systemStatesChanged(arg);
     }

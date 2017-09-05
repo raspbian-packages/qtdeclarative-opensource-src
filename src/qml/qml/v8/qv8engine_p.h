@@ -67,6 +67,7 @@
 #include <private/qv4value_p.h>
 #include <private/qv4identifier_p.h>
 #include <private/qv4context_p.h>
+#include <private/qqmldelayedcallqueue_p.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -75,12 +76,6 @@ namespace QV4 {
     struct ExecutionEngine;
     struct QObjectMethod;
 }
-
-// Uncomment the following line to enable global handle debugging.  When enabled, all the persistent
-// handles allocated using qPersistentNew() (or registered with qPersistentRegsiter()) and disposed
-// with qPersistentDispose() are tracked.  If you try and do something illegal, like double disposing
-// a handle, qFatal() is called.
-// #define QML_GLOBAL_HANDLE_DEBUGGING
 
 #define V4THROW_ERROR(string) \
     return ctx->engine()->throwError(QString::fromUtf8(string));
@@ -122,7 +117,7 @@ class QQmlV4Function
 {
 public:
     int length() const { return callData->argc; }
-    QV4::ReturnedValue operator[](int idx) { return (idx < callData->argc ? callData->args[idx].asReturnedValue() : QV4::Encode::undefined()); }
+    QV4::ReturnedValue operator[](int idx) const { return (idx < callData->argc ? callData->args[idx].asReturnedValue() : QV4::Encode::undefined()); }
     void setReturnValue(QV4::ReturnedValue rv) { *retVal = rv; }
     QV4::ExecutionEngine *v4engine() const { return e; }
 private:
@@ -184,18 +179,21 @@ public:
     QQmlEngine *engine() { return m_engine; }
     QJSEngine *publicEngine() { return q; }
     QV4::ReturnedValue global();
+    QQmlDelayedCallQueue *delayedCallQueue() { return &m_delayedCallQueue; }
 
-    void *xmlHttpRequestData() { return m_xmlHttpRequestData; }
+    void *xmlHttpRequestData() const { return m_xmlHttpRequestData; }
 
-    Deletable *listModelData() { return m_listModelData; }
+    Deletable *listModelData() const { return m_listModelData; }
     void setListModelData(Deletable *d) { if (m_listModelData) delete m_listModelData; m_listModelData = d; }
 
     void freezeObject(const QV4::Value &value);
 
+#if QT_CONFIG(qml_network)
     // Return the network access manager for this engine.  By default this returns the network
     // access manager of the QQmlEngine.  It is overridden in the case of a threaded v8
     // instance (like in WorkerScript).
     virtual QNetworkAccessManager *networkAccessManager();
+#endif
 
     // Return the list of illegal id names (the names of the properties on the global object)
     const QSet<QString> &illegalNames() const;
@@ -217,6 +215,7 @@ public:
 protected:
     QJSEngine* q;
     QQmlEngine *m_engine;
+    QQmlDelayedCallQueue m_delayedCallQueue;
 
     QV4::ExecutionEngine *m_v4Engine;
 

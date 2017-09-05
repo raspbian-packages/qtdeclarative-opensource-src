@@ -64,16 +64,28 @@ namespace QV4 {
 
 namespace Heap {
 
-struct VariantObject : Object, public ExecutionEngine::ScarceResourceData
+struct VariantObject : Object
 {
-    VariantObject();
-    VariantObject(const QVariant &value);
-    ~VariantObject() {
+    void init();
+    void init(const QVariant &value);
+    void destroy() {
+        Q_ASSERT(scarceData);
         if (isScarce())
-            node.remove();
+            addVmePropertyReference();
+        delete scarceData;
+        Object::destroy();
     }
     bool isScarce() const;
     int vmePropertyReferenceCount;
+
+    const QVariant &data() const { return scarceData->data; }
+    QVariant &data() { return scarceData->data; }
+
+    void addVmePropertyReference() { scarceData->node.remove(); }
+    void removeVmePropertyReference() { internalClass->engine->scarceResources.insert(scarceData); }
+
+private:
+    ExecutionEngine::ScarceResourceData *scarceData;
 };
 
 }
@@ -93,12 +105,13 @@ struct VariantObject : Object
 struct VariantPrototype : VariantObject
 {
 public:
+    V4_PROTOTYPE(objectPrototype)
     void init();
 
-    static ReturnedValue method_preserve(CallContext *ctx);
-    static ReturnedValue method_destroy(CallContext *ctx);
-    static ReturnedValue method_toString(CallContext *ctx);
-    static ReturnedValue method_valueOf(CallContext *ctx);
+    static void method_preserve(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_destroy(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_toString(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_valueOf(const BuiltinFunction *, Scope &scope, CallData *callData);
 };
 
 }

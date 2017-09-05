@@ -46,7 +46,6 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QRegularExpression>
 #include <QStringList>
 #include <QScopedPointer>
 #include <QDebug>
@@ -56,7 +55,9 @@
 #include <QLibraryInfo>
 #include <qqml.h>
 #include <qqmldebug.h>
+#if QT_CONFIG(animation)
 #include <private/qabstractanimation_p.h>
+#endif
 
 #include <cstdio>
 #include <cstring>
@@ -70,7 +71,9 @@
 
 static Config *conf = 0;
 static QQmlApplicationEngine *qae = 0;
+#if defined(Q_OS_DARWIN) || defined(QT_GUI_LIB)
 static int exitTimerId = -1;
+#endif
 bool verboseMode = false;
 
 static void loadConf(const QString &override, bool quiet) // Terminates app on failure
@@ -160,18 +163,23 @@ public:
     LoadWatcher(QQmlApplicationEngine *e, int expected)
         : QObject(e)
         , earlyExit(false)
+        , returnCode(0)
         , expect(expected)
         , haveOne(false)
     {
         connect(e, SIGNAL(objectCreated(QObject*,QUrl)),
             this, SLOT(checkFinished(QObject*)));
         // QQmlApplicationEngine also connects quit() to QCoreApplication::quit
-        // but if called before exec() then QCoreApplication::quit does nothing
+        // and exit() to QCoreApplication::exit but if called before exec()
+        // then QCoreApplication::quit or QCoreApplication::exit does nothing
         connect(e, SIGNAL(quit()),
             this, SLOT(quit()));
+        connect(e, &QQmlEngine::exit,
+            this, &LoadWatcher::exit);
     }
 
     bool earlyExit;
+    int returnCode;
 
 private:
     void contain(QObject *o, const QUrl &containPath);
@@ -187,7 +195,7 @@ public Q_SLOTS:
             checkForWindow(o);
             haveOne = true;
             if (conf && qae)
-                foreach (PartialScene *ps, conf->completers)
+                for (PartialScene *ps : qAsConst(conf->completers))
                     if (o->inherits(ps->itemType().toUtf8().constData()))
                         contain(o, ps->container());
         }
@@ -196,15 +204,21 @@ public Q_SLOTS:
 
         if (! --expect) {
             printf("qml: Did not load any objects, exiting.\n");
-            exit(2);//Different return code from qFatal
+            std::exit(2);//Different return code from qFatal
         }
     }
 
     void quit() {
         //Will be checked before calling exec()
         earlyExit = true;
+        returnCode = 0;
     }
-#if defined(QT_GUI_LIB) && !defined(QT_NO_OPENGL)
+    void exit(int retCode) {
+        earlyExit = true;
+        returnCode = retCode;
+    }
+
+#if defined(QT_GUI_LIB) && QT_CONFIG(opengl)
     void onOpenGlContextCreated(QOpenGLContext *context);
 #endif
 };
@@ -226,7 +240,7 @@ void LoadWatcher::contain(QObject *o, const QUrl &containPath)
 
 void LoadWatcher::checkForWindow(QObject *o)
 {
-#if defined(QT_GUI_LIB) && !defined(QT_NO_OPENGL)
+#if defined(QT_GUI_LIB) && QT_CONFIG(opengl)
     if (verboseMode && o->isWindowType() && o->inherits("QQuickWindow")) {
         connect(o, SIGNAL(openglContextCreated(QOpenGLContext*)),
                 this, SLOT(onOpenGlContextCreated(QOpenGLContext*)));
@@ -236,7 +250,7 @@ void LoadWatcher::checkForWindow(QObject *o)
 #endif // QT_GUI_LIB && !QT_NO_OPENGL
 }
 
-#if defined(QT_GUI_LIB) && !defined(QT_NO_OPENGL)
+#if defined(QT_GUI_LIB) && QT_CONFIG(opengl)
 void LoadWatcher::onOpenGlContextCreated(QOpenGLContext *context)
 {
     context->makeCurrent(qobject_cast<QWindow *>(sender()));
@@ -376,6 +390,9 @@ void getAppFlags(int &argc, char **argv)
             argc -= 2;
         }
     }
+#else
+    Q_UNUSED(argc)
+    Q_UNUSED(argv)
 #endif // QT_GUI_LIB
 }
 
@@ -402,8 +419,8 @@ static void loadDummyDataFiles(QQmlEngine &engine, const QString& directory)
         QObject *dummyData = comp.create();
 
         if (comp.isError()) {
-            QList<QQmlError> errors = comp.errors();
-            foreach (const QQmlError &error, errors)
+            const QList<QQmlError> errors = comp.errors();
+            for (const QQmlError &error : errors)
                 qWarning() << error;
         }
 
@@ -442,6 +459,7 @@ int main(int argc, char *argv[])
     app->setApplicationName("Qml Runtime");
     app->setOrganizationName("QtProject");
     app->setOrganizationDomain("qt-project.org");
+    QCoreApplication::setApplicationVersion(QLatin1String(QT_VERSION_STR));
 
     qmlRegisterType<Config>("QmlRuntime.Config", 1, 0, "Configuration");
     qmlRegisterType<PartialScene>("QmlRuntime.Config", 1, 0, "PartialScene");
@@ -452,7 +470,7 @@ int main(int argc, char *argv[])
     QString dummyDir;
 
     //Handle main arguments
-    QStringList argList = app->arguments();
+    const QStringList argList = app->arguments();
     for (int i = 1; i < argList.count(); i++) {
         const QString &arg = argList[i];
         if (arg == QLatin1String("-quiet"))
@@ -465,10 +483,12 @@ int main(int argc, char *argv[])
             break;
         else if (arg == QLatin1String("-verbose"))
             verboseMode = true;
+#if QT_CONFIG(animation)
         else if (arg == QLatin1String("-slow-animations"))
             QUnifiedTimer::instance()->setSlowModeEnabled(true);
         else if (arg == QLatin1String("-fixed-animations"))
             QUnifiedTimer::instance()->setConsistentTiming(true);
+#endif
         else if (arg == QLatin1String("-I")) {
             if (i+1 == argList.count())
                 continue;//Invalid usage, but just ignore it
@@ -512,7 +532,7 @@ int main(int argc, char *argv[])
     if (quietMode && verboseMode)
         verboseMode = false;
 
-#ifndef QT_NO_TRANSLATION
+#if QT_CONFIG(translation)
     //qt_ translations loaded by QQmlApplicationEngine
     QString sysLocale = QLocale::system().name();
 
@@ -537,7 +557,7 @@ int main(int argc, char *argv[])
         qInstallMessageHandler(quietMessageHandler);
 
     if (files.count() <= 0) {
-#if defined(Q_OS_MAC)
+#if defined(Q_OS_DARWIN)
         if (applicationType == QmlApplicationTypeGui)
             exitTimerId = static_cast<LoaderApplication *>(app)->startTimer(FILE_OPEN_EVENT_WAIT_TIME);
         else
@@ -555,34 +575,19 @@ int main(int argc, char *argv[])
     if (!dummyDir.isEmpty() && QFileInfo (dummyDir).isDir())
         loadDummyDataFiles(e, dummyDir);
 
-    foreach (const QString &path, files) {
-        //QUrl::fromUserInput doesn't treat no scheme as relative file paths
-#ifndef QT_NO_REGULAREXPRESSION
-        QRegularExpression urlRe("[[:word:]]+://.*");
-        if (urlRe.match(path).hasMatch()) { //Treat as a URL
-            QUrl url = QUrl::fromUserInput(path);
-            if (verboseMode)
-                printf("qml: loading %s\n",
-                        qPrintable(url.isLocalFile()
-                        ? QDir::toNativeSeparators(url.toLocalFile())
-                        : url.toString()));
+    for (const QString &path : qAsConst(files)) {
+        QUrl url = QUrl::fromUserInput(path, QDir::currentPath(), QUrl::AssumeLocalFile);
+        if (verboseMode)
+            printf("qml: loading %s\n", qPrintable(url.toString()));
+        QByteArray strippedFile;
+        if (getFileSansBangLine(path, strippedFile))
+            e.loadData(strippedFile, e.baseUrl().resolved(url)); //QQmlComponent won't resolve it for us, it doesn't know it's a valid file if we loadData
+        else //Errors or no bang line
             e.load(url);
-        } else
-#endif
-        { //Local file path
-            if (verboseMode)
-                printf("qml: loading %s\n", qPrintable(QDir::toNativeSeparators(path)));
-
-            QByteArray strippedFile;
-            if (getFileSansBangLine(path, strippedFile))
-                e.loadData(strippedFile, e.baseUrl().resolved(QUrl::fromLocalFile(path))); //QQmlComponent won't resolve it for us, it doesn't know it's a valid file if we loadData
-            else //Errors or no bang line
-                e.load(path);
-        }
     }
 
     if (lw->earlyExit)
-        return 0;
+        return lw->returnCode;
 
     return app->exec();
 }

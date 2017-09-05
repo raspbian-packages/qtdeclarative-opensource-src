@@ -1,4 +1,4 @@
-qtdeclarative-opensource-src (5.7.1-2+rpi1) stretch-staging; urgency=medium
+qtdeclarative-opensource-src (5.9.1-5+rpi1) buster-staging; urgency=medium
 
   [changes brought forward from 5.3.2-4+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Fri, 03 Oct 2014 08:10:59 +0000]
   * Fix clean target.
@@ -13,7 +13,117 @@ qtdeclarative-opensource-src (5.7.1-2+rpi1) stretch-staging; urgency=medium
     or similar crap).
   * Further fixes to clean target.
 
- -- Raspbian forward porter <root@raspbian.org>  Sat, 14 Jan 2017 12:07:36 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Tue, 05 Sep 2017 11:57:04 +0000
+
+qtdeclarative-opensource-src (5.9.1-5) unstable; urgency=medium
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * Bump qtdeclarative-abi to 5-9-1 so it matches' qtbase's versioning. Plus
+    it's the version we are pushing to unstable.
+
+  [ Dmitry Shachnev ]
+  * Update symbols files for GCC 7 symbols changes.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Tue, 15 Aug 2017 22:09:04 -0300
+
+qtdeclarative-opensource-src (5.9.1-4) experimental; urgency=medium
+
+  * Fix QTBUG-61681 (Rebuild QQmlData::propertyCache if deleted by another
+    engine) by including rebuild-QmlDatapropertyCache-if-deleted.patch.
+  * Add my name to Uploaders.
+  * Bump debhelper compat to 10.
+
+ -- Simon Quigley <tsimonq2@ubuntu.com>  Wed, 02 Aug 2017 04:35:07 -0500
+
+qtdeclarative-opensource-src (5.9.1-3) experimental; urgency=medium
+
+  * Due to QTBUG-58567 we are forced to turn off JIT on mips* until
+    upstream solves this issue.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Mon, 31 Jul 2017 17:46:40 -0300
+
+qtdeclarative-opensource-src (5.9.1-2) experimental; urgency=medium
+
+  * Add a patch to enable JIT only on mipsel, not on mips and mips64el.
+  * Update symbols files from buildds’ logs.
+  * Bump qtxmlpatterns and qttools build-dependencies to 5.9.1.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Wed, 05 Jul 2017 18:39:37 +0300
+
+qtdeclarative-opensource-src (5.9.1-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Drop big_endian.patch, applied upstream.
+  * Refresh other patches.
+  * Bump qtbase build-dependencies to 5.9.1.
+  * Update symbols files from buildds’ logs and the current build log.
+  * Bump Standards-Version to 4.0.0, no changes needed.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 01 Jul 2017 18:57:08 +0300
+
+qtdeclarative-opensource-src (5.9.0-2) experimental; urgency=medium
+
+  * Add a patch that should fix crashes on big endian systems.
+  * Add some new locations to fix_test_remove_qlibraryinfo.patch.
+  * Export QT_LOGGING_RULES when running tests, to override settings from
+    our new qtlogging.ini file.
+  * Fix a minor copyright issue, thanks to Scott Kitterman.
+  * Update symbols files from buildds’ logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Tue, 20 Jun 2017 13:43:53 +0300
+
+qtdeclarative-opensource-src (5.9.0-1) experimental; urgency=medium
+
+  [ Simon Quigley ]
+  * New upstream release.
+  * Remove qv4isel_always_export.patch as it's reverse-applicable.
+  * Some files were moved around and/or deleted; update the install files to
+    reflect that.
+  * Set XDG_RUNTIME_DIR in debian/rules to fix a lot of test failures.
+
+  [ Dmitry Shachnev ]
+  * Rename qml-module-qtquick-sharedimage to qml-module-qt-labs-sharedimage,
+    following upstream (see commit 4a4a8e911cfafcff).
+  * Update debian/copyright.
+  * Mark two symbols as optional to fix build with GCC 7 (closes: #853631).
+  * Drop the code to symlink private QmlDevTools headers, no longer needed.
+
+ -- Simon Quigley <tsimonq2@ubuntu.com>  Wed, 07 Jun 2017 23:31:12 +0300
+
+qtdeclarative-opensource-src (5.9.0~beta3-2) experimental; urgency=medium
+
+  * Update symbols files from buildds’ logs.
+  * Update qv4isel_always_export.patch to the proposed patch set 2.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 06 May 2017 15:18:33 +0300
+
+qtdeclarative-opensource-src (5.9.0~beta3-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Backport proposed upstream fix for build failure on non-JIT archs
+    (qv4isel_always_export.patch).
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 06 May 2017 09:52:34 +0300
+
+qtdeclarative-opensource-src (5.9.0~beta2-1) experimental; urgency=medium
+
+  [ Simon Quigley ]
+  * New upstream release.
+  * Bump dpkg-dev build-dependency to 1.17.14, for build profiles.
+  * Do not build the documentation packages when the nodoc profile is enabled.
+  * Drop fix_tst_qqmlapplicationengine.diff as it's reverse-applicable.
+  * Refresh patches:
+   - disableopengltests.patch
+   - fix_test_remove_qlibraryinfo.patch
+   - Do-not-make-lack-of-SSE2-support-on-x86-32-fatal.patch
+  * Add new binary package qml-module-qtquick-sharedimage.
+  * Update symbols from build logs.
+
+  [ Dmitry Shachnev ]
+  * Add Lintian overrides for new test JS files with long lines.
+  * Update debian/copyright.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 27 Apr 2017 22:00:12 +0300
 
 qtdeclarative-opensource-src (5.7.1-2) unstable; urgency=medium
 

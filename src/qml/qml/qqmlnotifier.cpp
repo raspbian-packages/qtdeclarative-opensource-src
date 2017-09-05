@@ -71,6 +71,12 @@ namespace {
     };
 }
 
+void QQmlNotifier::notify(QQmlData *ddata, int notifierIndex)
+{
+    if (QQmlNotifierEndpoint *ep = ddata->notify(notifierIndex))
+        emitNotify(ep, Q_NULLPTR);
+}
+
 void QQmlNotifier::emitNotify(QQmlNotifierEndpoint *endpoint, void **a)
 {
     QVarLengthArray<NotifyListTraversalData> stack;
@@ -116,8 +122,8 @@ void QQmlNotifierEndpoint::connect(QObject *source, int sourceSignal, QQmlEngine
     disconnect();
 
     Q_ASSERT(engine);
-    if (QObjectPrivate::get(source)->threadData->threadId !=
-        QObjectPrivate::get(engine)->threadData->threadId) {
+    if (QObjectPrivate::get(source)->threadData->threadId.load() !=
+        QObjectPrivate::get(engine)->threadData->threadId.load()) {
 
         QString sourceName;
         QDebug(&sourceName) << source;

@@ -575,9 +575,6 @@ QQuickParticleSystem::QQuickParticleSystem(QQuickItem *parent) :
     m_paused(false),
     m_empty(true)
 {
-    connect(&m_painterMapper, SIGNAL(mapped(QObject*)),
-            this, SLOT(loadPainter(QObject*)));
-
     m_debugMode = qmlParticlesDebug();
 }
 
@@ -615,8 +612,8 @@ void QQuickParticleSystem::registerParticlePainter(QQuickParticlePainter* p)
         qDebug() << "Registering Painter" << p << "to" << this;
     //TODO: a way to Unregister emitters, painters and affectors
     m_painters << QPointer<QQuickParticlePainter>(p);//###Set or uniqueness checking?
-    connect(p, SIGNAL(groupsChanged(QStringList)),
-            &m_painterMapper, SLOT(map()));
+
+    connect(p, &QQuickParticlePainter::groupsChanged, this, [this, p] { this->loadPainter(p); }, Qt::QueuedConnection);
     loadPainter(p);
 }
 
@@ -671,8 +668,11 @@ void QQuickParticleSystem::setPaused(bool arg) {
         if (m_animation && m_animation->state() != QAbstractAnimation::Stopped)
             m_paused ? m_animation->pause() : m_animation->resume();
         if (!m_paused) {
-            foreach (QQuickParticlePainter *p, m_painters)
-                p->update();
+            foreach (QQuickParticlePainter *p, m_painters) {
+                if (p) {
+                    p->update();
+                }
+            }
         }
         emit pausedChanged(arg);
     }
@@ -802,13 +802,11 @@ void QQuickParticleSystem::reset()
 }
 
 
-void QQuickParticleSystem::loadPainter(QObject *p)
+void QQuickParticleSystem::loadPainter(QQuickParticlePainter *painter)
 {
-    if (!m_componentComplete || !p)
+    if (!m_componentComplete || !painter)
         return;
 
-    QQuickParticlePainter* painter = qobject_cast<QQuickParticlePainter*>(p);
-    Q_ASSERT(painter);//XXX
     for (QQuickParticleGroupData* sg : groupData) {
         sg->painters.removeOne(painter);
     }
@@ -878,8 +876,11 @@ void QQuickParticleSystem::emittersChanged()
     if (particleCount > bySysIdx.size())//New datum requests haven't updated it
         bySysIdx.resize(particleCount);
 
-    foreach (QQuickParticleAffector *a, m_affectors)//Groups may have changed
-        a->m_updateIntSet = true;
+    foreach (QQuickParticleAffector *a, m_affectors) {//Groups may have changed
+        if (a) {
+            a->m_updateIntSet = true;
+        }
+    }
 
     foreach (QQuickParticlePainter *p, m_painters)
         loadPainter(p);
@@ -1091,3 +1092,5 @@ int QQuickParticleSystem::systemSync(QQuickParticlePainter* p)
 
 
 QT_END_NAMESPACE
+
+#include "moc_qquickparticlesystem_p.cpp"

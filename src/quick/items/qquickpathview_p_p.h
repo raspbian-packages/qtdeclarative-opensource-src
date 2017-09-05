@@ -51,6 +51,10 @@
 // We mean it.
 //
 
+#include <private/qtquickglobal_p.h>
+
+QT_REQUIRE_CONFIG(quick_pathview);
+
 #include "qquickpathview_p.h"
 #include "qquickitem_p.h"
 
@@ -61,6 +65,7 @@
 #include <private/qquickanimation_p_p.h>
 #include <private/qqmldelegatemodel_p.h>
 #include <private/qquicktimeline_p_p.h>
+#include <private/qpodvector_p.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -75,9 +80,8 @@ public:
 
     void init();
 
-    void itemGeometryChanged(QQuickItem *item, const QRectF &newGeometry, const QRectF &oldGeometry) Q_DECL_OVERRIDE {
-        if ((newGeometry.size() != oldGeometry.size())
-            && (!highlightItem || item != highlightItem)) {
+    void itemGeometryChanged(QQuickItem *item, QQuickGeometryChange change, const QRectF &) override {
+        if (change.sizeChange() && (!highlightItem || item != highlightItem)) {
             if (QQuickPathViewAttached *att = attached(item))
                 att->m_percent = -1;
             scheduleLayout();
@@ -125,7 +129,7 @@ public:
     QPointF pointNear(const QPointF &point, qreal *nearPercent=0) const;
     void addVelocitySample(qreal v);
     qreal calcVelocity() const;
-    qint64 computeCurrentTime(QInputEvent *event);
+    qint64 computeCurrentTime(QInputEvent *event) const;
     void setDragging(bool d);
 
     QQuickPath *path;

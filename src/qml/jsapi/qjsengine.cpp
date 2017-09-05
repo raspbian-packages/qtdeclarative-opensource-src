@@ -166,6 +166,17 @@ Q_DECLARE_METATYPE(QList<int>)
   properties of the proxy object. No binding code is needed because it
   is done dynamically using the Qt meta object system.
 
+  Use newQMetaObject() to wrap a QMetaObject; this gives you a
+  "script representation" of a QObject-based class. newQMetaObject()
+  returns a proxy script object; enum values of the class are available
+  as properties of the proxy object.
+
+  Constructors exposed to the meta-object system ( using Q_INVOKABLE ) can be
+  called from the script to create a new QObject instance with
+  JavaScriptOwnership.
+
+
+
   \snippet code/src_script_qjsengine.cpp 5
 
   \section1 Extensions
@@ -261,12 +272,8 @@ static void checkForApplicationInstance()
     \l{ECMA-262}, Section 15.1.
 */
 QJSEngine::QJSEngine()
-    : QObject(*new QJSEnginePrivate, 0)
-    , d(new QV8Engine(this))
+    : QJSEngine(nullptr)
 {
-    checkForApplicationInstance();
-
-    QJSEnginePrivate::addToDebugServer(this);
 }
 
 /*!
@@ -513,6 +520,38 @@ QJSValue QJSEngine::newQObject(QObject *object)
     QV4::ScopedValue v(scope, QV4::QObjectWrapper::wrap(v4, object));
     return QJSValue(v4, v->asReturnedValue());
 }
+
+/*!
+  \since 5.8
+
+  Creates a JavaScript object that wraps the given QMetaObject
+  The \a metaObject must outlive the script engine. It is recommended to only
+  use this method with static metaobjects.
+
+
+  When called as a constructor, a new instance of the class will be created.
+  Only constructors exposed by Q_INVOKABLE will be visible from the script engine.
+
+  \sa newQObject()
+*/
+
+QJSValue QJSEngine::newQMetaObject(const QMetaObject* metaObject) {
+    Q_D(QJSEngine);
+    QV4::ExecutionEngine *v4 = QV8Engine::getV4(d);
+    QV4::Scope scope(v4);
+    QV4::ScopedValue v(scope, QV4::QMetaObjectWrapper::create(v4, metaObject));
+    return QJSValue(v4, v->asReturnedValue());
+}
+
+/*! \fn QJSValue QJSEngine::newQMetaObject<T>()
+
+  \since 5.8
+  Creates a JavaScript object that wraps the static QMetaObject associated
+  with class \c{T}.
+
+  \sa newQObject()
+*/
+
 
 /*!
   Returns this engine's Global Object.

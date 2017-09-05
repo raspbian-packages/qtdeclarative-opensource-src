@@ -45,22 +45,21 @@ using namespace QV4;
 DEFINE_OBJECT_VTABLE(BooleanCtor);
 DEFINE_OBJECT_VTABLE(BooleanObject);
 
-Heap::BooleanCtor::BooleanCtor(QV4::ExecutionContext *scope)
-    : Heap::FunctionObject(scope, QStringLiteral("Boolean"))
+void Heap::BooleanCtor::init(QV4::ExecutionContext *scope)
 {
+    Heap::FunctionObject::init(scope, QStringLiteral("Boolean"));
 }
 
-ReturnedValue BooleanCtor::construct(const Managed *m, CallData *callData)
+void BooleanCtor::construct(const Managed *, Scope &scope, CallData *callData)
 {
-    Scope scope(static_cast<const BooleanCtor *>(m)->engine());
     bool n = callData->argc ? callData->args[0].toBoolean() : false;
-    return Encode(scope.engine->newBooleanObject(n));
+    scope.result = Encode(scope.engine->newBooleanObject(n));
 }
 
-ReturnedValue BooleanCtor::call(const Managed *, CallData *callData)
+void BooleanCtor::call(const Managed *, Scope &scope, CallData *callData)
 {
     bool value = callData->argc ? callData->args[0].toBoolean() : 0;
-    return Encode(value);
+    scope.result = Encode(value);
 }
 
 void BooleanPrototype::init(ExecutionEngine *engine, Object *ctor)
@@ -74,29 +73,31 @@ void BooleanPrototype::init(ExecutionEngine *engine, Object *ctor)
     defineDefaultProperty(engine->id_valueOf(), method_valueOf);
 }
 
-ReturnedValue BooleanPrototype::method_toString(CallContext *ctx)
+void BooleanPrototype::method_toString(const BuiltinFunction *, Scope &scope, CallData *callData)
 {
     bool result;
-    if (ctx->thisObject().isBoolean()) {
-        result = ctx->thisObject().booleanValue();
+    if (callData->thisObject.isBoolean()) {
+        result = callData->thisObject.booleanValue();
     } else {
-        const BooleanObject *thisObject = ctx->thisObject().as<BooleanObject>();
+        const BooleanObject *thisObject = callData->thisObject.as<BooleanObject>();
         if (!thisObject)
-            return ctx->engine()->throwTypeError();
+            THROW_TYPE_ERROR();
         result = thisObject->value();
     }
 
-    return Encode(ctx->d()->engine->newString(QLatin1String(result ? "true" : "false")));
+    scope.result = result ? scope.engine->id_true() : scope.engine->id_false();
 }
 
-ReturnedValue BooleanPrototype::method_valueOf(CallContext *ctx)
+void BooleanPrototype::method_valueOf(const BuiltinFunction *, Scope &scope, CallData *callData)
 {
-    if (ctx->thisObject().isBoolean())
-        return ctx->thisObject().asReturnedValue();
+    if (callData->thisObject.isBoolean()) {
+        scope.result = callData->thisObject.asReturnedValue();
+        return;
+    }
 
-    const BooleanObject *thisObject = ctx->thisObject().as<BooleanObject>();
+    const BooleanObject *thisObject = callData->thisObject.as<BooleanObject>();
     if (!thisObject)
-        return ctx->engine()->throwTypeError();
+        THROW_TYPE_ERROR();
 
-    return Encode(thisObject->value());
+    scope.result = Encode(thisObject->value());
 }

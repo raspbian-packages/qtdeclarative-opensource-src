@@ -47,7 +47,7 @@
 #include "QtQuick/qquicktextdocument.h"
 QT_BEGIN_NAMESPACE
 
-#ifndef QT_NO_ACCESSIBILITY
+#if QT_CONFIG(accessibility)
 
 QAccessibleQuickItem::QAccessibleQuickItem(QQuickItem *item)
     : QAccessibleObject(item), m_doc(textDocument())
@@ -67,10 +67,6 @@ int QAccessibleQuickItem::childCount() const
 QRect QAccessibleQuickItem::rect() const
 {
     const QRect r = itemScreenRect(item());
-
-    if (!r.isValid()) {
-        qWarning() << item()->metaObject()->className() << item()->property("accessibleText") << r;
-    }
     return r;
 }
 
@@ -160,9 +156,9 @@ int QAccessibleQuickItem::indexOfChild(const QAccessibleInterface *iface) const
 
 static void unignoredChildren(QQuickItem *item, QList<QQuickItem *> *items, bool paintOrder)
 {
-    QList<QQuickItem*> childItems = paintOrder ? QQuickItemPrivate::get(item)->paintOrderChildItems()
+    const QList<QQuickItem*> childItems = paintOrder ? QQuickItemPrivate::get(item)->paintOrderChildItems()
                                                : item->childItems();
-    Q_FOREACH (QQuickItem *child, childItems) {
+    for (QQuickItem *child : childItems) {
         if (QQuickItemPrivate::get(child)->isAccessible) {
             items->append(child);
         } else {
@@ -273,8 +269,8 @@ void QAccessibleQuickItem::doAction(const QString &actionName)
         return;
     // Look for and call the accessible[actionName]Action() function on the item.
     // This allows for overriding the default action handling.
-    const QByteArray functionName = QByteArrayLiteral("accessible") + actionName.toLatin1() + QByteArrayLiteral("Action");
-    if (object()->metaObject()->indexOfMethod(QByteArray(functionName + QByteArrayLiteral("()"))) != -1) {
+    const QByteArray functionName = "accessible" + actionName.toLatin1() + "Action";
+    if (object()->metaObject()->indexOfMethod(QByteArray(functionName + "()")) != -1) {
         QMetaObject::invokeMethod(object(), functionName);
         return;
     }
@@ -595,6 +591,6 @@ void QAccessibleQuickItem::setSelection(int /* selectionIndex */, int /* startOf
 }
 
 
-#endif // QT_NO_ACCESSIBILITY
+#endif // accessibility
 
 QT_END_NAMESPACE

@@ -44,14 +44,17 @@
 #include <QtQuick/private/qsgtexture_p.h>
 #include "qquickcontext2dcommandbuffer_p.h"
 #include <QOpenGLPaintDevice>
-
+#if QT_CONFIG(opengl)
 #include <QOpenGLFramebufferObject>
 #include <QOpenGLFramebufferObjectFormat>
+#include <QOpenGLFunctions>
+#include <QtGui/private/qopenglextensions_p.h>
+#endif
 #include <QtCore/QThread>
 #include <QtGui/QGuiApplication>
 
 QT_BEGIN_NAMESPACE
-
+#if QT_CONFIG(opengl)
 #define QT_MINIMUM_FBO_SIZE 64
 
 static inline int qt_next_power_of_two(int v)
@@ -85,10 +88,12 @@ struct GLAcquireContext {
     }
     QOpenGLContext *ctx;
 };
-
+#endif
 QQuickContext2DTexture::QQuickContext2DTexture()
     : m_context(0)
+#if QT_CONFIG(opengl)
     , m_gl(0)
+#endif
     , m_surface(0)
     , m_item(0)
     , m_canvasWindowChanged(false)
@@ -250,9 +255,9 @@ void QQuickContext2DTexture::paint(QQuickContext2DCommandBuffer *ccb)
         return;
     }
     QQuickContext2D::mutex.unlock();
-
+#if QT_CONFIG(opengl)
     GLAcquireContext currentContext(m_gl, m_surface);
-
+#endif
     if (!m_tiledCanvas) {
         paintWithoutTiles(ccb);
         delete ccb;
@@ -379,7 +384,7 @@ bool QQuickContext2DTexture::event(QEvent *e)
     }
     return QObject::event(e);
 }
-
+#if QT_CONFIG(opengl)
 static inline QSize npotAdjustedSize(const QSize &size)
 {
     static bool checked = false;
@@ -495,9 +500,9 @@ bool QQuickContext2DFBOTexture::doMultisampling() const
     static bool multisamplingSupported = false;
 
     if (!extensionsChecked) {
-        const QSet<QByteArray> extensions = QOpenGLContext::currentContext()->extensions();
-        multisamplingSupported = extensions.contains(QByteArrayLiteral("GL_EXT_framebuffer_multisample"))
-            && extensions.contains(QByteArrayLiteral("GL_EXT_framebuffer_blit"));
+        QOpenGLExtensions *e = static_cast<QOpenGLExtensions *>(QOpenGLContext::currentContext()->functions());
+        multisamplingSupported = e->hasOpenGLExtension(QOpenGLExtensions::FramebufferMultisample)
+            && e->hasOpenGLExtension(QOpenGLExtensions::FramebufferBlit);
         extensionsChecked = true;
     }
 
@@ -650,6 +655,7 @@ void QQuickContext2DFBOTexture::endPainting()
 
     m_fbo->bindDefault();
 }
+#endif
 
 QQuickContext2DImageTexture::QQuickContext2DImageTexture()
     : QQuickContext2DTexture()
@@ -745,3 +751,5 @@ void QQuickContext2DImageTexture::compositeTile(QQuickContext2DTile* tile)
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qquickcontext2dtexture_p.cpp"

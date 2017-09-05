@@ -44,6 +44,11 @@
 #include <private/qsgrenderer_p.h>
 #include <private/qsgtexture_p.h>
 
+#if QT_CONFIG(opengl)
+# include <QtGui/QOpenGLContext>
+# include <private/qsgdefaultrendercontext_p.h>
+#endif
+
 QT_BEGIN_NAMESPACE
 
 
@@ -79,11 +84,13 @@ QT_BEGIN_NAMESPACE
     will delete the GL texture when the texture object is deleted.
 
     \value TextureCanUseAtlas The image can be uploaded into a texture atlas.
+
+    \value TextureIsOpaque The texture object is opaque.
  */
 
 QSGEnginePrivate::QSGEnginePrivate()
     : sgContext(QSGContext::createDefaultContext())
-    , sgRenderContext(new QSGRenderContext(sgContext.data()))
+    , sgRenderContext(sgContext.data()->createRenderContext())
 {
 }
 
@@ -111,15 +118,19 @@ QSGEngine::~QSGEngine()
 void QSGEngine::initialize(QOpenGLContext *context)
 {
     Q_D(QSGEngine);
-    if (QOpenGLContext::currentContext() != context) {
+#if QT_CONFIG(opengl)
+    if (context && QOpenGLContext::currentContext() != context) {
         qWarning("WARNING: The context must be current before calling QSGEngine::initialize.");
         return;
     }
-
-    if (!d->sgRenderContext->isValid()) {
-        d->sgRenderContext->setAttachToGLContext(false);
+#endif
+    if (d->sgRenderContext && !d->sgRenderContext->isValid()) {
+        d->sgRenderContext->setAttachToGraphicsContext(false);
         d->sgRenderContext->initialize(context);
-        connect(context, &QOpenGLContext::aboutToBeDestroyed, this, &QSGEngine::invalidate);
+#if QT_CONFIG(opengl)
+        if (context)
+            connect(context, &QOpenGLContext::aboutToBeDestroyed, this, &QSGEngine::invalidate);
+#endif
     }
 }
 
@@ -198,4 +209,61 @@ QSGTexture *QSGEngine::createTextureFromId(uint id, const QSize &size, CreateTex
     return 0;
 }
 
+/*!
+    Returns the current renderer interface if there is one. Otherwise null is returned.
+
+    \sa QSGRenderNode, QSGRendererInterface
+    \since 5.8
+ */
+QSGRendererInterface *QSGEngine::rendererInterface() const
+{
+    Q_D(const QSGEngine);
+    return d->sgRenderContext->isValid()
+            ? d->sgRenderContext->sceneGraphContext()->rendererInterface(d->sgRenderContext.data())
+            : nullptr;
+}
+
+/*!
+    Creates a simple rectangle node. When the scenegraph is not initialized, the return value is null.
+
+    This is cross-backend alternative to constructing a QSGSimpleRectNode directly.
+
+    \since 5.8
+    \sa QSGRectangleNode
+ */
+QSGRectangleNode *QSGEngine::createRectangleNode() const
+{
+    Q_D(const QSGEngine);
+    return d->sgRenderContext->isValid() ? d->sgRenderContext->sceneGraphContext()->createRectangleNode() : nullptr;
+}
+
+/*!
+    Creates a simple image node. When the scenegraph is not initialized, the return value is null.
+
+    This is cross-backend alternative to constructing a QSGSimpleTextureNode directly.
+
+    \since 5.8
+    \sa QSGImageNode
+ */
+
+QSGImageNode *QSGEngine::createImageNode() const
+{
+    Q_D(const QSGEngine);
+    return d->sgRenderContext->isValid() ? d->sgRenderContext->sceneGraphContext()->createImageNode() : nullptr;
+}
+
+/*!
+    Creates a nine patch node. When the scenegraph is not initialized, the return value is null.
+
+    \since 5.8
+ */
+
+QSGNinePatchNode *QSGEngine::createNinePatchNode() const
+{
+    Q_D(const QSGEngine);
+    return d->sgRenderContext->isValid() ? d->sgRenderContext->sceneGraphContext()->createNinePatchNode() : nullptr;
+}
+
 QT_END_NAMESPACE
+
+#include "moc_qsgengine.cpp"

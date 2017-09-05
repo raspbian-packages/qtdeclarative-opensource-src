@@ -41,6 +41,8 @@
 
 QT_BEGIN_NAMESPACE
 
+#if QT_CONFIG(qml_network)
+
 /*!
     \class QQmlNetworkAccessManagerFactory
     \since 5.0
@@ -100,5 +102,7 @@ QQmlNetworkAccessManagerFactory::~QQmlNetworkAccessManagerFactory()
     Note: this method may be called by multiple threads, so ensure the
     implementation of this method is reentrant.
 */
+
+#endif // qml_network
 
 QT_END_NAMESPACE

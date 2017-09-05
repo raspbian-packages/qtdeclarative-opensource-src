@@ -61,9 +61,7 @@ class QQuickProfilerAdapter : public QQmlAbstractProfilerAdapter {
 public:
     QQuickProfilerAdapter(QObject *parent = 0);
     ~QQuickProfilerAdapter();
-    qint64 sendMessages(qint64 until, QList<QByteArray> &messages);
-
-public slots:
+    qint64 sendMessages(qint64 until, QList<QByteArray> &messages, bool trackLocations) override;
     void receiveData(const QVector<QQuickProfilerData> &new_data);
 
 private:

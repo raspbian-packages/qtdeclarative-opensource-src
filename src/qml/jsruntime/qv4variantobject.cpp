@@ -50,20 +50,23 @@ using namespace QV4;
 
 DEFINE_OBJECT_VTABLE(VariantObject);
 
-Heap::VariantObject::VariantObject()
+void Heap::VariantObject::init()
 {
+    Object::init();
+    scarceData = new ExecutionEngine::ScarceResourceData;
 }
 
-Heap::VariantObject::VariantObject(const QVariant &value)
+void Heap::VariantObject::init(const QVariant &value)
 {
-    data = value;
+    Object::init();
+    scarceData = new ExecutionEngine::ScarceResourceData(value);
     if (isScarce())
-        internalClass->engine->scarceResources.insert(this);
+        removeVmePropertyReference();
 }
 
 bool VariantObject::Data::isScarce() const
 {
-    QVariant::Type t = data.type();
+    QVariant::Type t = data().type();
     return t == QVariant::Pixmap || t == QVariant::Image;
 }
 
@@ -73,10 +76,10 @@ bool VariantObject::isEqualTo(Managed *m, Managed *other)
     QV4::VariantObject *lv = static_cast<QV4::VariantObject *>(m);
 
     if (QV4::VariantObject *rv = other->as<QV4::VariantObject>())
-        return lv->d()->data == rv->d()->data;
+        return lv->d()->data() == rv->d()->data();
 
     if (QV4::QQmlValueTypeWrapper *v = other->as<QQmlValueTypeWrapper>())
-        return v->isEqual(lv->d()->data);
+        return v->isEqual(lv->d()->data());
 
     return false;
 }
@@ -87,7 +90,7 @@ void VariantObject::addVmePropertyReference()
         // remove from the ep->scarceResources list
         // since it is now no longer eligible to be
         // released automatically by the engine.
-        d()->node.remove();
+        d()->addVmePropertyReference();
     }
 }
 
@@ -97,7 +100,7 @@ void VariantObject::removeVmePropertyReference()
         // and add to the ep->scarceResources list
         // since it is now eligible to be released
         // automatically by the engine.
-        internalClass()->engine->scarceResources.insert(d());
+        d()->removeVmePropertyReference();
     }
 }
 
@@ -110,64 +113,68 @@ void VariantPrototype::init()
     defineDefaultProperty(engine()->id_toString(), method_toString, 0);
 }
 
-QV4::ReturnedValue VariantPrototype::method_preserve(CallContext *ctx)
+void VariantPrototype::method_preserve(const BuiltinFunction *, Scope &scope, CallData *callData)
 {
-    Scope scope(ctx);
-    Scoped<VariantObject> o(scope, ctx->thisObject().as<QV4::VariantObject>());
+    Scoped<VariantObject> o(scope, callData->thisObject.as<QV4::VariantObject>());
     if (o && o->d()->isScarce())
-        o->d()->node.remove();
-    return Encode::undefined();
+        o->d()->addVmePropertyReference();
+    RETURN_UNDEFINED();
 }
 
-QV4::ReturnedValue VariantPrototype::method_destroy(CallContext *ctx)
+void VariantPrototype::method_destroy(const BuiltinFunction *, Scope &scope, CallData *callData)
 {
-    Scope scope(ctx);
-    Scoped<VariantObject> o(scope, ctx->thisObject().as<QV4::VariantObject>());
+    Scoped<VariantObject> o(scope, callData->thisObject.as<QV4::VariantObject>());
     if (o) {
         if (o->d()->isScarce())
-            o->d()->node.remove();
-        o->d()->data = QVariant();
+            o->d()->addVmePropertyReference();
+        o->d()->data() = QVariant();
     }
-    return Encode::undefined();
+    RETURN_UNDEFINED();
 }
 
-QV4::ReturnedValue VariantPrototype::method_toString(CallContext *ctx)
+void VariantPrototype::method_toString(const BuiltinFunction *, Scope &scope, CallData *callData)
 {
-    Scope scope(ctx);
-    Scoped<VariantObject> o(scope, ctx->thisObject().as<QV4::VariantObject>());
+    Scoped<VariantObject> o(scope, callData->thisObject.as<QV4::VariantObject>());
     if (!o)
-        return Encode::undefined();
-    QString result = o->d()->data.toString();
-    if (result.isEmpty() && !o->d()->data.canConvert(QVariant::String))
-        result = QStringLiteral("QVariant(%0)").arg(QString::fromLatin1(o->d()->data.typeName()));
-    return Encode(ctx->d()->engine->newString(result));
+        RETURN_UNDEFINED();
+    QString result = o->d()->data().toString();
+    if (result.isEmpty() && !o->d()->data().canConvert(QVariant::String)) {
+        result = QLatin1String("QVariant(")
+                 + QLatin1String(o->d()->data().typeName())
+                 + QLatin1Char(')');
+    }
+    scope.result = scope.engine->newString(result);
 }
 
-QV4::ReturnedValue VariantPrototype::method_valueOf(CallContext *ctx)
+void VariantPrototype::method_valueOf(const BuiltinFunction *, Scope &scope, CallData *callData)
 {
-    Scope scope(ctx);
-    Scoped<VariantObject> o(scope, ctx->thisObject().as<QV4::VariantObject>());
+    Scoped<VariantObject> o(scope, callData->thisObject.as<QV4::VariantObject>());
     if (o) {
-        QVariant v = o->d()->data;
+        QVariant v = o->d()->data();
         switch (v.type()) {
         case QVariant::Invalid:
-            return Encode::undefined();
+            scope.result = Encode::undefined();
+            return;
         case QVariant::String:
-            return Encode(ctx->d()->engine->newString(v.toString()));
+            scope.result = scope.engine->newString(v.toString());
+            return;
         case QVariant::Int:
-            return Encode(v.toInt());
+            scope.result = Encode(v.toInt());
+            return;
         case QVariant::Double:
         case QVariant::UInt:
-            return Encode(v.toDouble());
+            scope.result = Encode(v.toDouble());
+            return;
         case QVariant::Bool:
-            return Encode(v.toBool());
+            scope.result = Encode(v.toBool());
+            return;
         default:
             if (QMetaType::typeFlags(v.userType()) & QMetaType::IsEnumeration)
-                return Encode(v.toInt());
+                RETURN_RESULT(Encode(v.toInt()));
             break;
         }
     }
-    return ctx->thisObject().asReturnedValue();
+    scope.result = callData->thisObject;
 }
 
 QT_END_NAMESPACE

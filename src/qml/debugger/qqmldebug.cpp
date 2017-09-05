@@ -42,20 +42,17 @@
 #include "qqmldebugserviceinterfaces_p.h"
 
 #include <private/qqmlengine_p.h>
+#include <private/qv4compileddata_p.h>
 
 QT_BEGIN_NAMESPACE
 
 QQmlDebuggingEnabler::QQmlDebuggingEnabler(bool printWarning)
 {
-#ifndef QQML_NO_DEBUG_PROTOCOL
     if (!QQmlEnginePrivate::qml_debugging_enabled
             && printWarning) {
         qDebug("QML debugging is enabled. Only use this in a safe environment.");
     }
     QQmlEnginePrivate::qml_debugging_enabled = true;
-#else
-    Q_UNUSED(printWarning);
-#endif
 }
 
 /*!
@@ -88,7 +85,19 @@ QStringList QQmlDebuggingEnabler::inspectorServices()
  */
 QStringList QQmlDebuggingEnabler::profilerServices()
 {
-    return QStringList() << QQmlProfilerService::s_key << QQmlEngineControlService::s_key;
+    return QStringList() << QQmlProfilerService::s_key << QQmlEngineControlService::s_key
+                         << QDebugMessageService::s_key;
+}
+
+/*!
+ * Retrieves the plugin keys of the debug services designed to be used with a native debugger. The
+ * native debugger will communicate with these services by directly reading and writing the
+ * application's memory.
+ * \return List of plugin keys of debug services designed to be used with a native debugger.
+ */
+QStringList QQmlDebuggingEnabler::nativeDebuggerServices()
+{
+    return QStringList() << QQmlNativeDebugService::s_key;
 }
 
 /*!
@@ -105,11 +114,7 @@ QStringList QQmlDebuggingEnabler::profilerServices()
  */
 void QQmlDebuggingEnabler::setServices(const QStringList &services)
 {
-#ifndef QQML_NO_DEBUG_PROTOCOL
     QQmlDebugConnector::setServices(services);
-#else
-    Q_UNUSED(services);
-#endif
 }
 
 /*!
@@ -172,24 +177,17 @@ bool QQmlDebuggingEnabler::connectToLocalDebugger(const QString &socketFileName,
 bool QQmlDebuggingEnabler::startDebugConnector(const QString &pluginName,
                                                const QVariantHash &configuration)
 {
-#ifndef QQML_NO_DEBUG_PROTOCOL
     QQmlDebugConnector::setPluginKey(pluginName);
     QQmlDebugConnector *connector = QQmlDebugConnector::instance();
-    if (connector)
-        return connector->open(configuration);
-#else
-    Q_UNUSED(pluginName);
-    Q_UNUSED(configuration);
-#endif
-    return false;
+    return connector ? connector->open(configuration) : false;
 }
 
-enum { HookCount = 3 };
+enum { HookCount = 4 };
 
 // Only add to the end, and bump version if you do.
 quintptr Q_QML_EXPORT qtDeclarativeHookData[] = {
     // Version of this Array. Bump if you add to end.
-    1,
+    2,
 
     // Number of entries in this array.
     HookCount,
@@ -197,7 +195,10 @@ quintptr Q_QML_EXPORT qtDeclarativeHookData[] = {
     // TypeInformationVersion, an integral value, bumped whenever private
     // object sizes or member offsets that are used in Qt Creator's
     // data structure "pretty printing" change.
-    2
+    3,
+
+    // Version of the cache data.
+    QV4_DATA_STRUCTURE_VERSION
 };
 
 Q_STATIC_ASSERT(HookCount == sizeof(qtDeclarativeHookData) / sizeof(qtDeclarativeHookData[0]));

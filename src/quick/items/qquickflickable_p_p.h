@@ -62,6 +62,7 @@
 #include <private/qquicktimeline_p_p.h>
 #include <private/qquickanimation_p_p.h>
 #include <private/qquicktransitionmanager_p_p.h>
+#include <private/qpodvector_p.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -100,7 +101,7 @@ public:
             : move(fp, func)
             , transitionToBounds(0)
             , viewSize(-1), lastPos(0), previousDragDelta(0), velocity(0), startMargin(0), endMargin(0)
-            , origin(0)
+            , origin(0), overshoot(0)
             , transitionTo(0)
             , continuousFlickVelocity(0), velocityTime(), vTime(0)
             , smoothVelocity(fp), atEnd(false), atBeginning(true)
@@ -147,6 +148,7 @@ public:
         qreal startMargin;
         qreal endMargin;
         qreal origin;
+        qreal overshoot;
         qreal transitionTo;
         qreal continuousFlickVelocity;
         QElapsedTimer velocityTime;
@@ -191,9 +193,9 @@ public:
     void setViewportX(qreal x);
     void setViewportY(qreal y);
 
-    qreal overShootDistance(qreal size);
+    qreal overShootDistance(qreal size) const;
 
-    void itemGeometryChanged(QQuickItem *, const QRectF &, const QRectF &) Q_DECL_OVERRIDE;
+    void itemGeometryChanged(QQuickItem *, QQuickGeometryChange, const QRectF &) Q_DECL_OVERRIDE;
 
     void draggingStarting();
     void draggingEnding();
@@ -259,8 +261,8 @@ public:
               const QVector2D &deltas, bool overThreshold, bool momentum,
               bool velocitySensitiveOverBounds, const QVector2D &velocity);
 
-    qint64 computeCurrentTime(QInputEvent *event);
-    qreal devicePixelRatio();
+    qint64 computeCurrentTime(QInputEvent *event) const;
+    qreal devicePixelRatio() const;
 
     // flickableData property
     static void data_append(QQmlListProperty<QObject> *, QObject *);

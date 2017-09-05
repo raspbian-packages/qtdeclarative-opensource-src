@@ -46,6 +46,11 @@
 #include <QtTest/private/qtestlog_p.h>
 #include "qtestoptions_p.h"
 #include <QtTest/qbenchmark.h>
+// qbenchmark_p.h pulls windows.h via 3rd party; prevent it from defining
+// the min/max macros which would clash with qnumeric_p.h's usage of min()/max().
+#if defined(Q_OS_WIN32) && !defined(NOMINMAX)
+#  define NOMINMAX
+#endif
 #include <QtTest/private/qbenchmark_p.h>
 #include <QtCore/qset.h>
 #include <QtCore/qmap.h>
@@ -248,7 +253,7 @@ void QuickTestResult::setDataTag(const QString &tag)
     if (!tag.isEmpty()) {
         QTestData *data = &(QTest::newRow(tag.toUtf8().constData()));
         QTestResult::setCurrentTestData(data);
-        QTestPrivate::checkBlackLists((testCaseName() + QStringLiteral("::") + functionName()).toUtf8().constData(), tag.toUtf8().constData());
+        QTestPrivate::checkBlackLists((testCaseName() + QLatin1String("::") + functionName()).toUtf8().constData(), tag.toUtf8().constData());
         emit dataTagChanged();
     } else {
         QTestResult::setCurrentTestData(0);
@@ -507,6 +512,18 @@ void QuickTestResult::stringify(QQmlV4Function *args)
                 result = QString::fromLatin1("Qt.vector3d(%1, %2, %3)").arg(v3d.x()).arg(v3d.y()).arg(v3d.z());
                 break;
             }
+            case QVariant::Url:
+            {
+                QUrl url = v.value<QUrl>();
+                result = QString::fromLatin1("Qt.url(%1)").arg(url.toString());
+                break;
+            }
+            case QVariant::DateTime:
+            {
+                QDateTime dt = v.value<QDateTime>();
+                result = dt.toString(Qt::ISODateWithMs);
+                break;
+            }
             default:
                 result = v.toString();
             }
@@ -519,7 +536,7 @@ void QuickTestResult::stringify(QQmlV4Function *args)
     if (result.isEmpty()) {
         QString tmp = value->toQStringNoThrow();
         if (value->as<QV4::ArrayObject>())
-            result.append(QString::fromLatin1("[%1]").arg(tmp));
+            result += QLatin1Char('[') + tmp + QLatin1Char(']');
         else
             result.append(tmp);
     }
@@ -754,5 +771,6 @@ int QuickTestResult::exitCode()
 }
 
 #include "quicktestresult.moc"
+#include "moc_quicktestresult_p.cpp"
 
 QT_END_NAMESPACE

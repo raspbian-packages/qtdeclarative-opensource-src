@@ -51,14 +51,12 @@
 #include <private/qqmlprofiler_p.h>
 #include <private/qqmldebugconnector_p.h>
 #include <private/qqmldebugserviceinterfaces_p.h>
-#include <private/qqmlcompiler_p.h>
 #include "qqmlinfo.h"
 
 #include <private/qjsvalue_p.h>
 #include <private/qv4value_p.h>
 #include <private/qv4qobjectwrapper_p.h>
 
-#include <QtCore/qstringbuilder.h>
 #include <QtCore/qdebug.h>
 
 
@@ -82,10 +80,8 @@ QQmlBoundSignalExpression::QQmlBoundSignalExpression(QObject *target, int index,
 
     // Add some leading whitespace to account for the binding's column offset.
     // It's 2 off because a, we start counting at 1 and b, the '(' below is not counted.
-    function.fill(QChar(QChar::Space), qMax(column, (quint16)2) - 2);
-    function += QStringLiteral("(function ");
-    function += handlerName;
-    function += QLatin1Char('(');
+    function += QString(qMax(column, (quint16)2) - 2, QChar(QChar::Space))
+              + QLatin1String("(function ") + handlerName + QLatin1Char('(');
 
     if (parameterString.isEmpty()) {
         QString error;
@@ -95,30 +91,27 @@ QQmlBoundSignalExpression::QQmlBoundSignalExpression(QObject *target, int index,
         function += QQmlPropertyCache::signalParameterStringForJS(v4, signal.parameterNames(), &error);
 
         if (!error.isEmpty()) {
-            qmlInfo(scopeObject()) << error;
+            qmlWarning(scopeObject()) << error;
             return;
         }
     } else
         function += parameterString;
 
-    function += QStringLiteral(") { ");
-    function += expression;
-    function += QStringLiteral(" })");
-
-    m_function.set(v4, evalFunction(context(), scopeObject(), function, fileName, line));
-
-    if (m_function.isNullOrUndefined())
-        return; // could not evaluate function.  Not valid.
-
+    function += QLatin1String(") { ") + expression + QLatin1String(" })");
+    QV4::Scope valueScope(v4);
+    QV4::ScopedFunctionObject f(valueScope, evalFunction(context(), scopeObject(), function, fileName, line));
+    QV4::ScopedContext context(valueScope, f->scope());
+    setupFunction(context, f->function());
 }
 
-QQmlBoundSignalExpression::QQmlBoundSignalExpression(QObject *target, int index, QQmlContextData *ctxt, QObject *scope, const QV4::Value &function)
+QQmlBoundSignalExpression::QQmlBoundSignalExpression(QObject *target, int index, QQmlContextData *ctxt, QObject *scopeObject,
+                                                     QV4::Function *function, QV4::ExecutionContext *scope)
     : QQmlJavaScriptExpression(),
       m_index(index),
       m_target(target)
 {
-    m_function.set(function.as<QV4::Object>()->engine(), function);
-    init(ctxt, scope);
+    setupFunction(scope, function);
+    init(ctxt, scopeObject);
 }
 
 QQmlBoundSignalExpression::QQmlBoundSignalExpression(QObject *target, int index, QQmlContextData *ctxt, QObject *scope, QV4::Function *runtimeFunction)
@@ -129,14 +122,22 @@ QQmlBoundSignalExpression::QQmlBoundSignalExpression(QObject *target, int index,
     // It's important to call init first, because m_index gets remapped in case of cloned signals.
     init(ctxt, scope);
 
-    QMetaMethod signal = QMetaObjectPrivate::signal(m_target->metaObject(), m_index);
-    QString error;
     QV4::ExecutionEngine *engine = QQmlEnginePrivate::getV4Engine(ctxt->engine);
-    m_function.set(engine, QV4::FunctionObject::createQmlFunction(ctxt, scope, runtimeFunction, signal.parameterNames(), &error));
-    if (!error.isEmpty()) {
-        qmlInfo(scopeObject()) << error;
-        m_function.clear();
+
+    QList<QByteArray> signalParameters = QMetaObjectPrivate::signal(m_target->metaObject(), m_index).parameterNames();
+    if (!signalParameters.isEmpty()) {
+        QString error;
+        QQmlPropertyCache::signalParameterStringForJS(engine, signalParameters, &error);
+        if (!error.isEmpty()) {
+            qmlWarning(scopeObject()) << error;
+            return;
+        }
+        runtimeFunction->updateInternalClass(engine, signalParameters);
     }
+
+    QV4::Scope valueScope(engine);
+    QV4::Scoped<QV4::QmlContext> qmlContext(valueScope, QV4::QmlContext::create(engine->rootContext(), ctxt, scope));
+    setupFunction(qmlContext, runtimeFunction);
 }
 
 void QQmlBoundSignalExpression::init(QQmlContextData *ctxt, QObject *scope)
@@ -153,7 +154,7 @@ QQmlBoundSignalExpression::~QQmlBoundSignalExpression()
 {
 }
 
-QString QQmlBoundSignalExpression::expressionIdentifier()
+QString QQmlBoundSignalExpression::expressionIdentifier() const
 {
     QQmlSourceLocation loc = sourceLocation();
     return loc.sourceFile + QLatin1Char(':') + QString::number(loc.line);
@@ -164,39 +165,11 @@ void QQmlBoundSignalExpression::expressionChanged()
     // bound signals do not notify on change.
 }
 
-QQmlSourceLocation QQmlBoundSignalExpression::sourceLocation() const
-{
-    QV4::Function *f = function();
-    if (f) {
-        QQmlSourceLocation loc;
-        loc.sourceFile = f->sourceFile();
-        loc.line = f->compiledFunction->location.line;
-        loc.column = f->compiledFunction->location.column;
-        return loc;
-    }
-    return QQmlSourceLocation();
-}
-
 QString QQmlBoundSignalExpression::expression() const
 {
-    if (expressionFunctionValid()) {
-        Q_ASSERT (context() && engine());
-        QV4::Scope scope(QQmlEnginePrivate::get(engine())->v4engine());
-        QV4::ScopedValue v(scope, m_function.value());
-        return v->toQStringNoThrow();
-    }
+    if (expressionFunctionValid())
+        return QStringLiteral("function() { [code] }");
     return QString();
-}
-
-QV4::Function *QQmlBoundSignalExpression::function() const
-{
-    if (expressionFunctionValid()) {
-        Q_ASSERT (context() && engine());
-        QV4::Scope scope(QQmlEnginePrivate::get(engine())->v4engine());
-        QV4::ScopedFunctionObject v(scope, m_function.value());
-        return v ? v->function() : 0;
-    }
-    return 0;
 }
 
 // Parts of this function mirror code in QQmlExpressionPrivate::value() and v8value().
@@ -213,10 +186,10 @@ void QQmlBoundSignalExpression::evaluate(void **a)
 
     ep->referenceScarceResources(); // "hold" scarce resources in memory during evaluation.
 
-    QVarLengthArray<int, 9> dummy;
+    QQmlMetaObject::ArgTypeStorage storage;
     //TODO: lookup via signal index rather than method index as an optimization
     int methodIndex = QMetaObjectPrivate::signal(m_target->metaObject(), m_index).methodIndex();
-    int *argsTypes = QQmlMetaObject(m_target).methodParameterTypes(methodIndex, dummy, 0);
+    int *argsTypes = QQmlMetaObject(m_target).methodParameterTypes(methodIndex, &storage, 0);
     int argCount = argsTypes ? *argsTypes : 0;
 
     QV4::ScopedCallData callData(scope, argCount);
@@ -226,7 +199,10 @@ void QQmlBoundSignalExpression::evaluate(void **a)
         //    for several cases (such as QVariant type and QObject-derived types)
         //args[ii] = engine->metaTypeToJS(type, a[ii + 1]);
         if (type == qMetaTypeId<QJSValue>()) {
-            callData->args[ii] = *QJSValuePrivate::getValue(reinterpret_cast<QJSValue *>(a[ii + 1]));
+            if (QV4::Value *v4Value = QJSValuePrivate::valueForData(reinterpret_cast<QJSValue *>(a[ii + 1]), &callData->args[ii]))
+                callData->args[ii] = *v4Value;
+            else
+                callData->args[ii] = QV4::Encode::undefined();
         } else if (type == QMetaType::QVariant) {
             callData->args[ii] = scope.engine->fromVariant(*((QVariant *)a[ii + 1]));
         } else if (type == QMetaType::Int) {
@@ -244,7 +220,7 @@ void QQmlBoundSignalExpression::evaluate(void **a)
         }
     }
 
-    QQmlJavaScriptExpression::evaluate(callData, 0);
+    QQmlJavaScriptExpression::evaluate(callData, 0, scope);
 
     ep->dereferenceScarceResources(); // "release" scarce resources if top-level expression evaluation is complete.
 }
@@ -266,7 +242,7 @@ void QQmlBoundSignalExpression::evaluate(const QList<QVariant> &args)
         callData->args[ii] = scope.engine->fromVariant(args[ii]);
     }
 
-    QQmlJavaScriptExpression::evaluate(callData, 0);
+    QQmlJavaScriptExpression::evaluate(callData, 0, scope);
 
     ep->dereferenceScarceResources(); // "release" scarce resources if top-level expression evaluation is complete.
 }

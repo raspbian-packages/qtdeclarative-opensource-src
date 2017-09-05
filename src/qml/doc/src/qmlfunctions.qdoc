@@ -168,8 +168,9 @@
   from \a uri having version number composed from \a versionMajor and
   \a versionMinor.
 
-  While the type has a name and a type, it cannot be created, and the
-  given error \a reason will result if creation is attempted.
+  While the type has a name and a type, it cannot be created. An error
+  message with the given \a reason is printed if the user attempts to
+  create an instance of this type.
 
   This is useful where the type is only intended for providing attached
   properties, enum values or an abstract base class with its extension.
@@ -177,6 +178,45 @@
   Returns the QML type id.
 
   \sa qmlRegisterUncreatableType()
+*/
+
+/*!
+  \fn static inline int qmlRegisterUncreatableMetaObject(const QMetaObject &staticMetaObject, const char *uri, int versionMajor, int versionMinor, const char *qmlName, const QString& reason)
+  \relates QQmlEngine
+  \since 5.8
+
+  This function registers the \a staticMetaObject and its extension
+  in the QML system with the name \a qmlName in the library imported
+  from \a uri having version number composed from \a versionMajor and
+  \a versionMinor.
+
+  An instance of the meta object cannot be created. An error message with
+  the given \a reason is printed if the user attempts to create it.
+
+  This function is useful for registering Q_NAMESPACE namespaces.
+
+  Returns the QML type id.
+
+  For example:
+
+  \code
+  namespace MyNamespace {
+    Q_NAMESPACE
+    enum MyEnum {
+        Key1,
+        Key2,
+    };
+    Q_ENUMS(MyEnum)
+  }
+
+  //...
+  qmlRegisterUncreatableMetaObject(MyNamespace::staticMetaObject, "io.qt", 1, 0, "MyNamespace", "Access to enums & flags only");
+  \endcode
+
+  On the QML side, you can now use the registered enums:
+  \code
+  Component.onCompleted: console.log(MyNamespace.Key2)
+  \endcode
 */
 
 /*!
@@ -508,3 +548,15 @@
   in order to be found.
 */
 
+/*!
+  \since 5.9
+  \fn void qmlRegisterModule(const char* uri, int versionMajor, int versionMinor);
+  \relates QQmlEngine
+
+  This function registers a module in a particular \a uri with a version specified
+  in \a versionMajor and \a versionMinor.
+
+  This can be used to make a certain module version available, even if no types
+  are registered for that version. This is particularly useful for keeping the
+  versions of related modules in sync.
+*/

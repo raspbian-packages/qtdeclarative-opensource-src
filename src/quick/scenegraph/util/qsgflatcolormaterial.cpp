@@ -39,8 +39,9 @@
 
 #include "qsgflatcolormaterial.h"
 #include <private/qsgmaterialshader_p.h>
-
-#include <qopenglshaderprogram.h>
+#if QT_CONFIG(opengl)
+# include <qopenglshaderprogram.h>
+#endif
 
 QT_BEGIN_NAMESPACE
 
@@ -56,9 +57,10 @@ public:
 
 private:
     virtual void initialize();
-
+#if QT_CONFIG(opengl)
     int m_matrix_id;
     int m_color_id;
+#endif
 };
 
 QSGMaterialType FlatColorMaterialShader::type;
@@ -66,14 +68,16 @@ QSGMaterialType FlatColorMaterialShader::type;
 FlatColorMaterialShader::FlatColorMaterialShader()
     : QSGMaterialShader(*new QSGMaterialShaderPrivate)
 {
+#if QT_CONFIG(opengl)
     setShaderSourceFile(QOpenGLShader::Vertex, QStringLiteral(":/qt-project.org/scenegraph/shaders/flatcolor.vert"));
     setShaderSourceFile(QOpenGLShader::Fragment, QStringLiteral(":/qt-project.org/scenegraph/shaders/flatcolor.frag"));
+#endif
 }
 
 void FlatColorMaterialShader::updateState(const RenderState &state, QSGMaterial *newEffect, QSGMaterial *oldEffect)
 {
+#if QT_CONFIG(opengl)
     Q_ASSERT(oldEffect == 0 || newEffect->type() == oldEffect->type());
-
     QSGFlatColorMaterial *oldMaterial = static_cast<QSGFlatColorMaterial *>(oldEffect);
     QSGFlatColorMaterial *newMaterial = static_cast<QSGFlatColorMaterial *>(newEffect);
 
@@ -90,6 +94,11 @@ void FlatColorMaterialShader::updateState(const RenderState &state, QSGMaterial 
 
     if (state.isMatrixDirty())
         program()->setUniformValue(m_matrix_id, state.combinedMatrix());
+#else
+    Q_UNUSED(state)
+    Q_UNUSED(newEffect)
+    Q_UNUSED(oldEffect)
+#endif
 }
 
 char const *const *FlatColorMaterialShader::attributeNames() const
@@ -100,8 +109,10 @@ char const *const *FlatColorMaterialShader::attributeNames() const
 
 void FlatColorMaterialShader::initialize()
 {
+#if QT_CONFIG(opengl)
     m_matrix_id = program()->uniformLocation("matrix");
     m_color_id = program()->uniformLocation("color");
+#endif
 }
 
 
@@ -114,6 +125,9 @@ void FlatColorMaterialShader::initialize()
 
     \inmodule QtQuick
     \ingroup qtquick-scenegraph-materials
+
+    \warning This utility class is only functional when running with the OpenGL
+    backend of the Qt Quick scenegraph.
 
     The flat color material will fill every pixel in a geometry using
     a solid color. The color can contain transparency.

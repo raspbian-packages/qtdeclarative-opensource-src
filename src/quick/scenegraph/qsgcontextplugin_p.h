@@ -64,11 +64,19 @@ class QSGRenderLoop;
 
 struct Q_QUICK_PRIVATE_EXPORT QSGContextFactoryInterface : public QFactoryInterface
 {
+    enum Flag {
+        SupportsShaderEffectNode = 0x01
+    };
+    Q_DECLARE_FLAGS(Flags, Flag)
+
     virtual QSGContext *create(const QString &key) const = 0;
+    virtual Flags flags(const QString &key) const = 0;
 
     virtual QQuickTextureFactory *createTextureFactoryFromImage(const QImage &image) = 0;
     virtual QSGRenderLoop *createWindowManager() = 0;
 };
+
+Q_DECLARE_OPERATORS_FOR_FLAGS(QSGContextFactoryInterface::Flags)
 
 #define QSGContextFactoryInterface_iid \
         "org.qt-project.Qt.QSGContextFactoryInterface"
@@ -82,11 +90,10 @@ public:
     explicit QSGContextPlugin(QObject *parent = 0);
     virtual ~QSGContextPlugin();
 
-    virtual QStringList keys() const = 0;
-    virtual QSGContext *create(const QString &key) const = 0;
+    virtual QStringList keys() const override = 0;
 
-    virtual QQuickTextureFactory *createTextureFactoryFromImage(const QImage &) { return 0; }
-    virtual QSGRenderLoop *createWindowManager() { return 0; }
+    QQuickTextureFactory *createTextureFactoryFromImage(const QImage &) override { return 0; }
+    QSGRenderLoop *createWindowManager() override { return 0; }
 };
 
 QT_END_NAMESPACE

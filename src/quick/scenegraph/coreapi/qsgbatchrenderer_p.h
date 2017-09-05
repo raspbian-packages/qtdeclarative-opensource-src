@@ -54,12 +54,14 @@
 //
 
 #include <private/qsgrenderer_p.h>
+#include <private/qsgdefaultrendercontext_p.h>
 #include <private/qsgnodeupdater_p.h>
+#include <private/qsgrendernode_p.h>
 #include <private/qdatabuffer_p.h>
 
-#include <private/qsgrendernode_p.h>
-
 #include <QtCore/QBitArray>
+
+#include <QtGui/QOpenGLFunctions>
 
 QT_BEGIN_NAMESPACE
 
@@ -438,9 +440,7 @@ struct Batch
     mutable uint uploadedThisFrame : 1; // solely for debugging purposes
 
     Buffer vbo;
-#ifdef QSG_SEPARATE_INDEX_BUFFER
     Buffer ibo;
-#endif
 
     QDataBuffer<DrawSet> drawSets;
 };
@@ -449,11 +449,73 @@ struct Batch
 struct Node
 {
     QSGNode *sgNode;
-    Node *parent;
     void *data;
-    Node *firstChild;
-    Node *nextSibling;
-    Node *lastChild;
+
+    Node *m_parent;
+    Node *m_child;
+    Node *m_next;
+    Node *m_prev;
+
+    Node *parent() const { return m_parent; }
+
+    void append(Node *child) {
+        Q_ASSERT(child);
+        Q_ASSERT(!hasChild(child));
+        Q_ASSERT(child->m_parent == 0);
+        Q_ASSERT(child->m_next == 0);
+        Q_ASSERT(child->m_prev == 0);
+
+        if (!m_child) {
+            child->m_next = child;
+            child->m_prev = child;
+            m_child = child;
+        } else {
+            m_child->m_prev->m_next = child;
+            child->m_prev = m_child->m_prev;
+            m_child->m_prev = child;
+            child->m_next = m_child;
+        }
+        child->setParent(this);
+    }
+
+    void remove(Node *child) {
+        Q_ASSERT(child);
+        Q_ASSERT(hasChild(child));
+
+        // only child..
+        if (child->m_next == child) {
+            m_child = 0;
+        } else {
+            if (m_child == child)
+                m_child = child->m_next;
+            child->m_next->m_prev = child->m_prev;
+            child->m_prev->m_next = child->m_next;
+        }
+        child->m_next = 0;
+        child->m_prev = 0;
+        child->setParent(0);
+    }
+
+    Node *firstChild() const { return m_child; }
+
+    Node *sibling() const {
+        Q_ASSERT(m_parent);
+        return m_next == m_parent->m_child ? 0 : m_next;
+    }
+
+    void setParent(Node *p) {
+        Q_ASSERT(m_parent == 0 || p == 0);
+        m_parent = p;
+    }
+
+    bool hasChild(Node *child) const {
+        Node *n = m_child;
+        while (n && n != child)
+            n = n->sibling();
+        return n;
+    }
+
+
 
     QSGNode::DirtyState dirtyState;
 
@@ -497,7 +559,7 @@ public:
     void updateRootTransforms(Node *n);
     void updateRootTransforms(Node *n, Node *root, const QMatrix4x4 &combined);
 
-    void updateStates(QSGNode *n);
+    void updateStates(QSGNode *n) override;
     void visitNode(Node *n);
     void registerWithParentRoot(QSGNode *subRoot, QSGNode *parentRoot);
 
@@ -527,7 +589,7 @@ public:
         float lastOpacity;
     };
 
-    ShaderManager(QSGRenderContext *ctx) : visualizeProgram(0), blitProgram(0), context(ctx) { }
+    ShaderManager(QSGDefaultRenderContext *ctx) : visualizeProgram(0), blitProgram(0), context(ctx) { }
     ~ShaderManager() {
         qDeleteAll(rewrittenShaders);
         qDeleteAll(stockShaders);
@@ -547,13 +609,13 @@ private:
     QHash<QSGMaterialType *, Shader *> stockShaders;
 
     QOpenGLShaderProgram *blitProgram;
-    QSGRenderContext *context;
+    QSGDefaultRenderContext *context;
 };
 
 class Q_QUICK_PRIVATE_EXPORT Renderer : public QSGRenderer, public QOpenGLFunctions
 {
 public:
-    Renderer(QSGRenderContext *);
+    Renderer(QSGDefaultRenderContext *);
     ~Renderer();
 
     enum VisualizeMode {
@@ -637,6 +699,7 @@ private:
     void visualizeDrawGeometry(const QSGGeometry *g);
     void setCustomRenderMode(const QByteArray &mode) Q_DECL_OVERRIDE;
 
+    QSGDefaultRenderContext *m_context;
     QSet<Node *> m_taggedRoots;
     QDataBuffer<Element *> m_opaqueRenderList;
     QDataBuffer<Element *> m_alphaRenderList;
@@ -679,9 +742,7 @@ private:
     ClipType m_currentClipType;
 
     QDataBuffer<char> m_vertexUploadPool;
-#ifdef QSG_SEPARATE_INDEX_BUFFER
     QDataBuffer<char> m_indexUploadPool;
-#endif
     // For minimal OpenGL core profile support
     QOpenGLVertexArrayObject *m_vao;
 
@@ -701,10 +762,7 @@ Batch *Renderer::newBatch()
         m_batchPool.resize(size - 1);
     } else {
         b = new Batch();
-        memset(&b->vbo, 0, sizeof(Buffer));
-#ifdef QSG_SEPARATE_INDEX_BUFFER
-        memset(&b->ibo, 0, sizeof(Buffer));
-#endif
+        memset(&b->vbo, 0, sizeof(Buffer) * 2); // Clear VBO & IBO
     }
     b->init();
     return b;

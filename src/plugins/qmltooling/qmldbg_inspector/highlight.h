@@ -65,8 +65,6 @@ protected:
 
 private:
     void initRenderDetails();
-
-private slots:
     void adjust();
 
 private:
@@ -83,16 +81,15 @@ class SelectionHighlight : public Highlight
 
 public:
     SelectionHighlight(const QString &name, QQuickItem *item, QQuickItem *parent);
-    void paint(QPainter *painter);
+    void paint(QPainter *painter) override;
     void showName(const QPointF &displayPoint);
-
-private slots:
-    void disableNameDisplay();
 
 private:
     QPointF m_displayPoint;
     QString m_name;
     bool m_nameDisplayActive;
+
+    void disableNameDisplay();
 };
 
 /**
@@ -107,7 +104,7 @@ public:
         setZ(1); // hover highlight on top of selection highlight
     }
 
-    void paint(QPainter *painter);
+    void paint(QPainter *painter) override;
 };
 
 } // namespace QmlJSDebugger

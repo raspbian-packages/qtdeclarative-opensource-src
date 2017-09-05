@@ -147,11 +147,14 @@ private slots:
 
     void padding();
 
-    void zeroWidthAndElidedDoesntRender();
+    void hintingPreference();
 
+    void zeroWidthAndElidedDoesntRender();
 
     void hAlignWidthDependsOnImplicitWidth_data();
     void hAlignWidthDependsOnImplicitWidth();
+
+    void fontInfo();
 
 private:
     QStringList standard;
@@ -761,11 +764,6 @@ void tst_qquicktext::horizontalAlignment()
 
 void tst_qquicktext::horizontalAlignment_RightToLeft()
 {
-#if defined(Q_OS_BLACKBERRY)
-    QQuickWindow dummy;      // On BlackBerry first window is always full screen,
-    dummy.showFullScreen();  // so make test window a second window.
-#endif
-
     QScopedPointer<QQuickView> window(createView(testFile("horizontalAlignment_RightToLeft.qml")));
     QQuickText *text = window->rootObject()->findChild<QQuickText*>("text");
     QVERIFY(text != 0);
@@ -4165,6 +4163,33 @@ void tst_qquicktext::padding()
     delete root;
 }
 
+void tst_qquicktext::hintingPreference()
+{
+    {
+        QString componentStr = "import QtQuick 2.0\nText { text: \"Hello world!\" }";
+        QQmlComponent textComponent(&engine);
+        textComponent.setData(componentStr.toLatin1(), QUrl::fromLocalFile(""));
+        QQuickText *textObject = qobject_cast<QQuickText*>(textComponent.create());
+
+        QVERIFY(textObject != 0);
+        QCOMPARE((int)textObject->font().hintingPreference(), (int)QFont::PreferDefaultHinting);
+
+        delete textObject;
+    }
+    {
+        QString componentStr = "import QtQuick 2.0\nText { text: \"Hello world!\"; font.hintingPreference: Font.PreferNoHinting }";
+        QQmlComponent textComponent(&engine);
+        textComponent.setData(componentStr.toLatin1(), QUrl::fromLocalFile(""));
+        QQuickText *textObject = qobject_cast<QQuickText*>(textComponent.create());
+
+        QVERIFY(textObject != 0);
+        QCOMPARE((int)textObject->font().hintingPreference(), (int)QFont::PreferNoHinting);
+
+        delete textObject;
+    }
+}
+
+
 void tst_qquicktext::zeroWidthAndElidedDoesntRender()
 {
     // Tests QTBUG-34990
@@ -4228,6 +4253,23 @@ void tst_qquicktext::hAlignWidthDependsOnImplicitWidth()
     QVERIFY(rect->setProperty("text", "this is mis-aligned"));
     image = window->grabWindow();
     QCOMPARE(numberOfNonWhitePixels(0, rectX - 1, image), 0);
+}
+
+void tst_qquicktext::fontInfo()
+{
+    QQmlComponent component(&engine, testFile("fontInfo.qml"));
+
+    QScopedPointer<QObject> object(component.create());
+    QObject *root = object.data();
+
+    QQuickText *main = root->findChild<QQuickText *>("main");
+    QVERIFY(main);
+    QCOMPARE(main->font().pixelSize(), 1000);
+
+    QQuickText *copy = root->findChild<QQuickText *>("copy");
+    QVERIFY(copy);
+    QCOMPARE(copy->font().family(), QFontInfo(QFont()).family());
+    QVERIFY(copy->font().pixelSize() < 1000);
 }
 
 QTEST_MAIN(tst_qquicktext)

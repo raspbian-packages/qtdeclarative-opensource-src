@@ -41,6 +41,7 @@
 
 #include <QtQuick/private/qquickpainteditem_p.h>
 
+#include <QtQuick/private/qsgdefaultrendercontext_p.h>
 #include <QtQuick/private/qsgcontext_p.h>
 #include <private/qopenglextensions_p.h>
 #include <qopenglframebufferobject.h>
@@ -96,7 +97,7 @@ QSGDefaultPainterNode::QSGDefaultPainterNode(QQuickPaintedItem *item)
     , m_dirtyRenderTarget(false)
     , m_dirtyTexture(false)
 {
-    m_context = static_cast<QQuickPaintedItemPrivate *>(QObjectPrivate::get(item))->sceneGraphRenderContext();
+    m_context = static_cast<QSGDefaultRenderContext *>(static_cast<QQuickPaintedItemPrivate *>(QObjectPrivate::get(item))->sceneGraphRenderContext());
 
     setMaterial(&m_materialO);
     setOpaqueMaterial(&m_material);
@@ -237,9 +238,9 @@ void QSGDefaultPainterNode::updateGeometry()
 void QSGDefaultPainterNode::updateRenderTarget()
 {
     if (!m_extensionsChecked) {
-        const QSet<QByteArray> extensions = m_context->openglContext()->extensions();
-        m_multisamplingSupported = extensions.contains(QByteArrayLiteral("GL_EXT_framebuffer_multisample"))
-            && extensions.contains(QByteArrayLiteral("GL_EXT_framebuffer_blit"));
+        QOpenGLExtensions *e = static_cast<QOpenGLExtensions *>(QOpenGLContext::currentContext()->functions());
+        m_multisamplingSupported = e->hasOpenGLExtension(QOpenGLExtensions::FramebufferMultisample)
+            && e->hasOpenGLExtension(QOpenGLExtensions::FramebufferBlit);
         m_extensionsChecked = true;
     }
 
@@ -442,9 +443,21 @@ void QSGDefaultPainterNode::setContentsScale(qreal s)
     markDirty(DirtyMaterial);
 }
 
-void QSGDefaultPainterNode::setFastFBOResizing(bool dynamic)
+void QSGDefaultPainterNode::setFastFBOResizing(bool fastResizing)
 {
-    m_fastFBOResizing = dynamic;
+    if (m_fastFBOResizing == fastResizing)
+        return;
+
+    m_fastFBOResizing = fastResizing;
+    updateFBOSize();
+
+    if ((m_preferredRenderTarget == QQuickPaintedItem::FramebufferObject
+         || m_preferredRenderTarget == QQuickPaintedItem::InvertedYFramebufferObject)
+            && (!m_fbo || (m_fbo && m_fbo->size() != m_fboSize))) {
+        m_dirtyRenderTarget = true;
+        m_dirtyGeometry = true;
+        m_dirtyTexture = true;
+    }
 }
 
 QImage QSGDefaultPainterNode::toImage() const

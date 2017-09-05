@@ -48,7 +48,6 @@
 #include <QtQml/qqmlparserstatus.h>
 #include <private/qqmlcustomparser_p.h>
 #include <private/qqmlboundsignalexpressionpointer_p.h>
-#include <private/qqmlcompiler_p.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -90,7 +89,7 @@ private:
     QJSValue m_signal;
     QQmlScriptString m_guard;
     bool m_complete;
-    QQmlRefPointer<QQmlCompiledData> m_cdata;
+    QQmlRefPointer<QV4::CompiledData::CompilationUnit> m_compilationUnit;
     QList<const QV4::CompiledData::Binding *> m_bindings;
     QQmlBoundSignalExpressionPointer m_signalExpression;
 };
@@ -99,7 +98,7 @@ class SignalTransitionParser : public QQmlCustomParser
 {
 public:
     void verifyBindings(const QV4::CompiledData::Unit *qmlUnit, const QList<const QV4::CompiledData::Binding *> &props) Q_DECL_OVERRIDE;
-    void applyBindings(QObject *object, QQmlCompiledData *cdata, const QList<const QV4::CompiledData::Binding *> &bindings) Q_DECL_OVERRIDE;
+    void applyBindings(QObject *object, QV4::CompiledData::CompilationUnit *compilationUnit, const QList<const QV4::CompiledData::Binding *> &bindings) Q_DECL_OVERRIDE;
 };
 
 QT_END_NAMESPACE

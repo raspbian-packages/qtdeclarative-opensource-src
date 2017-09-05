@@ -47,11 +47,16 @@ using namespace JIT;
 #define stringIfyx(s) #s
 #define stringIfy(s) stringIfyx(s)
 #define setOp(operation) \
-    do { call = operation; name = stringIfy(operation); } while (0)
+    do { \
+        call = typename JITAssembler::RuntimeCall(QV4::Runtime::operation); name = "Runtime::" stringIfy(operation); \
+        needsExceptionCheck = Runtime::Method_##operation##_NeedsExceptionCheck; \
+    } while (0)
 
-void Unop::generate(IR::Expr *source, IR::Expr *target)
+template <typename JITAssembler>
+void Unop<JITAssembler>::generate(IR::Expr *source, IR::Expr *target)
 {
-    Runtime::UnaryOperation call = 0;
+    bool needsExceptionCheck;
+    typename JITAssembler::RuntimeCall call;
     const char *name = 0;
     switch (op) {
     case IR::OpNot:
@@ -60,81 +65,102 @@ void Unop::generate(IR::Expr *source, IR::Expr *target)
     case IR::OpUMinus:
         generateUMinus(source, target);
         return;
-    case IR::OpUPlus: setOp(Runtime::uPlus); break;
+    case IR::OpUPlus: setOp(uPlus); break;
     case IR::OpCompl:
         generateCompl(source, target);
         return;
-    case IR::OpIncrement: setOp(Runtime::increment); break;
-    case IR::OpDecrement: setOp(Runtime::decrement); break;
+    case IR::OpIncrement: setOp(increment); break;
+    case IR::OpDecrement: setOp(decrement); break;
     default:
         Q_UNREACHABLE();
     } // switch
 
-    if (call) {
-        as->generateFunctionCallImp(target, name, call, Assembler::PointerToValue(source));
-    }
+    Q_ASSERT(call.isValid());
+    _as->generateFunctionCallImp(needsExceptionCheck, target, name, call, PointerToValue(source));
 }
 
-void Unop::generateUMinus(IR::Expr *source, IR::Expr *target)
+template <typename JITAssembler>
+void Unop<JITAssembler>::generateUMinus(IR::Expr *source, IR::Expr *target)
 {
     IR::Temp *targetTemp = target->asTemp();
+
+    if (IR::Const *c = source->asConst()) {
+        if (c->value == 0 && source->type == IR::SInt32Type) {
+            // special case: minus integer 0 is 0, which is not what JS expects it to be, so always
+            // do a runtime call
+            generateRuntimeCall(_as, target, uMinus, PointerToValue(source));
+            return;
+        }
+    }
     if (source->type == IR::SInt32Type) {
-        Assembler::RegisterID tReg = Assembler::ScratchRegister;
+        typename JITAssembler::RegisterID tReg = JITAssembler::ScratchRegister;
         if (targetTemp && targetTemp->kind == IR::Temp::PhysicalRegister)
-            tReg = (Assembler::RegisterID) targetTemp->index;
-        Assembler::RegisterID sReg = as->toInt32Register(source, tReg);
-        as->move(sReg, tReg);
-        as->neg32(tReg);
+            tReg = (typename JITAssembler::RegisterID) targetTemp->index;
+        typename JITAssembler::RegisterID sReg = _as->toInt32Register(source, tReg);
+        _as->move(sReg, tReg);
+        _as->neg32(tReg);
         if (!targetTemp || targetTemp->kind != IR::Temp::PhysicalRegister)
-            as->storeInt32(tReg, target);
+            _as->storeInt32(tReg, target);
         return;
     }
 
-    as->generateFunctionCallImp(target, "Runtime::uMinus", Runtime::uMinus, Assembler::PointerToValue(source));
+    generateRuntimeCall(_as, target, uMinus, PointerToValue(source));
 }
 
-void Unop::generateNot(IR::Expr *source, IR::Expr *target)
+template <typename JITAssembler>
+void Unop<JITAssembler>::generateNot(IR::Expr *source, IR::Expr *target)
 {
     IR::Temp *targetTemp = target->asTemp();
     if (source->type == IR::BoolType) {
-        Assembler::RegisterID tReg = Assembler::ScratchRegister;
+        typename JITAssembler::RegisterID tReg = JITAssembler::ScratchRegister;
         if (targetTemp && targetTemp->kind == IR::Temp::PhysicalRegister)
-            tReg = (Assembler::RegisterID) targetTemp->index;
-        as->xor32(Assembler::TrustedImm32(0x1), as->toInt32Register(source, tReg), tReg);
+            tReg = (typename JITAssembler::RegisterID) targetTemp->index;
+        _as->xor32(TrustedImm32(0x1), _as->toInt32Register(source, tReg), tReg);
         if (!targetTemp || targetTemp->kind != IR::Temp::PhysicalRegister)
-            as->storeBool(tReg, target);
+            _as->storeBool(tReg, target);
         return;
     } else if (source->type == IR::SInt32Type) {
-        Assembler::RegisterID tReg = Assembler::ScratchRegister;
+        typename JITAssembler::RegisterID tReg = JITAssembler::ScratchRegister;
         if (targetTemp && targetTemp->kind == IR::Temp::PhysicalRegister)
-            tReg = (Assembler::RegisterID) targetTemp->index;
-        as->compare32(Assembler::Equal,
-                      as->toInt32Register(source, Assembler::ScratchRegister), Assembler::TrustedImm32(0),
+            tReg = (typename JITAssembler::RegisterID) targetTemp->index;
+        _as->compare32(RelationalCondition::Equal,
+                      _as->toInt32Register(source, JITAssembler::ScratchRegister), TrustedImm32(0),
                       tReg);
         if (!targetTemp || targetTemp->kind != IR::Temp::PhysicalRegister)
-            as->storeBool(tReg, target);
+            _as->storeBool(tReg, target);
         return;
     } else if (source->type == IR::DoubleType) {
         // ###
     }
     // ## generic implementation testing for int/bool
 
-    as->generateFunctionCallImp(target, "Runtime::uNot", Runtime::uNot, Assembler::PointerToValue(source));
+    generateRuntimeCall(_as, target, uNot, PointerToValue(source));
 }
 
-void Unop::generateCompl(IR::Expr *source, IR::Expr *target)
+template <typename JITAssembler>
+void Unop<JITAssembler>::generateCompl(IR::Expr *source, IR::Expr *target)
 {
     IR::Temp *targetTemp = target->asTemp();
     if (source->type == IR::SInt32Type) {
-        Assembler::RegisterID tReg = Assembler::ScratchRegister;
+        typename JITAssembler::RegisterID tReg = JITAssembler::ScratchRegister;
         if (targetTemp && targetTemp->kind == IR::Temp::PhysicalRegister)
-            tReg = (Assembler::RegisterID) targetTemp->index;
-        as->xor32(Assembler::TrustedImm32(0xffffffff), as->toInt32Register(source, tReg), tReg);
+            tReg = (typename JITAssembler::RegisterID) targetTemp->index;
+        _as->xor32(TrustedImm32(0xffffffff), _as->toInt32Register(source, tReg), tReg);
         if (!targetTemp || targetTemp->kind != IR::Temp::PhysicalRegister)
-            as->storeInt32(tReg, target);
+            _as->storeInt32(tReg, target);
         return;
     }
-    as->generateFunctionCallImp(target, "Runtime::complement", Runtime::complement, Assembler::PointerToValue(source));
+    generateRuntimeCall(_as, target, complement, PointerToValue(source));
 }
+
+template struct QV4::JIT::Unop<QV4::JIT::Assembler<DefaultAssemblerTargetConfiguration>>;
+#if defined(V4_BOOTSTRAP)
+#if !CPU(ARM_THUMB2)
+template struct QV4::JIT::Unop<QV4::JIT::Assembler<AssemblerTargetConfiguration<JSC::MacroAssemblerARMv7, NoOperatingSystemSpecialization>>>;
+#endif
+#if !CPU(ARM64)
+template struct QV4::JIT::Unop<QV4::JIT::Assembler<AssemblerTargetConfiguration<JSC::MacroAssemblerARM64, NoOperatingSystemSpecialization>>>;
+#endif
+#endif
 
 #endif

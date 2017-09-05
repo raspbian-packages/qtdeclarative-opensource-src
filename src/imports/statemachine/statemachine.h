@@ -48,8 +48,6 @@
 
 QT_BEGIN_NAMESPACE
 
-class QQmlOpenMetaObject;
-
 class StateMachine : public QStateMachine, public QQmlParserStatus
 {
     Q_OBJECT
@@ -64,8 +62,8 @@ class StateMachine : public QStateMachine, public QQmlParserStatus
 public:
     explicit StateMachine(QObject *parent = 0);
 
-    void classBegin() {}
-    void componentComplete();
+    void classBegin() override {}
+    void componentComplete() override;
     QQmlListProperty<QObject> children();
 
     bool isRunning() const;

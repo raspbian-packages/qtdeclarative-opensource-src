@@ -244,6 +244,7 @@ signals:
     void signalWithGlobalName(int parseInt);
     void intChanged();
     void qjsvalueChanged();
+    void qjsValueEmittingSignal(QJSValue value);
 
 public slots:
     void deleteMe() { delete this; }
@@ -790,7 +791,8 @@ public:
     Q_INVOKABLE void method_QObject(QObject *a) { invoke(13); m_actuals << qVariantFromValue(a); }
     Q_INVOKABLE void method_QScriptValue(QJSValue a) { invoke(14); m_actuals << qVariantFromValue(a); }
     Q_INVOKABLE void method_intQScriptValue(int a, QJSValue b) { invoke(15); m_actuals << a << qVariantFromValue(b); }
-    Q_INVOKABLE QJSValue method_intQJSValue(int a, QJSValue b) { invoke(29); m_actuals << a << qVariantFromValue(b); return b.call(); }
+    Q_INVOKABLE void method_QByteArray(QByteArray value) { invoke(29); m_actuals << value; }
+    Q_INVOKABLE QJSValue method_intQJSValue(int a, QJSValue b) { invoke(30); m_actuals << a << qVariantFromValue(b); return b.call(); }
     Q_INVOKABLE QJSValue method_intQJSValue(int a, int b) { m_actuals << a << b; return QJSValue();} // Should never be called.
 
     Q_INVOKABLE void method_overload(int a) { invoke(16); m_actuals << a; }
@@ -1710,6 +1712,14 @@ public:
 
     virtual void classBegin();
     virtual void componentComplete();
+};
+
+class ClashingNames : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(bool clashes READ clashes CONSTANT)
+public:
+    Q_INVOKABLE bool clashes() const { return true; }
 };
 
 void registerTypes();

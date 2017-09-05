@@ -32,7 +32,6 @@
 #include <QtQuick/qquickitem.h>
 #include <QtQml/private/qqmlengine_p.h>
 #include <QtQml/private/qqmltypeloader_p.h>
-#include <QtQml/private/qqmlcompiler_p.h>
 #include "../../shared/util.h"
 
 class tst_QQMLTypeLoader : public QQmlDataTest
@@ -90,7 +89,7 @@ void tst_QQMLTypeLoader::trimCache()
         if (i % 10 == 0) {
             // keep ref on data, don't add ref on data->compiledData()
         } else if (i % 5 == 0) {
-            data->compiledData()->addref();
+            data->compilationUnit()->addref();
             data->release();
         } else {
             data->release();

@@ -44,7 +44,6 @@
 #include <private/qqmlcustomparser_p.h>
 #include <private/qhashedstring_p.h>
 #include <private/qqmlimport_p.h>
-#include <private/qqmlcompiler_p.h>
 
 #include <QtCore/qdebug.h>
 #include <QtCore/qstringlist.h>
@@ -80,7 +79,7 @@ struct QQmlMetaTypeData
     Files urlToNonFileImportType; // For non-file imported composite and composite
                                   // singleton types. This way we can locate any
                                   // of them by url, even if it was registered as
-                                  // a module via qmlRegisterCompositeType.
+                                  // a module via QQmlPrivate::RegisterCompositeType
     typedef QHash<const QMetaObject *, QQmlType *> MetaObjects;
     MetaObjects metaObjectToType;
     typedef QHash<int, QQmlMetaType::StringConverter> StringConverters;
@@ -493,8 +492,8 @@ QQmlType *QQmlType::resolveCompositeBaseType(QQmlEnginePrivate *engine) const
     QQmlRefPointer<QQmlTypeData> td(engine->typeLoader.getType(sourceUrl()), QQmlRefPointer<QQmlTypeData>::Adopt);
     if (td.isNull() || !td->isComplete())
         return 0;
-    QQmlCompiledData *cd = td->compiledData();
-    const QMetaObject *mo = cd->rootPropertyCache->firstCppMetaObject();
+    QV4::CompiledData::CompilationUnit *compilationUnit = td->compilationUnit();
+    const QMetaObject *mo = compilationUnit->rootPropertyCache()->firstCppMetaObject();
     return QQmlMetaType::qmlType(mo);
 }
 
@@ -635,7 +634,7 @@ void QQmlTypePrivate::init() const
                     QMetaObject *mmo = builder.toMetaObject();
                     mmo->d.superdata = baseMetaObject;
                     if (!metaObjects.isEmpty())
-                        metaObjects.last().metaObject->d.superdata = mmo;
+                        metaObjects.constLast().metaObject->d.superdata = mmo;
                     QQmlProxyMetaObject::ProxyData data = { mmo, t->d->extraData.cd->extFunc, 0, 0 };
                     metaObjects << data;
                 }
@@ -657,7 +656,7 @@ void QQmlTypePrivate::init() const
         if (metaObjects.isEmpty())
             mo = baseMetaObject;
         else
-            mo = metaObjects.first().metaObject;
+            mo = metaObjects.constFirst().metaObject;
 
         for (int ii = 0; !containsRevisionedAttributes && ii < mo->propertyCount(); ++ii) {
             if (isPropertyRevisioned(mo, ii))
@@ -852,7 +851,7 @@ const QMetaObject *QQmlType::metaObject() const
     if (d->metaObjects.isEmpty())
         return d->baseMetaObject;
     else
-        return d->metaObjects.first().metaObject;
+        return d->metaObjects.constFirst().metaObject;
 
 }
 
@@ -1050,7 +1049,7 @@ void QQmlTypeModulePrivate::add(QQmlType *type)
     list.append(type);
 }
 
-QQmlType *QQmlTypeModule::type(const QHashedStringRef &name, int minor)
+QQmlType *QQmlTypeModule::type(const QHashedStringRef &name, int minor) const
 {
     QMutexLocker lock(metaTypeDataLock());
 
@@ -1064,7 +1063,7 @@ QQmlType *QQmlTypeModule::type(const QHashedStringRef &name, int minor)
     return 0;
 }
 
-QQmlType *QQmlTypeModule::type(const QV4::String *name, int minor)
+QQmlType *QQmlTypeModule::type(const QV4::String *name, int minor) const
 {
     QMutexLocker lock(metaTypeDataLock());
 
@@ -1159,7 +1158,7 @@ void qmlClearTypeRegistrations() // Declared in qqml.h
     data->uriToModule.clear();
 
     QQmlEnginePrivate::baseModulesUninitialized = true; //So the engine re-registers its types
-#ifndef QT_NO_LIBRARY
+#if QT_CONFIG(library)
     qmlClearEnginePlugins();
 #endif
 }
@@ -1269,6 +1268,19 @@ bool checkRegistration(QQmlType::RegistrationType typeType, QQmlMetaTypeData *da
 }
 
 // NOTE: caller must hold a QMutexLocker on "data"
+QQmlTypeModule *getTypeModule(const QHashedString &uri, int majorVersion, QQmlMetaTypeData *data)
+{
+    QQmlMetaTypeData::VersionedUri versionedUri(uri, majorVersion);
+    QQmlTypeModule *module = data->uriToModule.value(versionedUri);
+    if (!module) {
+        module = new QQmlTypeModule;
+        module->d->uri = versionedUri;
+        data->uriToModule.insert(versionedUri, module);
+    }
+    return module;
+}
+
+// NOTE: caller must hold a QMutexLocker on "data"
 void addTypeToData(QQmlType* type, QQmlMetaTypeData *data)
 {
     if (!type->elementName().isEmpty())
@@ -1294,13 +1306,8 @@ void addTypeToData(QQmlType* type, QQmlMetaTypeData *data)
     if (!type->module().isEmpty()) {
         const QHashedString &mod = type->module();
 
-        QQmlMetaTypeData::VersionedUri versionedUri(mod, type->majorVersion());
-        QQmlTypeModule *module = data->uriToModule.value(versionedUri);
-        if (!module) {
-            module = new QQmlTypeModule;
-            module->d->uri = versionedUri;
-            data->uriToModule.insert(versionedUri, module);
-        }
+        QQmlTypeModule *module = getTypeModule(mod, type->majorVersion(), data);
+        Q_ASSERT(module);
         module->d->add(type);
     }
 }
@@ -1443,13 +1450,27 @@ bool qmlProtectModule(const char *uri, int majVersion)
     return false;
 }
 
+//From qqml.h
+void qmlRegisterModule(const char *uri, int versionMajor, int versionMinor)
+{
+    QMutexLocker lock(metaTypeDataLock());
+    QQmlMetaTypeData *data = metaTypeData();
+
+    QQmlTypeModule *module = getTypeModule(QString::fromUtf8(uri), versionMajor, data);
+    Q_ASSERT(module);
+
+    QQmlTypeModulePrivate *p = QQmlTypeModulePrivate::get(module);
+    p->minMinorVersion = qMin(p->minMinorVersion, versionMinor);
+    p->maxMinorVersion = qMax(p->maxMinorVersion, versionMinor);
+}
+
 bool QQmlMetaType::namespaceContainsRegistrations(const QString &uri, int majorVersion)
 {
-    QQmlMetaTypeData *data = metaTypeData();
+    const QQmlMetaTypeData *data = metaTypeData();
 
     // Has any type previously been installed to this namespace?
     QHashedString nameSpace(uri);
-    foreach (const QQmlType *type, data->types)
+    for (const QQmlType *type : data->types)
         if (type->module() == nameSpace && type->majorVersion() == majorVersion)
             return true;
 
@@ -1862,7 +1883,7 @@ QQmlType *QQmlMetaType::qmlTypeFromIndex(int idx)
 
     if (idx < 0 || idx >= data->types.count())
             return 0;
-    return data->types[idx];
+    return data->types.at(idx);
 }
 
 /*!
@@ -1914,14 +1935,11 @@ QList<QQmlType*> QQmlMetaType::qmlSingletonTypes()
     QMutexLocker lock(metaTypeDataLock());
     QQmlMetaTypeData *data = metaTypeData();
 
-    QList<QQmlType*> alltypes = data->nameToType.values();
     QList<QQmlType*> retn;
-    foreach (QQmlType* t, alltypes) {
-        if (t->isSingleton()) {
-            retn.append(t);
-        }
+    for (const auto type : qAsConst(data->nameToType)) {
+        if (type->isSingleton())
+            retn.append(type);
     }
-
     return retn;
 }
 
@@ -1929,9 +1947,9 @@ const QQmlPrivate::CachedQmlUnit *QQmlMetaType::findCachedCompilationUnit(const 
 {
     QMutexLocker lock(metaTypeDataLock());
     QQmlMetaTypeData *data = metaTypeData();
-    for (QVector<QQmlPrivate::QmlUnitCacheLookupFunction>::ConstIterator it = data->lookupCachedQmlUnit.constBegin(), end = data->lookupCachedQmlUnit.constEnd();
-         it != end; ++it) {
-        if (const QQmlPrivate::CachedQmlUnit *unit = (*it)(uri))
+
+    for (const auto lookup : qAsConst(data->lookupCachedQmlUnit)) {
+        if (const QQmlPrivate::CachedQmlUnit *unit = lookup(uri))
             return unit;
     }
     return 0;
@@ -1953,7 +1971,9 @@ QString QQmlMetaType::prettyTypeName(const QObject *object)
         const int lastSlash = typeName.lastIndexOf(QLatin1Char('/'));
         if (lastSlash != -1)
             typeName = typeName.mid(lastSlash + 1);
-    } else {
+    }
+
+    if (typeName.isEmpty()) {
         typeName = QString::fromUtf8(object->metaObject()->className());
         int marker = typeName.indexOf(QLatin1String("_QMLTYPE_"));
         if (marker != -1)
@@ -1961,14 +1981,15 @@ QString QQmlMetaType::prettyTypeName(const QObject *object)
 
         marker = typeName.indexOf(QLatin1String("_QML_"));
         if (marker != -1) {
-            typeName = typeName.left(marker);
-            typeName += QLatin1Char('*');
+            typeName = typeName.leftRef(marker) + QLatin1Char('*');
             type = QQmlMetaType::qmlType(QMetaType::type(typeName.toLatin1()));
             if (type) {
-                typeName = type->qmlTypeName();
-                const int lastSlash = typeName.lastIndexOf(QLatin1Char('/'));
+                QString qmlTypeName = type->qmlTypeName();
+                const int lastSlash = qmlTypeName.lastIndexOf(QLatin1Char('/'));
                 if (lastSlash != -1)
-                    typeName = typeName.mid(lastSlash + 1);
+                    qmlTypeName = qmlTypeName.mid(lastSlash + 1);
+                if (!qmlTypeName.isEmpty())
+                    typeName = qmlTypeName;
             }
         }
     }

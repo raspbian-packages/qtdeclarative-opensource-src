@@ -94,7 +94,7 @@ QQuickTargetDirection::QQuickTargetDirection(QObject *parent) :
 {
 }
 
-const QPointF QQuickTargetDirection::sample(const QPointF &from)
+QPointF QQuickTargetDirection::sample(const QPointF &from)
 {
     //###This approach loses interpolating the last position of the target (like we could with the emitter) is it worthwhile?
     QPointF ret;
@@ -129,3 +129,5 @@ const QPointF QQuickTargetDirection::sample(const QPointF &from)
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qquicktargetdirection_p.cpp"

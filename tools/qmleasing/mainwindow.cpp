@@ -29,7 +29,6 @@
 #include "mainwindow.h"
 #include "splineeditor.h"
 #include <QtQuick/QQuickView>
-#include <QtQuick>
 #include <QtQml/QQmlContext>
 #include <QEasingCurve>
 #include <QHBoxLayout>
@@ -74,7 +73,8 @@ MainWindow::MainWindow(QWidget *parent) :
 
     quickView.rootContext()->setContextProperty(QLatin1String("spinBox"), ui_properties.spinBox);
 
-    foreach (const QString &name, splineEditor->presetNames())
+    const auto presetNames = splineEditor->presetNames();
+    for (const QString &name : presetNames)
         ui_properties.comboBox->addItem(name);
 
     connect(ui_properties.comboBox, SIGNAL(currentIndexChanged(QString)), splineEditor, SLOT(setPreset(QString)));
@@ -98,7 +98,6 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(ui_properties.importButton, SIGNAL(clicked()), importDialog, SLOT(show()));
     connect(importDialog, SIGNAL(finished(int)), this, SLOT(importData(int)));
 
-    connect(this, SIGNAL(close()), this, SLOT(doClose()));
     initQml();
 }
 
@@ -155,3 +154,5 @@ void MainWindow::importData(int result)
         .arg(ii*is,0,'f',3).arg(1-oi, 0, 'f', 3).arg(1-(oi*os), 0, 'f', 3);
     ui_properties.plainTextEdit->setPlainText(generatedString);
 }
+
+#include "moc_mainwindow.cpp"

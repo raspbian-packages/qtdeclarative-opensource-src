@@ -44,7 +44,6 @@
 #include <private/qqmlbinding_p.h>
 #include <private/qqmlglobal_p.h>
 
-#include <QtCore/qstringbuilder.h>
 #include <QtCore/qstringlist.h>
 #include <QtCore/qdebug.h>
 #include <QtCore/qvector.h>
@@ -306,7 +305,7 @@ void QQuickStateGroup::componentComplete()
     for (int ii = 0; ii < d->states.count(); ++ii) {
         QQuickState *state = d->states.at(ii);
         if (!state->isNamed())
-            state->setName(QLatin1String("anonymousState") % QString::number(++d->unnamedCount));
+            state->setName(QLatin1String("anonymousState") + QString::number(++d->unnamedCount));
     }
 
     if (d->updateAutoState()) {
@@ -439,7 +438,7 @@ void QQuickStateGroupPrivate::setCurrentStateInternal(const QString &state,
     }
 
     if (applyingState) {
-        qmlInfo(q) << "Can't apply a state change as part of a state definition.";
+        qmlWarning(q) << "Can't apply a state change as part of a state definition.";
         return;
     }
 
@@ -515,3 +514,4 @@ void QQuickStateGroup::stateAboutToComplete()
 QT_END_NAMESPACE
 
 
+#include "moc_qquickstategroup_p.cpp"

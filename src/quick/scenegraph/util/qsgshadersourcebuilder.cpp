@@ -122,6 +122,7 @@ Tokenizer::Token Tokenizer::next()
         case '*':
             if (*pos == '/')
                 return Token_MultiLineCommentEnd;
+            Q_FALLTHROUGH();
 
         case '\n':
             return Token_NewLine;
@@ -129,6 +130,7 @@ Tokenizer::Token Tokenizer::next()
         case '\r':
             if (*pos == '\n')
                 return Token_NewLine;
+            Q_FALLTHROUGH();
 
         case '#': {
             if (*pos == 'v' && pos[1] == 'e' && pos[2] == 'r' && pos[3] == 's'
@@ -177,7 +179,7 @@ Tokenizer::Token Tokenizer::next()
                 pos += 3;
                 return Token_Void;
             }
-            // Fall-thru
+            Q_FALLTHROUGH();
         }
         default:
             // Identifier...
@@ -217,11 +219,11 @@ void QSGShaderSourceBuilder::initializeProgramFromFiles(QOpenGLShaderProgram *pr
     QSGShaderSourceBuilder builder;
 
     builder.appendSourceFile(vertexShader);
-    program->addShaderFromSourceCode(QOpenGLShader::Vertex, builder.source());
+    program->addCacheableShaderFromSourceCode(QOpenGLShader::Vertex, builder.source());
     builder.clear();
 
     builder.appendSourceFile(fragmentShader);
-    program->addShaderFromSourceCode(QOpenGLShader::Fragment, builder.source());
+    program->addCacheableShaderFromSourceCode(QOpenGLShader::Fragment, builder.source());
 }
 
 QByteArray QSGShaderSourceBuilder::source() const
@@ -310,13 +312,10 @@ void QSGShaderSourceBuilder::addDefinition(const QByteArray &definition)
     const char *insertionPos = extensionPos ? extensionPos : (versionPos ? versionPos : input);
 
     // Construct a new shader string, inserting the definition
-    QByteArray newSource;
-    newSource.reserve(m_source.size() + definition.size() + 9);
-    newSource += QByteArray::fromRawData(input, insertionPos - input);
-    newSource += QByteArrayLiteral("#define ") + definition + QByteArrayLiteral("\n");
-    newSource += QByteArray::fromRawData(insertionPos, m_source.size() - (insertionPos - input));
-
-    m_source = newSource;
+    QByteArray newSource = QByteArray::fromRawData(input, insertionPos - input)
+            + "#define " + definition + '\n'
+            + QByteArray::fromRawData(insertionPos, m_source.size() - (insertionPos - input));
+    m_source = std::move(newSource);
 }
 
 void QSGShaderSourceBuilder::removeVersion()

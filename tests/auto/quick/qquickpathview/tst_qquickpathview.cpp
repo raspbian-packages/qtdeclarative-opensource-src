@@ -141,6 +141,7 @@ private slots:
     void addCustomAttribute();
     void movementDirection_data();
     void movementDirection();
+    void removePath();
 };
 
 class TestObject : public QObject
@@ -1633,8 +1634,8 @@ void tst_QQuickPathView::creationContext()
     QVERIFY(rootItem);
     QVERIFY(rootItem->property("count").toInt() > 0);
 
-    QQuickItem *item;
-    QVERIFY(item = findItem<QQuickItem>(rootItem, "listItem", 0));
+    QQuickItem *item = findItem<QQuickItem>(rootItem, "listItem", 0);
+    QVERIFY(item);
     QCOMPARE(item->property("text").toString(), QString("Hello!"));
 }
 
@@ -1685,7 +1686,8 @@ void tst_QQuickPathView::currentOffsetOnInsertion()
     QCOMPARE(currentIndexSpy.count(), 1);
 
     // currentIndex is now 1
-    QVERIFY(item = findItem<QQuickRectangle>(pathview, "wrapper", 1));
+    item = findItem<QQuickRectangle>(pathview, "wrapper", 1);
+    QVERIFY(item);
 
     // verify that current item (item 1) is still at offset 0.5
     QCOMPARE(item->position() + offset, start);
@@ -1697,7 +1699,8 @@ void tst_QQuickPathView::currentOffsetOnInsertion()
     QCOMPARE(currentIndexSpy.count(), 2);
 
     // currentIndex is now 2
-    QVERIFY(item = findItem<QQuickRectangle>(pathview, "wrapper", 2));
+    item = findItem<QQuickRectangle>(pathview, "wrapper", 2);
+    QVERIFY(item);
 
     // verify that current item (item 2) is still at offset 0.5
     QCOMPARE(item->position() + offset, start);
@@ -1709,7 +1712,8 @@ void tst_QQuickPathView::currentOffsetOnInsertion()
     QCOMPARE(currentIndexSpy.count(), 3);
 
     // currentIndex is now 1
-    QVERIFY(item = findItem<QQuickRectangle>(pathview, "wrapper", 1));
+    item = findItem<QQuickRectangle>(pathview, "wrapper", 1);
+    QVERIFY(item);
 
     // verify that current item (item 1) is still at offset 0.5
     QCOMPARE(item->position() + offset, start);
@@ -2499,6 +2503,19 @@ void tst_QQuickPathView::movementDirection()
     QVERIFY(pathview->movementDirection() == movementdirection);
 
     verify_offsets(pathview, toidx, fromoffset, tooffset);
+}
+
+void tst_QQuickPathView::removePath()
+{
+    QScopedPointer<QQuickView> window(createView());
+    window->setSource(testFileUrl("removePath.qml"));
+    window->show();
+
+    QQuickPathView *pathview = qobject_cast<QQuickPathView*>(window->rootObject());
+    QVERIFY(pathview != 0);
+
+    QVERIFY(QMetaObject::invokeMethod(pathview, "removePath"));
+    QVERIFY(QMetaObject::invokeMethod(pathview, "setPath"));
 }
 
 QTEST_MAIN(tst_QQuickPathView)

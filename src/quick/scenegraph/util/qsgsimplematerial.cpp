@@ -41,10 +41,13 @@
     \class QSGSimpleMaterialShader
 
     \brief The QSGSimpleMaterialShader class provides a convenient way of
-    building custom materials for the scene graph.
+    building custom OpenGL-based materials for the scene graph.
 
     \inmodule QtQuick
     \ingroup qtquick-scenegraph-materials
+
+    \warning This utility class is only functional when running with the OpenGL
+    backend of the Qt Quick scenegraph.
 
     Where the QSGMaterial and QSGMaterialShader API requires a bit of
     boilerplate code to create a functioning material, the
@@ -191,19 +194,15 @@
 /*!
     \fn const char *QSGSimpleMaterialShader::uniformMatrixName() const
 
-    Reimplement this function to give a different name to the uniform for
-    item transformation. The default value is \c qt_Matrix.
-
+    Returns the name for the transform matrix uniform of this item.
+    The default value is \c qt_Matrix.
  */
 
 /*!
     \fn const char *QSGSimpleMaterialShader::uniformOpacityName() const
 
-    Reimplement this function to give a different name to the uniform for
-    item opacity. The default value is \c qt_Opacity.
-
-    If the shader program does not implement the item opacity, the
-    implemented function should return a null pointer.
+    Returns the name for the opacity uniform of this item.
+    The default value is \c qt_Opacity.
  */
 
 /*!

@@ -66,20 +66,21 @@ struct MemberData : Base {
     };
     Value data[1];
 };
+V4_ASSERT_IS_TRIVIAL(MemberData)
 
 }
 
 struct MemberData : Managed
 {
     V4_MANAGED(MemberData, Managed)
+    V4_INTERNALCLASS(MemberData)
 
     Value &operator[] (uint idx) { return d()->data[idx]; }
     const Value *data() const { return d()->data; }
     Value *data() { return d()->data; }
     inline uint size() const { return d()->size; }
 
-    static Heap::MemberData *allocate(QV4::ExecutionEngine *e, uint n);
-    static Heap::MemberData *reallocate(QV4::ExecutionEngine *e, Heap::MemberData *old, uint n);
+    static Heap::MemberData *allocate(QV4::ExecutionEngine *e, uint n, Heap::MemberData *old = 0);
 
     static void markObjects(Heap::Base *that, ExecutionEngine *e);
 };

@@ -44,7 +44,7 @@
 #include "qqmlengine_p.h"
 #include "qqmlcontext_p.h"
 #include "qqmlscriptstring_p.h"
-#include "qqmlcompiler_p.h"
+#include "qqmlbinding_p.h"
 #include <private/qv8engine_p.h>
 
 #include <QtCore/qdebug.h>
@@ -75,7 +75,9 @@ void QQmlExpressionPrivate::init(QQmlContextData *ctxt, QV4::Function *runtimeFu
 {
     expressionFunctionValid = true;
     QV4::ExecutionEngine *engine = QQmlEnginePrivate::getV4Engine(ctxt->engine);
-    m_function.set(engine, QV4::FunctionObject::createQmlFunction(ctxt, me, runtimeFunction));
+    QV4::Scope scope(engine);
+    QV4::Scoped<QV4::QmlContext> qmlContext(scope, QV4::QmlContext::create(engine->rootContext(), ctxt, me));
+    setupFunction(qmlContext, runtimeFunction);
 
     QQmlJavaScriptExpression::setContext(ctxt);
     setScopeObject(me);
@@ -245,14 +247,15 @@ void QQmlExpression::setExpression(const QString &expression)
 }
 
 // Must be called with a valid handle scope
-QV4::ReturnedValue QQmlExpressionPrivate::v4value(bool *isUndefined)
+void QQmlExpressionPrivate::v4value(bool *isUndefined, QV4::Scope &scope)
 {
     if (!expressionFunctionValid) {
         createQmlBinding(context(), scopeObject(), expression, url, line);
         expressionFunctionValid = true;
     }
 
-    return evaluate(isUndefined);
+    QV4::ScopedCallData callData(scope);
+    evaluate(callData, isUndefined, scope);
 }
 
 QVariant QQmlExpressionPrivate::value(bool *isUndefined)
@@ -271,9 +274,9 @@ QVariant QQmlExpressionPrivate::value(bool *isUndefined)
 
     {
         QV4::Scope scope(QV8Engine::getV4(ep->v8engine()));
-        QV4::ScopedValue result(scope, v4value(isUndefined));
+        v4value(isUndefined, scope);
         if (!hasError())
-            rv = scope.engine->toVariant(result, -1);
+            rv = scope.engine->toVariant(scope.result, -1);
     }
 
     ep->dereferenceScarceResources(); // "release" scarce resources if top-level expression evaluation is complete.
@@ -433,7 +436,7 @@ void QQmlExpressionPrivate::expressionChanged()
     emit q->valueChanged();
 }
 
-QString QQmlExpressionPrivate::expressionIdentifier()
+QString QQmlExpressionPrivate::expressionIdentifier() const
 {
     return QLatin1Char('"') + expression + QLatin1Char('"');
 }

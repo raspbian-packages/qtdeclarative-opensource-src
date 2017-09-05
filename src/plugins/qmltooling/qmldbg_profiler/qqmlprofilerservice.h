@@ -99,9 +99,6 @@ signals:
     void startFlushTimer();
     void stopFlushTimer();
 
-private slots:
-    void flush();
-
 protected:
     virtual void stateAboutToBeChanged(State state) Q_DECL_OVERRIDE;
     virtual void messageReceived(const QByteArray &) Q_DECL_OVERRIDE;
@@ -112,10 +109,12 @@ private:
     void sendMessages();
     void addEngineProfiler(QQmlAbstractProfilerAdapter *profiler, QJSEngine *engine);
     void removeProfilerFromStartTimes(const QQmlAbstractProfilerAdapter *profiler);
+    void flush();
 
     QElapsedTimer m_timer;
     QTimer m_flushTimer;
     bool m_waitingForStop;
+    bool m_useMessageTypes;
 
     QList<QQmlAbstractProfilerAdapter *> m_globalProfilers;
     QMultiHash<QJSEngine *, QQmlAbstractProfilerAdapter *> m_engineProfilers;

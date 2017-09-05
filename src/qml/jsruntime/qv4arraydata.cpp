@@ -46,7 +46,11 @@
 
 using namespace QV4;
 
+QT_WARNING_SUPPRESS_GCC_TAUTOLOGICAL_COMPARE_ON
+
 const QV4::VTable QV4::ArrayData::static_vtbl = {
+    0,
+    0,
     0,
     QV4::ArrayData::IsExecutionContext,
     QV4::ArrayData::IsString,
@@ -93,6 +97,8 @@ const ArrayVTable SparseArrayData::static_vtbl =
     SparseArrayData::truncate,
     SparseArrayData::length
 };
+
+QT_WARNING_SUPPRESS_GCC_TAUTOLOGICAL_COMPARE_OFF
 
 Q_STATIC_ASSERT(sizeof(Heap::ArrayData) == sizeof(Heap::SimpleArrayData));
 Q_STATIC_ASSERT(sizeof(Heap::ArrayData) == sizeof(Heap::SparseArrayData));
@@ -143,13 +149,13 @@ void ArrayData::realloc(Object *o, Type newType, uint requested, bool enforceAtt
     Scoped<ArrayData> newData(scope);
     if (newType < Heap::ArrayData::Sparse) {
         Heap::SimpleArrayData *n = scope.engine->memoryManager->allocManaged<SimpleArrayData>(size);
-        new (n) Heap::SimpleArrayData;
+        n->init();
         n->offset = 0;
         n->len = d ? d->d()->len : 0;
         newData = n;
     } else {
         Heap::SparseArrayData *n = scope.engine->memoryManager->allocManaged<SparseArrayData>(size);
-        new (n) Heap::SparseArrayData;
+        n->init();
         newData = n;
     }
     newData->setAlloc(alloc);
@@ -233,8 +239,14 @@ void ArrayData::ensureAttributes(Object *o)
 void SimpleArrayData::markObjects(Heap::Base *d, ExecutionEngine *e)
 {
     Heap::SimpleArrayData *dd = static_cast<Heap::SimpleArrayData *>(d);
-    for (uint i = 0; i < dd->len; ++i)
-        dd->arrayData[dd->mappedIndex(i)].mark(e);
+    uint end = dd->offset + dd->len;
+    if (end > dd->alloc) {
+        for (uint i = 0; i < end - dd->alloc; ++i)
+            dd->arrayData[i].mark(e);
+        end = dd->alloc;
+    }
+    for (uint i = dd->offset; i < end; ++i)
+        dd->arrayData[i].mark(e);
 }
 
 ReturnedValue SimpleArrayData::get(const Heap::ArrayData *d, uint index)
@@ -687,7 +699,7 @@ bool ArrayElementLessThan::operator()(Value v1, Value v2) const
         callData->thisObject = Primitive::undefinedValue();
         callData->args[0] = v1;
         callData->args[1] = v2;
-        result = Runtime::callValue(scope.engine, m_comparefn, callData);
+        result = QV4::Runtime::method_callValue(scope.engine, m_comparefn, callData);
 
         return result->toNumber() < 0;
     }

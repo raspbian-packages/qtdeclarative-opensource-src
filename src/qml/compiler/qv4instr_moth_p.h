@@ -50,18 +50,27 @@
 //
 // We mean it.
 //
-
-#include <QtCore/qglobal.h>
+#include <private/qv4global_p.h>
 #include <private/qv4value_p.h>
-#include <private/qv4function_p.h>
 #include <private/qv4runtime_p.h>
+
+#if !defined(V4_BOOTSTRAP)
+QT_REQUIRE_CONFIG(qml_interpreter);
+#endif
 
 QT_BEGIN_NAMESPACE
 
+#ifdef QT_NO_QML_DEBUGGER
+#define MOTH_DEBUG_INSTR(F)
+#else
+#define MOTH_DEBUG_INSTR(F) \
+    F(Line, line) \
+    F(Debug, debug)
+#endif
+
 #define FOR_EACH_MOTH_INSTR(F) \
     F(Ret, ret) \
-    F(Line, line) \
-    F(Debug, debug) \
+    MOTH_DEBUG_INSTR(F) \
     F(LoadRuntimeString, loadRuntimeString) \
     F(LoadRegExp, loadRegExp) \
     F(LoadClosure, loadClosure) \
@@ -161,11 +170,7 @@ QT_BEGIN_NAMESPACE
 
 #define MOTH_INSTR_ALIGN_MASK (Q_ALIGNOF(QV4::Moth::Instr) - 1)
 
-#ifdef MOTH_THREADED_INTERPRETER
-#  define MOTH_INSTR_HEADER void *code;
-#else
-#  define MOTH_INSTR_HEADER quint32 instructionType;
-#endif
+#define MOTH_INSTR_HEADER quint32 instructionType;
 
 #define MOTH_INSTR_ENUM(I, FMT)  I,
 #define MOTH_INSTR_SIZE(I, FMT) ((sizeof(QV4::Moth::Instr::instr_##FMT) + MOTH_INSTR_ALIGN_MASK) & ~MOTH_INSTR_ALIGN_MASK)
@@ -173,6 +178,8 @@ QT_BEGIN_NAMESPACE
 
 namespace QV4 {
 namespace Moth {
+
+    // When making changes to the instructions, make sure to bump QV4_DATA_STRUCTURE_VERSION in qv4compileddata_p.h
 
 struct Param {
     // Params are looked up as follows:
@@ -183,8 +190,8 @@ struct Param {
     // Arg(outer): 4
     // Local(outer): 5
     // ...
-    unsigned scope;
-    unsigned index;
+    unsigned scope : 12;
+    unsigned index : 20;
 
     bool isConstant() const { return !scope; }
     bool isArgument() const { return scope >= 2 && !(scope &1); }
@@ -243,6 +250,7 @@ union Instr
 {
     enum Type {
         FOR_EACH_MOTH_INSTR(MOTH_INSTR_ENUM)
+        LastInstruction
     };
 
     struct instr_common {
@@ -252,6 +260,8 @@ union Instr
         MOTH_INSTR_HEADER
         Param result;
     };
+
+#ifndef QT_NO_QML_DEBUGGING
     struct instr_line {
         MOTH_INSTR_HEADER
         qint32 lineNumber;
@@ -260,6 +270,8 @@ union Instr
         MOTH_INSTR_HEADER
         qint32 lineNumber;
     };
+#endif // QT_NO_QML_DEBUGGING
+
     struct instr_loadRuntimeString {
         MOTH_INSTR_HEADER
         int stringId;
@@ -322,12 +334,14 @@ union Instr
         int propertyIndex;
         Param base;
         Param result;
+        bool captureRequired;
     };
     struct instr_loadContextObjectProperty {
         MOTH_INSTR_HEADER
         int propertyIndex;
         Param base;
         Param result;
+        bool captureRequired;
     };
     struct instr_loadIdObject {
         MOTH_INSTR_HEADER
@@ -672,7 +686,7 @@ union Instr
     };
     struct instr_binop {
         MOTH_INSTR_HEADER
-        QV4::Runtime::BinaryOperation alu;
+        int alu; // QV4::Runtime::RuntimeMethods enum value
         Param lhs;
         Param rhs;
         Param result;
@@ -757,7 +771,7 @@ union Instr
     };
     struct instr_binopContext {
         MOTH_INSTR_HEADER
-        QV4::Runtime::BinaryOperationContext alu;
+        uint alu; // offset inside the runtime methods
         Param lhs;
         Param rhs;
         Param result;

@@ -254,8 +254,8 @@ void QSmoothedAnimation::updateCurrentTime(int t)
     qreal value = easeFollow(time_seconds);
     value *= (invert? -1.0: 1.0);
     QQmlPropertyPrivate::write(target, initialValue + value,
-                                       QQmlPropertyPrivate::BypassInterceptor
-                                       | QQmlPropertyPrivate::DontRemoveBinding);
+                                       QQmlPropertyData::BypassInterceptor
+                                       | QQmlPropertyData::DontRemoveBinding);
 }
 
 void QSmoothedAnimation::init()
@@ -287,8 +287,8 @@ void QSmoothedAnimation::init()
                 break;
             case QQuickSmoothedAnimation::Sync:
                 QQmlPropertyPrivate::write(target, to,
-                                                   QQmlPropertyPrivate::BypassInterceptor
-                                                   | QQmlPropertyPrivate::DontRemoveBinding);
+                                                   QQmlPropertyData::BypassInterceptor
+                                                   | QQmlPropertyData::DontRemoveBinding);
                 trackVelocity = 0;
                 stop();
                 return;
@@ -304,8 +304,8 @@ void QSmoothedAnimation::init()
 
     if (!recalc()) {
         QQmlPropertyPrivate::write(target, to,
-                                           QQmlPropertyPrivate::BypassInterceptor
-                                           | QQmlPropertyPrivate::DontRemoveBinding);
+                                           QQmlPropertyData::BypassInterceptor
+                                           | QQmlPropertyData::DontRemoveBinding);
         stop();
         return;
     }
@@ -377,9 +377,8 @@ QQuickSmoothedAnimation::~QQuickSmoothedAnimation()
 }
 
 QQuickSmoothedAnimationPrivate::QQuickSmoothedAnimationPrivate()
-    : anim(0)
+    : anim(new QSmoothedAnimation)
 {
-    anim = new QSmoothedAnimation;
 }
 
 QQuickSmoothedAnimationPrivate::~QQuickSmoothedAnimationPrivate()
@@ -393,7 +392,7 @@ QQuickSmoothedAnimationPrivate::~QQuickSmoothedAnimationPrivate()
 
 void QQuickSmoothedAnimationPrivate::updateRunningAnimations()
 {
-    foreach(QSmoothedAnimation* ease, activeAnimations.values()){
+    for (QSmoothedAnimation *ease : qAsConst(activeAnimations)) {
         ease->maximumEasingTime = anim->maximumEasingTime;
         ease->reversingMode = anim->reversingMode;
         ease->velocity = anim->velocity;
@@ -410,7 +409,7 @@ QAbstractAnimationJob* QQuickSmoothedAnimation::transition(QQuickStateActions &a
     Q_UNUSED(direction);
     Q_D(QQuickSmoothedAnimation);
 
-    QQuickStateActions dataActions = QQuickPropertyAnimation::createTransitionActions(actions, modified, defaultTarget);
+    const QQuickStateActions dataActions = QQuickPropertyAnimation::createTransitionActions(actions, modified, defaultTarget);
 
     QContinuingAnimationGroupJob *wrapperGroup = new QContinuingAnimationGroupJob();
 
@@ -445,7 +444,8 @@ QAbstractAnimationJob* QQuickSmoothedAnimation::transition(QQuickStateActions &a
             anims.insert(ease);
         }
 
-        foreach (QSmoothedAnimation *ease, d->activeAnimations.values()){
+        const auto copy = d->activeAnimations;
+        for (QSmoothedAnimation *ease : copy) {
             if (!anims.contains(ease)) {
                 ease->clearTemplate();
                 d->activeAnimations.remove(ease->target);
@@ -568,3 +568,5 @@ void QQuickSmoothedAnimation::setMaximumEasingTime(int v)
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qquicksmoothedanimation_p.cpp"

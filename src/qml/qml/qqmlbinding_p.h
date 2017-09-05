@@ -61,7 +61,6 @@
 #include <QtCore/QObject>
 #include <QtCore/QMetaProperty>
 
-#include <private/qpointervaluepair_p.h>
 #include <private/qqmlabstractbinding_p.h>
 #include <private/qqmljavascriptexpression_p.h>
 
@@ -73,26 +72,23 @@ class Q_QML_PRIVATE_EXPORT QQmlBinding : public QQmlJavaScriptExpression,
 {
     friend class QQmlAbstractBinding;
 public:
-    QQmlBinding(const QString &, QObject *, QQmlContext *);
-    QQmlBinding(const QQmlScriptString &, QObject *, QQmlContext *);
-    QQmlBinding(const QString &, QObject *, QQmlContextData *);
-    QQmlBinding(const QString &, QObject *, QQmlContextData *,
-                const QString &url, quint16 lineNumber, quint16 columnNumber);
-    QQmlBinding(const QV4::Value &, QObject *, QQmlContextData *);
+    static QQmlBinding *create(const QQmlPropertyData *, const QQmlScriptString &, QObject *, QQmlContext *);
+    static QQmlBinding *create(const QQmlPropertyData *, const QString &, QObject *, QQmlContextData *,
+                               const QString &url = QString(), quint16 lineNumber = 0);
+    static QQmlBinding *create(const QQmlPropertyData *property, QV4::Function *function,
+                               QObject *obj, QQmlContextData *ctxt, QV4::ExecutionContext *scope);
     ~QQmlBinding();
 
     void setTarget(const QQmlProperty &);
-    void setTarget(QObject *, const QQmlPropertyData &);
+    void setTarget(QObject *, const QQmlPropertyData &, const QQmlPropertyData *valueType);
 
     void setNotifyOnValueChanged(bool);
 
-    // Inherited from QQmlJavaScriptExpression
-    virtual void refresh();
+    void refresh() Q_DECL_OVERRIDE;
 
-    // Inherited from QQmlAbstractBinding
-    virtual void setEnabled(bool, QQmlPropertyPrivate::WriteFlags flags = QQmlPropertyPrivate::DontRemoveBinding);
-    virtual QString expression() const;
-    void update(QQmlPropertyPrivate::WriteFlags flags = QQmlPropertyPrivate::DontRemoveBinding);
+    void setEnabled(bool, QQmlPropertyData::WriteFlags flags = QQmlPropertyData::DontRemoveBinding) Q_DECL_OVERRIDE;
+    QString expression() const Q_DECL_OVERRIDE;
+    void update(QQmlPropertyData::WriteFlags flags = QQmlPropertyData::DontRemoveBinding);
 
     typedef int Identifier;
     enum {
@@ -101,20 +97,26 @@ public:
 
     QVariant evaluate();
 
-    virtual QString expressionIdentifier();
-    virtual void expressionChanged();
+    QString expressionIdentifier() const override;
+    void expressionChanged() override;
+
+protected:
+    virtual void doUpdate(const DeleteWatcher &watcher,
+                          QQmlPropertyData::WriteFlags flags, QV4::Scope &scope) = 0;
+
+    void getPropertyData(QQmlPropertyData **propertyData, QQmlPropertyData *valueTypeData) const;
+    int getPropertyType() const;
+
+    bool slowWrite(const QQmlPropertyData &core, const QQmlPropertyData &valueTypeData,
+                   const QV4::Value &result, bool isUndefined, QQmlPropertyData::WriteFlags flags);
 
 private:
     inline bool updatingFlag() const;
     inline void setUpdatingFlag(bool);
     inline bool enabledFlag() const;
     inline void setEnabledFlag(bool);
-    QQmlPropertyData getPropertyData() const;
 
-    bool write(const QQmlPropertyData &core,
-                       const QV4::Value &result, bool isUndefined,
-                       QQmlPropertyPrivate::WriteFlags flags);
-
+    static QQmlBinding *newBinding(QQmlEnginePrivate *engine, const QQmlPropertyData *property);
 };
 
 bool QQmlBinding::updatingFlag() const

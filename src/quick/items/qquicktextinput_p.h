@@ -79,6 +79,7 @@ class Q_QUICK_PRIVATE_EXPORT QQuickTextInput : public QQuickImplicitSizeItem
     Q_PROPERTY(int cursorPosition READ cursorPosition WRITE setCursorPosition NOTIFY cursorPositionChanged)
     Q_PROPERTY(QRectF cursorRectangle READ cursorRectangle NOTIFY cursorRectangleChanged)
     Q_PROPERTY(QQmlComponent *cursorDelegate READ cursorDelegate WRITE setCursorDelegate NOTIFY cursorDelegateChanged)
+    Q_PROPERTY(bool overwriteMode READ overwriteMode WRITE setOverwriteMode NOTIFY overwriteModeChanged)
     Q_PROPERTY(int selectionStart READ selectionStart NOTIFY selectionStartChanged)
     Q_PROPERTY(int selectionEnd READ selectionEnd NOTIFY selectionEndChanged)
     Q_PROPERTY(QString selectedText READ selectedText NOTIFY selectedTextChanged)
@@ -245,6 +246,9 @@ public:
     QQmlComponent* cursorDelegate() const;
     void setCursorDelegate(QQmlComponent*);
 
+    bool overwriteMode() const;
+    void setOverwriteMode(bool overwrite);
+
     bool focusOnPress() const;
     void setFocusOnPress(bool);
 
@@ -262,7 +266,7 @@ public:
 
     bool hasAcceptableInput() const;
 
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
     QVariant inputMethodQuery(Qt::InputMethodQuery property) const Q_DECL_OVERRIDE;
     Q_REVISION(3) Q_INVOKABLE QVariant inputMethodQuery(Qt::InputMethodQuery query, QVariant argument) const;
 #endif
@@ -315,6 +319,7 @@ Q_SIGNALS:
     void accepted();
     void acceptableInputChanged();
     Q_REVISION(2) void editingFinished();
+    Q_REVISION(9) void textEdited();
     void colorChanged();
     void selectionColorChanged();
     void selectedTextColorChanged();
@@ -325,6 +330,7 @@ Q_SIGNALS:
     void readOnlyChanged(bool isReadOnly);
     void cursorVisibleChanged(bool isCursorVisible);
     void cursorDelegateChanged();
+    void overwriteModeChanged(bool overwriteMode);
     void maximumLengthChanged(int maximumLength);
     void validatorChanged();
     void inputMaskChanged(const QString &inputMask);
@@ -367,7 +373,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void mouseDoubleClickEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void keyPressEvent(QKeyEvent* ev) Q_DECL_OVERRIDE;
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
     void inputMethodEvent(QInputMethodEvent *) Q_DECL_OVERRIDE;
 #endif
     void mouseUngrabEvent() Q_DECL_OVERRIDE;
@@ -384,7 +390,7 @@ public Q_SLOTS:
     void select(int start, int end);
     void deselect();
     bool isRightToLeft(int start, int end);
-#ifndef QT_NO_CLIPBOARD
+#if QT_CONFIG(clipboard)
     void cut();
     void copy();
     void paste();
@@ -404,7 +410,7 @@ private Q_SLOTS:
     void q_updateAlignment();
     void triggerPreprocess();
 
-#ifndef QT_NO_VALIDATOR
+#if QT_CONFIG(validator)
     void q_validatorChanged();
 #endif
 

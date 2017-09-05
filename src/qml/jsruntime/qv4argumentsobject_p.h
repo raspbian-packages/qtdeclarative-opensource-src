@@ -60,12 +60,12 @@ namespace QV4 {
 namespace Heap {
 
 struct ArgumentsGetterFunction : FunctionObject {
-    inline ArgumentsGetterFunction(QV4::ExecutionContext *scope, uint index);
+    inline void init(QV4::ExecutionContext *scope, uint index);
     uint index;
 };
 
 struct ArgumentsSetterFunction : FunctionObject {
-    inline ArgumentsSetterFunction(QV4::ExecutionContext *scope, uint index);
+    inline void init(QV4::ExecutionContext *scope, uint index);
     uint index;
 };
 
@@ -75,7 +75,7 @@ struct ArgumentsObject : Object {
         CalleePropertyIndex = 1,
         CallerPropertyIndex = 3
     };
-    ArgumentsObject(QV4::CallContext *context);
+    void init(QV4::CallContext *context);
     Pointer<CallContext> context;
     bool fullyCreated;
     Pointer<MemberData> mappedArguments;
@@ -88,14 +88,14 @@ struct ArgumentsGetterFunction: FunctionObject
     V4_OBJECT2(ArgumentsGetterFunction, FunctionObject)
 
     uint index() const { return d()->index; }
-    static ReturnedValue call(const Managed *that, CallData *d);
+    static void call(const Managed *that, Scope &scope, CallData *d);
 };
 
-inline
-Heap::ArgumentsGetterFunction::ArgumentsGetterFunction(QV4::ExecutionContext *scope, uint index)
-    : Heap::FunctionObject(scope)
-    , index(index)
+inline void
+Heap::ArgumentsGetterFunction::init(QV4::ExecutionContext *scope, uint index)
 {
+    Heap::FunctionObject::init(scope);
+    this->index = index;
 }
 
 struct ArgumentsSetterFunction: FunctionObject
@@ -103,14 +103,14 @@ struct ArgumentsSetterFunction: FunctionObject
     V4_OBJECT2(ArgumentsSetterFunction, FunctionObject)
 
     uint index() const { return d()->index; }
-    static ReturnedValue call(const Managed *that, CallData *callData);
+    static void call(const Managed *that, Scope &scope, CallData *callData);
 };
 
-inline
-Heap::ArgumentsSetterFunction::ArgumentsSetterFunction(QV4::ExecutionContext *scope, uint index)
-    : Heap::FunctionObject(scope)
-    , index(index)
+inline void
+Heap::ArgumentsSetterFunction::init(QV4::ExecutionContext *scope, uint index)
 {
+    Heap::FunctionObject::init(scope);
+    this->index = index;
 }
 
 
@@ -132,8 +132,10 @@ struct ArgumentsObject: Object {
     static bool deleteIndexedProperty(Managed *m, uint index);
     static PropertyAttributes queryIndexed(const Managed *m, uint index);
     static void markObjects(Heap::Base *that, ExecutionEngine *e);
+    static uint getLength(const Managed *m);
 
     void fullyCreate();
+
 };
 
 }

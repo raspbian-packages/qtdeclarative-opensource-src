@@ -79,34 +79,6 @@ struct MetaPropertyData {
     QVector<QPair<QVariant, bool> > m_data;
 };
 
-static bool constructedMetaData(const QQmlVMEMetaData* data)
-{
-    return data->propertyCount == 0
-            && data->aliasCount == 0
-            && data->signalCount == 0
-            && data->methodCount == 0;
-}
-
-static QQmlVMEMetaData* fakeMetaData()
-{
-    QQmlVMEMetaData* data = new QQmlVMEMetaData;
-    data->propertyCount = 0;
-    data->aliasCount = 0;
-    data->signalCount = 0;
-    data->methodCount = 0;
-
-    return data;
-}
-
-static const QQmlVMEMetaData* vMEMetaDataForObject(QObject *object)
-{
-    QQmlVMEMetaObject *metaObject = QQmlVMEMetaObject::get(object);
-    if (metaObject)
-        return metaObject->metaData;
-
-    return fakeMetaData();
-}
-
 static QQmlPropertyCache *cacheForObject(QObject *object, QQmlEngine *engine)
 {
     QQmlVMEMetaObject *metaObject = QQmlVMEMetaObject::get(object);
@@ -125,7 +97,15 @@ QQmlDesignerMetaObject* QQmlDesignerMetaObject::getNodeInstanceMetaObject(QObjec
         return static_cast<QQmlDesignerMetaObject *>(parent);
 
     // we just create one and the ownership goes automatically to the object in nodeinstance see init method
-    return new QQmlDesignerMetaObject(object, engine);
+
+    QQmlData *ddata = QQmlData::get(object, false);
+
+    const bool hadVMEMetaObject = ddata ? ddata->hasVMEMetaObject : false;
+    QQmlDesignerMetaObject *mo = new QQmlDesignerMetaObject(object, engine);
+    //If our parent is not a VMEMetaObject we just set the flag to false again
+    if (ddata)
+        ddata->hasVMEMetaObject = hadVMEMetaObject;
+    return mo;
 }
 
 void QQmlDesignerMetaObject::init(QObject *object, QQmlEngine *engine)
@@ -140,39 +120,27 @@ void QQmlDesignerMetaObject::init(QObject *object, QQmlEngine *engine)
     QObjectPrivate *op = QObjectPrivate::get(object);
     op->metaObject = this;
 
-    m_cache = QQmlEnginePrivate::get(engine)->cache(this);
-
-    if (m_cache != cache) {
-        m_cache->addref();
-        cache->release();
-        cache = m_cache;
-    }
-
-    //If our parent is not a VMEMetaObject we just se the flag to false again
-    if (constructedMetaData(metaData))
-        QQmlData::get(object)->hasVMEMetaObject = false;
+    cache = QQmlEnginePrivate::get(engine)->cache(this);
 
     nodeInstanceMetaObjectList.insert(this, true);
     hasAssignedMetaObjectData = true;
 }
 
 QQmlDesignerMetaObject::QQmlDesignerMetaObject(QObject *object, QQmlEngine *engine)
-    : QQmlVMEMetaObject(object, cacheForObject(object, engine), vMEMetaDataForObject(object)),
+    : QQmlVMEMetaObject(object, cacheForObject(object, engine), /*qml compilation unit*/nullptr, /*qmlObjectId*/-1),
       m_context(engine->contextForObject(object)),
-      m_data(new MetaPropertyData),
-      m_cache(0)
+      m_data(new MetaPropertyData)
 {
     init(object, engine);
 
     QQmlData *ddata = QQmlData::get(object, false);
-
     //Assign cache to object
     if (ddata && ddata->propertyCache) {
         cache->setParent(ddata->propertyCache);
         cache->invalidate(engine, this);
         ddata->propertyCache->release();
-        ddata->propertyCache = m_cache;
-        m_cache->addref();
+        ddata->propertyCache = cache;
+        ddata->propertyCache->addref();
     }
 
 }
@@ -193,9 +161,9 @@ void QQmlDesignerMetaObject::createNewDynamicProperty(const QString &name)
     Q_UNUSED(id);
 
     //Updating cache
-    QQmlPropertyCache *oldParent = m_cache->parent();
+    QQmlPropertyCache *oldParent = cache->parent();
     QQmlEnginePrivate::get(m_context->engine())->cache(this)->invalidate(m_context->engine(), this);
-    m_cache->setParent(oldParent);
+    cache->setParent(oldParent);
 
     QQmlProperty property(myObject(), name, m_context);
     Q_ASSERT(property.isValid());

@@ -508,7 +508,7 @@ bool QSGDefaultDistanceFieldGlyphCache::useTextureUploadWorkaround() const
 
 bool QSGDefaultDistanceFieldGlyphCache::createFullSizeTextures() const
 {
-    return qsgPreferFullSizeGlyphCacheTextures() && glyphCount() > QT_DISTANCEFIELD_HIGHGLYPHCOUNT;
+    return qsgPreferFullSizeGlyphCacheTextures() && glyphCount() > QT_DISTANCEFIELD_HIGHGLYPHCOUNT();
 }
 
 int QSGDefaultDistanceFieldGlyphCache::maxTextureSize() const

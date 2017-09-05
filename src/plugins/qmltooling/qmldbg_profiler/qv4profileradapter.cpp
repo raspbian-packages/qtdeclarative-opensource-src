@@ -46,27 +46,26 @@ QV4ProfilerAdapter::QV4ProfilerAdapter(QQmlProfilerService *service, QV4::Execut
     m_functionCallPos(0), m_memoryPos(0)
 {
     setService(service);
-    engine->enableProfiler();
-    connect(this, SIGNAL(profilingEnabled(quint64)),
-            this, SLOT(forwardEnabled(quint64)));
-    connect(this, SIGNAL(profilingEnabledWhileWaiting(quint64)),
-            this, SLOT(forwardEnabledWhileWaiting(quint64)), Qt::DirectConnection);
-    connect(this, SIGNAL(v4ProfilingEnabled(quint64)),
-            engine->profiler, SLOT(startProfiling(quint64)));
-    connect(this, SIGNAL(v4ProfilingEnabledWhileWaiting(quint64)),
-            engine->profiler, SLOT(startProfiling(quint64)), Qt::DirectConnection);
-    connect(this, SIGNAL(profilingDisabled()), engine->profiler, SLOT(stopProfiling()));
-    connect(this, SIGNAL(profilingDisabledWhileWaiting()), engine->profiler, SLOT(stopProfiling()),
+    engine->setProfiler(new QV4::Profiling::Profiler(engine));
+    connect(this, &QQmlAbstractProfilerAdapter::profilingEnabled,
+            this, &QV4ProfilerAdapter::forwardEnabled);
+    connect(this, &QQmlAbstractProfilerAdapter::profilingEnabledWhileWaiting,
+            this, &QV4ProfilerAdapter::forwardEnabledWhileWaiting, Qt::DirectConnection);
+    connect(this, &QV4ProfilerAdapter::v4ProfilingEnabled,
+            engine->profiler(), &QV4::Profiling::Profiler::startProfiling);
+    connect(this, &QV4ProfilerAdapter::v4ProfilingEnabledWhileWaiting,
+            engine->profiler(), &QV4::Profiling::Profiler::startProfiling, Qt::DirectConnection);
+    connect(this, &QQmlAbstractProfilerAdapter::profilingDisabled,
+            engine->profiler(), &QV4::Profiling::Profiler::stopProfiling);
+    connect(this, &QQmlAbstractProfilerAdapter::profilingDisabledWhileWaiting,
+            engine->profiler(), &QV4::Profiling::Profiler::stopProfiling,
             Qt::DirectConnection);
-    connect(this, SIGNAL(dataRequested()), engine->profiler, SLOT(reportData()));
-    connect(this, SIGNAL(referenceTimeKnown(QElapsedTimer)),
-            engine->profiler, SLOT(setTimer(QElapsedTimer)));
-    connect(engine->profiler, SIGNAL(dataReady(QV4::Profiling::FunctionLocationHash,
-                                               QVector<QV4::Profiling::FunctionCallProperties>,
-                                               QVector<QV4::Profiling::MemoryAllocationProperties>)),
-            this, SLOT(receiveData(QV4::Profiling::FunctionLocationHash,
-                                   QVector<QV4::Profiling::FunctionCallProperties>,
-                                   QVector<QV4::Profiling::MemoryAllocationProperties>)));
+    connect(this, &QQmlAbstractProfilerAdapter::dataRequested,
+            engine->profiler(), &QV4::Profiling::Profiler::reportData);
+    connect(this, &QQmlAbstractProfilerAdapter::referenceTimeKnown,
+            engine->profiler(), &QV4::Profiling::Profiler::setTimer);
+    connect(engine->profiler(), &QV4::Profiling::Profiler::dataReady,
+            this, &QV4ProfilerAdapter::receiveData);
 }
 
 qint64 QV4ProfilerAdapter::appendMemoryEvents(qint64 until, QList<QByteArray> &messages,
@@ -77,7 +76,7 @@ qint64 QV4ProfilerAdapter::appendMemoryEvents(qint64 until, QList<QByteArray> &m
 
     while (memoryData.length() > m_memoryPos && memoryData[m_memoryPos].timestamp <= until) {
         const QV4::Profiling::MemoryAllocationProperties &props = memoryData[m_memoryPos];
-        d << props.timestamp << MemoryAllocation << props.type << props.size;
+        d << props.timestamp << int(MemoryAllocation) << int(props.type) << props.size;
         ++m_memoryPos;
         messages.append(d.squeezedData());
         d.clear();
@@ -105,13 +104,13 @@ qint64 QV4ProfilerAdapter::finalizeMessages(qint64 until, QList<QByteArray> &mes
     return callNext == -1 ? memoryNext : qMin(callNext, memoryNext);
 }
 
-qint64 QV4ProfilerAdapter::sendMessages(qint64 until, QList<QByteArray> &messages)
+qint64 QV4ProfilerAdapter::sendMessages(qint64 until, QList<QByteArray> &messages,
+                                        bool trackLocations)
 {
     QQmlDebugPacket d;
 
     // Make it const, so that we cannot accidentally detach it.
     const QVector<QV4::Profiling::FunctionCallProperties> &functionCallData = m_functionCallData;
-    const QV4::Profiling::FunctionLocationHash &functionLocations = m_functionLocations;
 
     while (true) {
         while (!m_stack.isEmpty() &&
@@ -121,7 +120,7 @@ qint64 QV4ProfilerAdapter::sendMessages(qint64 until, QList<QByteArray> &message
                 return finalizeMessages(until, messages, m_stack.top(), d);
 
             appendMemoryEvents(m_stack.top(), messages, d);
-            d << m_stack.pop() << RangeEnd << Javascript;
+            d << m_stack.pop() << int(RangeEnd) << int(Javascript);
             messages.append(d.squeezedData());
             d.clear();
         }
@@ -133,17 +132,27 @@ qint64 QV4ProfilerAdapter::sendMessages(qint64 until, QList<QByteArray> &message
                 return finalizeMessages(until, messages, props.start, d);
 
             appendMemoryEvents(props.start, messages, d);
-            auto location = functionLocations.constFind(props.id);
-            Q_ASSERT(location != functionLocations.constEnd());
+            auto location = m_functionLocations.find(props.id);
 
-            d << props.start << RangeStart << Javascript;
-            messages.push_back(d.squeezedData());
-            d.clear();
-            d << props.start << RangeLocation << Javascript << location->file << location->line
-              << location->column;
-            messages.push_back(d.squeezedData());
-            d.clear();
-            d << props.start << RangeData << Javascript << location->name;
+            d << props.start << int(RangeStart) << int(Javascript);
+            if (trackLocations)
+                d << static_cast<qint64>(props.id);
+            if (location != m_functionLocations.end()) {
+                messages.push_back(d.squeezedData());
+                d.clear();
+                d << props.start << int(RangeLocation) << int(Javascript) << location->file << location->line
+                  << location->column;
+                if (trackLocations)
+                    d << static_cast<qint64>(props.id);
+                messages.push_back(d.squeezedData());
+                d.clear();
+                d << props.start << int(RangeData) << int(Javascript) << location->name;
+
+                if (trackLocations) {
+                    d << static_cast<qint64>(props.id);
+                    m_functionLocations.erase(location);
+                }
+            }
             messages.push_back(d.squeezedData());
             d.clear();
             m_stack.push(props.end);
@@ -201,3 +210,5 @@ void QV4ProfilerAdapter::forwardEnabledWhileWaiting(quint64 features)
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qv4profileradapter.cpp"

@@ -70,7 +70,7 @@ void QQuickProfiler::registerAnimationCallback()
 
 class CallbackRegistrationHelper : public QObject {
     Q_OBJECT
-public slots:
+public:
     void registerAnimationTimerCallback()
     {
         QQuickProfiler::registerAnimationCallback();
@@ -79,6 +79,7 @@ public slots:
 };
 
 #include "qquickprofiler.moc"
+#include "moc_qquickprofiler_p.cpp"
 
 QQuickProfiler::QQuickProfiler(QObject *parent) : QObject(parent)
 {
@@ -86,7 +87,12 @@ QQuickProfiler::QQuickProfiler(QObject *parent) : QObject(parent)
     m_timer.start();
     CallbackRegistrationHelper *helper = new CallbackRegistrationHelper; // will delete itself
     helper->moveToThread(QCoreApplication::instance()->thread());
-    QMetaObject::invokeMethod(helper, "registerAnimationTimerCallback", Qt::QueuedConnection);
+
+    // Queue the signal to have the animation timer registration run in the right thread;
+    QObject signalSource;
+    connect(&signalSource, &QObject::destroyed,
+            helper, &CallbackRegistrationHelper::registerAnimationTimerCallback,
+            Qt::QueuedConnection);
 }
 
 QQuickProfiler::~QQuickProfiler()
@@ -110,8 +116,9 @@ void QQuickProfiler::stopProfilingImpl()
     m_data.clear();
 }
 
-void QQuickProfiler::reportDataImpl()
+void QQuickProfiler::reportDataImpl(bool trackLocations)
 {
+    Q_UNUSED(trackLocations);
     QMutexLocker lock(&m_dataMutex);
     emit dataReady(m_data);
     m_data.clear();

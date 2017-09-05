@@ -41,6 +41,7 @@
 #include "qquickgridlayoutengine_p.h"
 #include "qquicklayoutstyleinfo_p.h"
 #include <QtCore/private/qnumeric_p.h>
+#include <QtQml/qqmlinfo.h>
 #include "qdebug.h"
 #include <limits>
 
@@ -56,15 +57,7 @@
 
     Items in a RowLayout support these attached properties:
     \list
-        \li \l{Layout::minimumWidth}{Layout.minimumWidth}
-        \li \l{Layout::minimumHeight}{Layout.minimumHeight}
-        \li \l{Layout::preferredWidth}{Layout.preferredWidth}
-        \li \l{Layout::preferredHeight}{Layout.preferredHeight}
-        \li \l{Layout::maximumWidth}{Layout.maximumWidth}
-        \li \l{Layout::maximumHeight}{Layout.maximumHeight}
-        \li \l{Layout::fillWidth}{Layout.fillWidth}
-        \li \l{Layout::fillHeight}{Layout.fillHeight}
-        \li \l{Layout::alignment}{Layout.alignment}
+    \input layout.qdocinc attached-properties
     \endlist
 
     \image rowlayout.png
@@ -118,15 +111,7 @@
 
     Items in a ColumnLayout support these attached properties:
     \list
-        \li \l{Layout::minimumWidth}{Layout.minimumWidth}
-        \li \l{Layout::minimumHeight}{Layout.minimumHeight}
-        \li \l{Layout::preferredWidth}{Layout.preferredWidth}
-        \li \l{Layout::preferredHeight}{Layout.preferredHeight}
-        \li \l{Layout::maximumWidth}{Layout.maximumWidth}
-        \li \l{Layout::maximumHeight}{Layout.maximumHeight}
-        \li \l{Layout::fillWidth}{Layout.fillWidth}
-        \li \l{Layout::fillHeight}{Layout.fillHeight}
-        \li \l{Layout::alignment}{Layout.alignment}
+    \input layout.qdocinc attached-properties
     \endlist
 
     \image columnlayout.png
@@ -220,15 +205,7 @@
         \li \l{Layout::column}{Layout.column}
         \li \l{Layout::rowSpan}{Layout.rowSpan}
         \li \l{Layout::columnSpan}{Layout.columnSpan}
-        \li \l{Layout::minimumWidth}{Layout.minimumWidth}
-        \li \l{Layout::minimumHeight}{Layout.minimumHeight}
-        \li \l{Layout::preferredWidth}{Layout.preferredWidth}
-        \li \l{Layout::preferredHeight}{Layout.preferredHeight}
-        \li \l{Layout::maximumWidth}{Layout.maximumWidth}
-        \li \l{Layout::maximumHeight}{Layout.maximumHeight}
-        \li \l{Layout::fillWidth}{Layout.fillWidth}
-        \li \l{Layout::fillHeight}{Layout.fillHeight}
-        \li \l{Layout::alignment}{Layout.alignment}
+        \input layout.qdocinc attached-properties
     \endlist
 
     Read more about attached properties \l{QML Object Attributes}{here}.
@@ -327,17 +304,9 @@ QQuickGridLayoutBase::~QQuickGridLayoutBase()
 {
     Q_D(QQuickGridLayoutBase);
 
-    /* Avoid messy deconstruction, should give:
-        * Faster deconstruction
-        * Less risk of signals reaching already deleted objects
-    */
-    for (int i = 0; i < itemCount(); ++i) {
-        QQuickItem *item = itemAt(i);
-        QObject::disconnect(item, SIGNAL(destroyed()), this, SLOT(onItemDestroyed()));
-        QObject::disconnect(item, SIGNAL(visibleChanged()), this, SLOT(onItemVisibleChanged()));
-        QObject::disconnect(item, SIGNAL(implicitWidthChanged()), this, SLOT(invalidateSenderItem()));
-        QObject::disconnect(item, SIGNAL(implicitHeightChanged()), this, SLOT(invalidateSenderItem()));
-    }
+    // Remove item listeners so we do not act on signalling unnecessarily
+    // (there is no point, as the layout will be torn down anyway).
+    deactivateRecur();
     delete d->styleInfo;
 }
 
@@ -460,23 +429,6 @@ int QQuickGridLayoutBase::itemCount() const
     return d->engine.itemCount();
 }
 
-void QQuickGridLayoutBase::itemChange(ItemChange change, const ItemChangeData &value)
-{
-    if (change == ItemChildAddedChange) {
-        quickLayoutDebug() << "ItemChildAddedChange";
-        QQuickItem *item = value.item;
-        QObject::connect(item, SIGNAL(destroyed()), this, SLOT(onItemDestroyed()));
-        QObject::connect(item, SIGNAL(visibleChanged()), this, SLOT(onItemVisibleChanged()));
-    } else if (change == ItemChildRemovedChange) {
-        quickLayoutDebug() << "ItemChildRemovedChange";
-        QQuickItem *item = value.item;
-        QObject::disconnect(item, SIGNAL(destroyed()), this, SLOT(onItemDestroyed()));
-        QObject::disconnect(item, SIGNAL(visibleChanged()), this, SLOT(onItemVisibleChanged()));
-    }
-
-    QQuickLayout::itemChange(change, value);
-}
-
 void QQuickGridLayoutBase::removeGridItem(QGridLayoutItem *gridItem)
 {
     Q_D(QQuickGridLayoutBase);
@@ -485,26 +437,27 @@ void QQuickGridLayoutBase::removeGridItem(QGridLayoutItem *gridItem)
     d->engine.removeRows(index, 1, d->orientation);
 }
 
-void QQuickGridLayoutBase::onItemVisibleChanged()
-{
-    if (!isReady())
-        return;
-    quickLayoutDebug() << "QQuickGridLayoutBase::onItemVisibleChanged";
-    updateLayoutItems();
-}
-
-void QQuickGridLayoutBase::onItemDestroyed()
+void QQuickGridLayoutBase::itemDestroyed(QQuickItem *item)
 {
     if (!isReady())
         return;
     Q_D(QQuickGridLayoutBase);
-    quickLayoutDebug() << "QQuickGridLayoutBase::onItemDestroyed";
-    QQuickItem *inDestruction = static_cast<QQuickItem *>(sender());
-    if (QQuickGridLayoutItem *gridItem = d->engine.findLayoutItem(inDestruction)) {
+    quickLayoutDebug() << "QQuickGridLayoutBase::itemDestroyed";
+    if (QQuickGridLayoutItem *gridItem = d->engine.findLayoutItem(item)) {
         removeGridItem(gridItem);
         delete gridItem;
         invalidate();
     }
+}
+
+void QQuickGridLayoutBase::itemVisibilityChanged(QQuickItem *item)
+{
+    Q_UNUSED(item);
+
+    if (!isReady())
+        return;
+    quickLayoutDebug() << "QQuickGridLayoutBase::itemVisibilityChanged";
+    updateLayoutItems();
 }
 
 void QQuickGridLayoutBase::rearrange(const QSizeF &size)
@@ -712,34 +665,25 @@ void QQuickGridLayout::insertLayoutItems()
         int &columnSpan = span[0];
         int &rowSpan = span[1];
 
-        bool invalidRowColumn = false;
         if (info) {
             if (info->isRowSet() || info->isColumnSet()) {
                 // If row is specified and column is not specified (or vice versa),
                 // the unspecified component of the cell position should default to 0
-                row = column = 0;
-                if (info->isRowSet()) {
-                    row = info->row();
-                    invalidRowColumn = row < 0;
-                }
-                if (info->isColumnSet()) {
-                    column = info->column();
-                    invalidRowColumn = column < 0;
-                }
-            }
-            if (invalidRowColumn) {
-                qWarning("QQuickGridLayoutBase::insertLayoutItems: invalid row/column: %d",
-                         row < 0 ? row : column);
-                return;
+                // The getters do this for us, as they will return 0 for an
+                // unset (or negative) value.
+                row = info->row();
+                column = info->column();
             }
             rowSpan = info->rowSpan();
             columnSpan = info->columnSpan();
-            if (columnSpan < 1 || rowSpan < 1) {
-                qWarning("QQuickGridLayoutBase::addItem: invalid row span/column span: %d",
-                         rowSpan < 1 ? rowSpan : columnSpan);
+            if (columnSpan < 1) {
+                qmlWarning(child) << "Layout: invalid column span: " << columnSpan;
+                return;
+
+            } else if (rowSpan < 1) {
+                qmlWarning(child) << "Layout: invalid row span: " << rowSpan;
                 return;
             }
-
             alignment = info->alignment();
         }
 
@@ -906,3 +850,5 @@ void QQuickLinearLayout::insertLayoutItems()
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qquicklinearlayout_p.cpp"

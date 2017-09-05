@@ -41,7 +41,7 @@
 
 QT_BEGIN_NAMESPACE
 
-#ifndef QT_NO_VALIDATOR
+#if QT_CONFIG(validator)
 
 /*!
     \qmltype IntValidator
@@ -219,9 +219,29 @@ void QQuickDoubleValidator::resetLocaleName()
    matching "a".
 
    By default, this property contains a regular expression with the pattern .* that matches any string.
+
+   Below you can find an example of a \l TextInput object with a RegExpValidator specified:
+
+   \snippet qml/regexp.qml 0
+
+   Some more examples of regular expressions:
+
+   \list
+   \li A list of numbers with one to three positions separated by a comma:
+       \badcode
+       /\d{1,3}(?:,\d{1,3})+$/
+       \endcode
+
+   \li An amount consisting of up to 3 numbers before the decimal point, and
+       1 to 2 after the decimal point:
+       \badcode
+       /(\d{1,3})([.,]\d{1,2})?$/
+       \endcode
+   \endlist
 */
 
-#endif // QT_NO_VALIDATOR
+#endif // validator
 
 QT_END_NAMESPACE
 
+#include "moc_qquickvalidator_p.cpp"

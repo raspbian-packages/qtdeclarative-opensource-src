@@ -62,7 +62,9 @@
 QT_BEGIN_NAMESPACE
 
 class QQmlEngine;
+#if QT_CONFIG(qml_network)
 class QNetworkAccessManager;
+#endif
 class QNetworkReply;
 class QV4Include : public QObject
 {
@@ -75,7 +77,7 @@ public:
         Exception = 3
     };
 
-    static QV4::ReturnedValue method_include(QV4::CallContext *ctx);
+    static void method_include(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
 
 private Q_SLOTS:
     void finished();
@@ -90,15 +92,16 @@ private:
     static void callback(const QV4::Value &callback, const QV4::Value &status);
 
     QV4::ExecutionEngine *v4;
+    QUrl m_url;
+
+#if QT_CONFIG(qml_network)
+    int m_redirectCount;
     QNetworkAccessManager *m_network;
     QPointer<QNetworkReply> m_reply;
-
-    QUrl m_url;
-    int m_redirectCount;
+#endif
 
     QV4::PersistentValue m_callbackFunction;
     QV4::PersistentValue m_resultObject;
-
     QV4::PersistentValue m_qmlContext;
 };
 

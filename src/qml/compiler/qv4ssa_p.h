@@ -53,6 +53,7 @@
 
 #include "qv4jsir_p.h"
 #include "qv4isel_util_p.h"
+#include <private/qv4util_p.h>
 #include <QtCore/QSharedPointer>
 
 QT_BEGIN_NAMESPACE
@@ -62,20 +63,28 @@ class QQmlEnginePrivate;
 namespace QV4 {
 namespace IR {
 
+struct LifeTimeIntervalRange {
+    int start;
+    int end;
+
+    LifeTimeIntervalRange(int start = -1, int end = -1)
+        : start(start)
+        , end(end)
+    {}
+
+    bool covers(int position) const { return start <= position && position <= end; }
+};
+} // IR namespace
+} // QV4 namespace
+
+Q_DECLARE_TYPEINFO(QV4::IR::LifeTimeIntervalRange, Q_PRIMITIVE_TYPE);
+
+namespace QV4 {
+namespace IR {
+
 class Q_AUTOTEST_EXPORT LifeTimeInterval {
 public:
-    struct Range {
-        int start;
-        int end;
-
-        Range(int start = InvalidPosition, int end = InvalidPosition)
-            : start(start)
-            , end(end)
-        {}
-
-        bool covers(int position) const { return start <= position && position <= end; }
-    };
-    typedef QVector<Range> Ranges;
+    typedef QVarLengthArray<LifeTimeIntervalRange, 4> Ranges;
 
 private:
     Temp _temp;
@@ -89,7 +98,7 @@ public:
     enum { InvalidPosition = -1 };
     enum { InvalidRegister = -1 };
 
-    explicit LifeTimeInterval(int rangeCapacity = 2)
+    explicit LifeTimeInterval(int rangeCapacity = 4)
         : _end(InvalidPosition)
         , _reg(InvalidRegister)
         , _isFixedInterval(0)
@@ -136,7 +145,7 @@ public:
         // Validate the new range
         if (_end != InvalidPosition) {
             Q_ASSERT(!_ranges.isEmpty());
-            for (const Range &range : qAsConst(_ranges)) {
+            for (const LifeTimeIntervalRange &range : qAsConst(_ranges)) {
                 Q_ASSERT(range.start >= 0);
                 Q_ASSERT(range.end >= 0);
                 Q_ASSERT(range.start <= range.end);
@@ -145,6 +154,17 @@ public:
 #endif
     }
 };
+
+inline bool LifeTimeInterval::lessThan(const LifeTimeInterval *r1, const LifeTimeInterval *r2)
+{
+    if (r1->_ranges.first().start == r2->_ranges.first().start) {
+        if (r1->isSplitFromInterval() == r2->isSplitFromInterval())
+            return r1->_ranges.last().end < r2->_ranges.last().end;
+        else
+            return r1->isSplitFromInterval();
+    } else
+        return r1->_ranges.first().start < r2->_ranges.first().start;
+}
 
 class LifeTimeIntervals
 {
@@ -235,7 +255,7 @@ public:
 
     LifeTimeIntervals::Ptr lifeTimeIntervals() const;
 
-    QSet<IR::Jump *> calculateOptionalJumps();
+    BitVector calculateOptionalJumps();
 
     static void showMeTheCode(Function *function, const char *marker);
 
@@ -245,15 +265,18 @@ private:
     QHash<BasicBlock *, BasicBlock *> startEndLoops;
 };
 
-class MoveMapping
+class Q_QML_AUTOTEST_EXPORT MoveMapping
 {
+#ifdef V4_AUTOTEST
+public:
+#endif
     struct Move {
         Expr *from;
         Temp *to;
         bool needsSwap;
 
-        Move(Expr *from, Temp *to)
-            : from(from), to(to), needsSwap(false)
+        Move(Expr *from, Temp *to, bool needsSwap = false)
+            : from(from), to(to), needsSwap(needsSwap)
         {}
 
         bool operator==(const Move &other) const
@@ -273,9 +296,7 @@ public:
     void dump() const;
 
 private:
-    enum Action { NormalMove, NeedsSwap };
-    Action schedule(const Move &m, QList<Move> &todo, QList<Move> &delayed, QList<Move> &output,
-                    QList<Move> &swaps) const;
+    int findLeaf() const;
 };
 
 /*
@@ -329,7 +350,7 @@ public:
     }
 
 protected:
-    virtual int allocateFreeSlot()
+    int allocateFreeSlot() override
     {
         for (int i = 0, ei = _slotIsInUse.size(); i != ei; ++i) {
             if (!_slotIsInUse[i]) {
@@ -346,7 +367,7 @@ protected:
         return -1;
     }
 
-    virtual void process(IR::Stmt *s)
+    void process(IR::Stmt *s) override
     {
 //        qDebug("L%d statement %d:", _currentBasicBlock->index, s->id);
 
@@ -379,7 +400,7 @@ protected:
                 _unhandled.removeLast();
             }
 
-            s->accept(this);
+            visit(s);
         }
 
         if (IR::Jump *jump = s->asJump()) {
@@ -400,9 +421,9 @@ protected:
                 }
             }
             moves.order();
-            QList<IR::Move *> newMoves = moves.insertMoves(_currentBasicBlock, _function, true);
-            foreach (IR::Move *move, newMoves)
-                move->accept(this);
+            const QList<IR::Move *> newMoves = moves.insertMoves(_currentBasicBlock, _function, true);
+            for (IR::Move *move : newMoves)
+                visit(move);
         }
     }
 
@@ -426,13 +447,13 @@ protected:
 //        qDebug() << "\t - force activating temp" << t.index << "on slot" << _stackSlotForTemp[t.index];
     }
 
-    virtual void visitPhi(IR::Phi *phi)
+    void visitPhi(IR::Phi *phi) override
     {
         Q_UNUSED(phi);
 #if !defined(QT_NO_DEBUG)
         Q_ASSERT(_stackSlotForTemp.contains(phi->targetTemp->index));
         Q_ASSERT(_slotIsInUse[_stackSlotForTemp[phi->targetTemp->index]]);
-        foreach (IR::Expr *e, phi->incoming) {
+        for (IR::Expr *e : phi->incoming) {
             if (IR::Temp *t = e->asTemp())
                 Q_ASSERT(_stackSlotForTemp.contains(t->index));
         }
@@ -445,7 +466,6 @@ protected:
 
 
 Q_DECLARE_TYPEINFO(QV4::IR::LifeTimeInterval, Q_MOVABLE_TYPE);
-Q_DECLARE_TYPEINFO(QV4::IR::LifeTimeInterval::Range, Q_PRIMITIVE_TYPE);
 
 QT_END_NAMESPACE
 

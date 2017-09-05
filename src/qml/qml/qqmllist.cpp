@@ -143,16 +143,16 @@ QQmlListReference::QQmlListReference(QObject *object, const char *property, QQml
 
     QQmlEnginePrivate *p = engine?QQmlEnginePrivate::get(engine):0;
 
-    int listType = p?p->listType(data->propType):QQmlMetaType::listType(data->propType);
+    int listType = p?p->listType(data->propType()):QQmlMetaType::listType(data->propType());
     if (listType == -1) return;
 
     d = new QQmlListReferencePrivate;
     d->object = object;
     d->elementType = p?p->rawMetaObjectForType(listType):QQmlMetaType::qmlType(listType)->baseMetaObject();
-    d->propertyType = data->propType;
+    d->propertyType = data->propType();
 
     void *args[] = { &d->property, 0 };
-    QMetaObject::metacall(object, QMetaObject::ReadProperty, data->coreIndex, args);
+    QMetaObject::metacall(object, QMetaObject::ReadProperty, data->coreIndex(), args);
 }
 
 /*! \internal */
@@ -335,7 +335,7 @@ int QQmlListReference::count() const
 \since 5.0
 \inmodule QtQml
 \brief The QQmlListProperty class allows applications to expose list-like
-properties to QML.
+properties of QObject-derived classes to QML.
 
 QML has many list properties, where more than one object value can be assigned.
 The use of a list property from QML looks like this:
@@ -369,7 +369,8 @@ QML list properties are type-safe - in this case \c {Fruit} is a QObject type th
 
 The \l {Qt Quick 1} version of this class is named QDeclarativeListProperty.
 
-\note QQmlListProperty can only be used for lists of QObject-derived object pointers.
+\sa {Extending QML - Object and List Property Types Example}
+
 */
 
 /*!
@@ -393,8 +394,9 @@ can be very useful while prototyping.
 \fn QQmlListProperty::QQmlListProperty(QObject *object, void *data,
                                     CountFunction count, AtFunction at)
 
-Construct a readonly QQmlListProperty from a set of operation functions.  An opaque \a data handle
-may be passed which can be accessed from within the operation functions.  The list property
+Construct a readonly QQmlListProperty from a set of operation functions
+\a count and \a at. An opaque \a data handle may be passed which can be
+accessed from within the operation functions.  The list property
 remains valid while \a object exists.
 */
 
@@ -403,8 +405,9 @@ remains valid while \a object exists.
                                      CountFunction count, AtFunction at,
                                      ClearFunction clear)
 
-Construct a QQmlListProperty from a set of operation functions.  An opaque \a data handle
-may be passed which can be accessed from within the operation functions.  The list property
+Construct a QQmlListProperty from a set of operation functions \a append,
+\a count, \a at, and \a clear.  An opaque \a data handle may be passed which
+can be accessed from within the operation functions.  The list property
 remains valid while \a object exists.
 
 Null pointers can be passed for any function. If any null pointers are passed in, the list

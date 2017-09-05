@@ -40,10 +40,10 @@
 #include "qquickmousearea_p.h"
 #include "qquickmousearea_p_p.h"
 #include "qquickwindow.h"
-#include "qquickevents_p_p.h"
 #include "qquickdrag_p.h"
 
 #include <private/qqmldata_p.h>
+#include <private/qsgadaptationlayer_p.h>
 
 #include <QtGui/private/qguiapplication_p.h>
 #include <QtGui/qevent.h>
@@ -55,14 +55,17 @@ QT_BEGIN_NAMESPACE
 
 DEFINE_BOOL_CONFIG_OPTION(qmlVisualTouchDebugging, QML_VISUAL_TOUCH_DEBUGGING)
 
+Q_DECLARE_LOGGING_CATEGORY(DBG_HOVER_TRACE)
+
 QQuickMouseAreaPrivate::QQuickMouseAreaPrivate()
 : enabled(true), scrollGestureEnabled(true), hovered(false), longPress(false),
   moved(false), stealMouse(false), doubleClick(false), preventStealing(false),
-  propagateComposedEvents(false), overThreshold(false), pressed(0)
-#ifndef QT_NO_DRAGANDDROP
+  propagateComposedEvents(false), overThreshold(false), pressed(0),
+  pressAndHoldInterval(-1)
+#if QT_CONFIG(draganddrop)
   , drag(0)
 #endif
-#ifndef QT_NO_CURSOR
+#if QT_CONFIG(cursor)
   , cursor(0)
 #endif
 {
@@ -70,10 +73,10 @@ QQuickMouseAreaPrivate::QQuickMouseAreaPrivate()
 
 QQuickMouseAreaPrivate::~QQuickMouseAreaPrivate()
 {
-#ifndef QT_NO_DRAGANDDROP
+#if QT_CONFIG(draganddrop)
     delete drag;
 #endif
-#ifndef QT_NO_CURSOR
+#if QT_CONFIG(cursor)
     delete cursor;
 #endif
 }
@@ -202,6 +205,9 @@ bool QQuickMouseAreaPrivate::propagateHelper(QQuickMouseEvent *ev, QQuickItem *i
     The \l enabled property is used to enable and disable mouse handling for
     the proxied item. When disabled, the mouse area becomes transparent to
     mouse events.
+
+    MouseArea is an invisible Item, but it has a visible property.
+    When set to false, the mouse area becomes transparent to mouse events.
 
     The \l pressed read-only property indicates whether or not the user is
     holding down a mouse button over the mouse area. This property is often
@@ -338,7 +344,7 @@ bool QQuickMouseAreaPrivate::propagateHelper(QQuickMouseEvent *ev, QQuickItem *i
     position of the release of the click, and whether the click was held.
 
     When handling this signal, changing the \l {MouseEvent::}{accepted} property of the \a mouse
-    parameter has no effect.
+    parameter has no effect, unless the \l propagateComposedEvents property is \c true.
 
     The corresponding handler is \c onClicked.
 */
@@ -382,7 +388,7 @@ bool QQuickMouseAreaPrivate::propagateHelper(QQuickMouseEvent *ev, QQuickItem *i
     position of the press, and which button is pressed.
 
     When handling this signal, changing the \l {MouseEvent::}{accepted} property of the \a mouse
-    parameter has no effect.
+    parameter has no effect, unless the \l propagateComposedEvents property is \c true.
 
     The corresponding handler is \c onPressAndHold.
 */
@@ -404,8 +410,7 @@ bool QQuickMouseAreaPrivate::propagateHelper(QQuickMouseEvent *ev, QQuickItem *i
 /*!
     \qmlsignal QtQuick::MouseArea::canceled()
 
-    This signal is emitted when mouse events have been canceled, either because an event was not accepted, or
-    because another item stole the mouse event handling.
+    This signal is emitted when mouse events have been canceled, because another item stole the mouse event handling.
 
     This signal is for advanced use: it is useful when there is more than one MouseArea
     that is handling input, or when there is a MouseArea inside a \l Flickable. In the latter
@@ -434,7 +439,7 @@ QQuickMouseArea::QQuickMouseArea(QQuickItem *parent)
 {
     Q_D(QQuickMouseArea);
     d->init();
-#ifndef QT_NO_CURSOR
+#if QT_CONFIG(cursor)
     // Explcitly call setCursor on QQuickItem since
     // it internally keeps a boolean hasCursor that doesn't
     // get set to true unless you call setCursor
@@ -678,15 +683,16 @@ void QQuickMouseArea::mousePressEvent(QMouseEvent *event)
     } else {
         d->longPress = false;
         d->saveEvent(event);
-#ifndef QT_NO_DRAGANDDROP
+#if QT_CONFIG(draganddrop)
         if (d->drag)
             d->drag->setActive(false);
 #endif
         setHovered(true);
         d->startScene = event->windowPos();
-        d->pressAndHoldTimer.start(QGuiApplication::styleHints()->mousePressAndHoldInterval(), this);
         setKeepMouseGrab(d->stealMouse);
         event->setAccepted(setPressed(event->button(), true, event->source()));
+        if (event->isAccepted())
+            d->pressAndHoldTimer.start(pressAndHoldInterval(), this);
     }
 }
 
@@ -704,7 +710,7 @@ void QQuickMouseArea::mouseMoveEvent(QMouseEvent *event)
     // ### can GV handle this for us?
     setHovered(contains(d->lastPos));
 
-#ifndef QT_NO_DRAGANDDROP
+#if QT_CONFIG(draganddrop)
     if (d->drag && d->drag->target()) {
         if (!d->moved) {
             d->targetStartPos = d->drag->target()->parentItem()
@@ -733,23 +739,34 @@ void QQuickMouseArea::mouseMoveEvent(QMouseEvent *event)
         bool dragY = drag()->axis() & QQuickDrag::YAxis;
 
         QPointF dragPos = d->drag->target()->position();
+        QPointF boundedDragPos = dragPos;
         if (dragX) {
-            dragPos.setX(qBound(
+            dragPos.setX(startPos.x() + curLocalPos.x() - startLocalPos.x());
+            boundedDragPos.setX(qBound(
                     d->drag->xmin(),
-                    startPos.x() + curLocalPos.x() - startLocalPos.x(),
+                    dragPos.x(),
                     d->drag->xmax()));
         }
         if (dragY) {
-            dragPos.setY(qBound(
+            dragPos.setY(startPos.y() + curLocalPos.y() - startLocalPos.y());
+            boundedDragPos.setY(qBound(
                     d->drag->ymin(),
-                    startPos.y() + curLocalPos.y() - startLocalPos.y(),
+                    dragPos.y(),
                     d->drag->ymax()));
         }
-        if (d->drag->active())
-            d->drag->target()->setPosition(dragPos);
 
-        if (!d->overThreshold && (QQuickWindowPrivate::dragOverThreshold(dragPos.x() - startPos.x(), Qt::XAxis, event, d->drag->threshold())
-                                  || QQuickWindowPrivate::dragOverThreshold(dragPos.y() - startPos.y(), Qt::YAxis, event, d->drag->threshold())))
+        QPointF targetPos = d->drag->target()->position();
+
+        if (d->drag->active())
+            d->drag->target()->setPosition(boundedDragPos);
+
+        bool dragOverThresholdX = QQuickWindowPrivate::dragOverThreshold(dragPos.x() - startPos.x(),
+                                                                         Qt::XAxis, event, d->drag->threshold());
+        bool dragOverThresholdY = QQuickWindowPrivate::dragOverThreshold(dragPos.y() - startPos.y(),
+                                                                         Qt::YAxis, event, d->drag->threshold());
+
+        if (!d->overThreshold && (((targetPos.x() != boundedDragPos.x()) && dragOverThresholdX) ||
+                                  ((targetPos.y() != boundedDragPos.y()) && dragOverThresholdY)))
         {
             d->overThreshold = true;
             if (d->drag->smoothed())
@@ -765,7 +782,8 @@ void QQuickMouseArea::mouseMoveEvent(QMouseEvent *event)
     }
 #endif
 
-    QQuickMouseEvent me(d->lastPos.x(), d->lastPos.y(), d->lastButton, d->lastButtons, d->lastModifiers, false, d->longPress);
+    QQuickMouseEvent &me = d->quickMouseEvent;
+    me.reset(d->lastPos.x(), d->lastPos.y(), d->lastButton, d->lastButtons, d->lastModifiers, false, d->longPress);
     me.setSource(event->source());
     emit mouseXChanged(&me);
     me.setPosition(d->lastPos);
@@ -786,7 +804,7 @@ void QQuickMouseArea::mouseReleaseEvent(QMouseEvent *event)
         setPressed(event->button(), false, event->source());
         if (!d->pressed) {
             // no other buttons are pressed
-#ifndef QT_NO_DRAGANDDROP
+#if QT_CONFIG(draganddrop)
             if (d->drag)
                 d->drag->setActive(false);
 #endif
@@ -807,7 +825,8 @@ void QQuickMouseArea::mouseDoubleClickEvent(QMouseEvent *event)
     Q_D(QQuickMouseArea);
     if (d->enabled) {
         d->saveEvent(event);
-        QQuickMouseEvent me(d->lastPos.x(), d->lastPos.y(), d->lastButton, d->lastButtons, d->lastModifiers, true, false);
+        QQuickMouseEvent &me = d->quickMouseEvent;
+        me.reset(d->lastPos.x(), d->lastPos.y(), d->lastButton, d->lastButtons, d->lastModifiers, true, false);
         me.setSource(event->source());
         me.setAccepted(d->isDoubleClickConnected());
         emit this->doubleClicked(&me);
@@ -827,7 +846,8 @@ void QQuickMouseArea::hoverEnterEvent(QHoverEvent *event)
         d->lastPos = event->posF();
         d->lastModifiers = event->modifiers();
         setHovered(true);
-        QQuickMouseEvent me(d->lastPos.x(), d->lastPos.y(), Qt::NoButton, Qt::NoButton, d->lastModifiers, false, false);
+        QQuickMouseEvent &me = d->quickMouseEvent;
+        me.reset(d->lastPos.x(), d->lastPos.y(), Qt::NoButton, Qt::NoButton, d->lastModifiers, false, false);
         emit mouseXChanged(&me);
         me.setPosition(d->lastPos);
         emit mouseYChanged(&me);
@@ -840,10 +860,11 @@ void QQuickMouseArea::hoverMoveEvent(QHoverEvent *event)
     Q_D(QQuickMouseArea);
     if (!d->enabled && !d->pressed) {
         QQuickItem::hoverMoveEvent(event);
-    } else {
+    } else if (d->lastPos != event->posF()) {
         d->lastPos = event->posF();
         d->lastModifiers = event->modifiers();
-        QQuickMouseEvent me(d->lastPos.x(), d->lastPos.y(), Qt::NoButton, Qt::NoButton, d->lastModifiers, false, false);
+        QQuickMouseEvent &me = d->quickMouseEvent;
+        me.reset(d->lastPos.x(), d->lastPos.y(), Qt::NoButton, Qt::NoButton, d->lastModifiers, false, false);
         emit mouseXChanged(&me);
         me.setPosition(d->lastPos);
         emit mouseYChanged(&me);
@@ -861,7 +882,7 @@ void QQuickMouseArea::hoverLeaveEvent(QHoverEvent *event)
         setHovered(false);
 }
 
-#ifndef QT_NO_WHEELEVENT
+#if QT_CONFIG(wheelevent)
 void QQuickMouseArea::wheelEvent(QWheelEvent *event)
 {
     Q_D(QQuickMouseArea);
@@ -870,8 +891,9 @@ void QQuickMouseArea::wheelEvent(QWheelEvent *event)
         return;
     }
 
-    QQuickWheelEvent we(event->posF().x(), event->posF().y(), event->angleDelta(),
-                        event->pixelDelta(), event->buttons(), event->modifiers());
+    QQuickWheelEvent &we = d->quickWheelEvent;
+    we.reset(event->posF().x(), event->posF().y(), event->angleDelta(), event->pixelDelta(),
+             event->buttons(), event->modifiers(), event->inverted());
     we.setAccepted(d->isWheelConnected());
     emit wheel(&we);
     if (!we.isAccepted())
@@ -891,7 +913,7 @@ void QQuickMouseArea::ungrabMouse()
         d->overThreshold = false;
         setKeepMouseGrab(false);
 
-#ifndef QT_NO_DRAGANDDROP
+#if QT_CONFIG(draganddrop)
         if (d->drag)
             d->drag->setActive(false);
 #endif
@@ -974,7 +996,7 @@ bool QQuickMouseArea::childMouseEventFilter(QQuickItem *i, QEvent *e)
     Q_D(QQuickMouseArea);
     if (!d->pressed &&
             (!d->enabled || !isVisible()
-#ifndef QT_NO_DRAGANDDROP
+#if QT_CONFIG(draganddrop)
              || !d->drag || !d->drag->filterChildren()
 #endif
             )
@@ -997,14 +1019,15 @@ void QQuickMouseArea::timerEvent(QTimerEvent *event)
     Q_D(QQuickMouseArea);
     if (event->timerId() == d->pressAndHoldTimer.timerId()) {
         d->pressAndHoldTimer.stop();
-#ifndef QT_NO_DRAGANDDROP
+#if QT_CONFIG(draganddrop)
         bool dragged = d->drag && d->drag->active();
 #else
         bool dragged = false;
 #endif
         if (d->pressed && dragged == false && d->hovered == true) {
             d->longPress = true;
-            QQuickMouseEvent me(d->lastPos.x(), d->lastPos.y(), d->lastButton, d->lastButtons, d->lastModifiers, false, d->longPress);
+            QQuickMouseEvent &me = d->quickMouseEvent;
+            me.reset(d->lastPos.x(), d->lastPos.y(), d->lastButton, d->lastButtons, d->lastModifiers, false, d->longPress);
             me.setSource(Qt::MouseEventSynthesizedByQt);
             me.setAccepted(d->isPressAndHoldConnected());
             emit pressAndHold(&me);
@@ -1085,8 +1108,7 @@ void QQuickMouseArea::setHoverEnabled(bool h)
     \qmlproperty bool QtQuick::MouseArea::containsMouse
     This property holds whether the mouse is currently inside the mouse area.
 
-    \warning This property is not updated if the area moves under the mouse: \e containsMouse will not change.
-    In addition, if hoverEnabled is false, containsMouse will only be valid
+    \warning If hoverEnabled is false, containsMouse will only be valid
     when the mouse is pressed while the mouse cursor is inside the MouseArea.
 */
 bool QQuickMouseArea::hovered() const
@@ -1127,6 +1149,7 @@ void QQuickMouseArea::setHovered(bool h)
 {
     Q_D(QQuickMouseArea);
     if (d->hovered != h) {
+        qCDebug(DBG_HOVER_TRACE) << this << d->hovered <<  "->" << h;
         d->hovered = h;
         emit hoveredChanged();
         d->hovered ? emit entered() : emit exited();
@@ -1172,7 +1195,7 @@ bool QQuickMouseArea::setPressed(Qt::MouseButton button, bool p, Qt::MouseEventS
 {
     Q_D(QQuickMouseArea);
 
-#ifndef QT_NO_DRAGANDDROP
+#if QT_CONFIG(draganddrop)
     bool dragged = d->drag && d->drag->active();
 #else
     bool dragged = false;
@@ -1182,7 +1205,8 @@ bool QQuickMouseArea::setPressed(Qt::MouseButton button, bool p, Qt::MouseEventS
     Qt::MouseButtons oldPressed = d->pressed;
 
     if (wasPressed != p) {
-        QQuickMouseEvent me(d->lastPos.x(), d->lastPos.y(), d->lastButton, d->lastButtons, d->lastModifiers, isclick, d->longPress);
+        QQuickMouseEvent &me = d->quickMouseEvent;
+        me.reset(d->lastPos.x(), d->lastPos.y(), d->lastButton, d->lastButtons, d->lastModifiers, isclick, d->longPress);
         me.setSource(source);
         if (p) {
             d->pressed |= button;
@@ -1192,6 +1216,11 @@ bool QQuickMouseArea::setPressed(Qt::MouseButton button, bool p, Qt::MouseEventS
             emit mouseXChanged(&me);
             me.setPosition(d->lastPos);
             emit mouseYChanged(&me);
+
+            if (!me.isAccepted()) {
+                d->pressed = Qt::NoButton;
+            }
+
             if (!oldPressed) {
                 emit pressedChanged();
                 emit containsPressChanged();
@@ -1263,7 +1292,7 @@ bool QQuickMouseArea::setPressed(Qt::MouseButton button, bool p, Qt::MouseEventS
     \sa Qt::CursorShape
 */
 
-#ifndef QT_NO_CURSOR
+#if QT_CONFIG(cursor)
 Qt::CursorShape QQuickMouseArea::cursorShape() const
 {
     return cursor().shape();
@@ -1280,6 +1309,48 @@ void QQuickMouseArea::setCursorShape(Qt::CursorShape shape)
 }
 
 #endif
+
+
+/*!
+    \qmlproperty int QtQuick::MouseArea::pressAndHoldInterval
+    \since 5.9
+
+    This property overrides the elapsed time in milliseconds before
+    \c pressAndHold is emitted.
+
+    If not explicitly set -- or after reset -- the value follows
+    \c QStyleHints::mousePressAndHoldInterval.
+
+    Typically it's sufficient to set this property globally using the
+    application style hint. This property should be used when varying intervals
+    are needed for certain MouseAreas.
+
+    \sa pressAndHold
+*/
+int QQuickMouseArea::pressAndHoldInterval() const
+{
+    Q_D(const QQuickMouseArea);
+    return d->pressAndHoldInterval > -1 ?
+        d->pressAndHoldInterval : QGuiApplication::styleHints()->mousePressAndHoldInterval();
+}
+
+void QQuickMouseArea::setPressAndHoldInterval(int interval)
+{
+    Q_D(QQuickMouseArea);
+    if (interval != d->pressAndHoldInterval) {
+        d->pressAndHoldInterval = interval;
+        emit pressAndHoldIntervalChanged();
+    }
+}
+
+void QQuickMouseArea::resetPressAndHoldInterval()
+{
+    Q_D(QQuickMouseArea);
+    if (d->pressAndHoldInterval > -1) {
+        d->pressAndHoldInterval = -1;
+        emit pressAndHoldIntervalChanged();
+    }
+}
 
 /*!
     \qmlpropertygroup QtQuick::MouseArea::drag
@@ -1330,7 +1401,7 @@ void QQuickMouseArea::setCursorShape(Qt::CursorShape shape)
 
 */
 
-#ifndef QT_NO_DRAGANDDROP
+#if QT_CONFIG(draganddrop)
 QQuickDrag *QQuickMouseArea::drag()
 {
     Q_D(QQuickMouseArea);
@@ -1348,8 +1419,8 @@ QSGNode *QQuickMouseArea::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData 
     if (!qmlVisualTouchDebugging())
         return 0;
 
-    QSGRectangleNode *rectangle = static_cast<QSGRectangleNode *>(oldNode);
-    if (!rectangle) rectangle = d->sceneGraphContext()->createRectangleNode();
+    QSGInternalRectangleNode *rectangle = static_cast<QSGInternalRectangleNode *>(oldNode);
+    if (!rectangle) rectangle = d->sceneGraphContext()->createInternalRectangleNode();
 
     rectangle->setRect(QRectF(0, 0, width(), height()));
     rectangle->setColor(QColor(255, 0, 0, 50));
@@ -1358,3 +1429,5 @@ QSGNode *QQuickMouseArea::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData 
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qquickmousearea_p.cpp"

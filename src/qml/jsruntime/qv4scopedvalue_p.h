@@ -68,17 +68,53 @@ namespace QV4 {
 
 struct ScopedValue;
 
+#define CHECK_EXCEPTION() \
+    do { \
+        if (scope.hasException()) { \
+            scope.result = QV4::Encode::undefined(); \
+            return; \
+        } \
+    } while (false)
+
+#define RETURN_UNDEFINED() \
+    do { \
+        scope.result = QV4::Encode::undefined(); \
+        return; \
+    } while (false)
+
+#define RETURN_RESULT(r) \
+    do { \
+        scope.result = r; \
+        return; \
+    } while (false)
+
+#define THROW_TYPE_ERROR() \
+    do { \
+        scope.result = scope.engine->throwTypeError(); \
+        return; \
+    } while (false)
+
+#define THROW_GENERIC_ERROR(str) \
+    do { \
+        scope.result = scope.engine->throwError(QString::fromUtf8(str)); \
+        return; \
+    } while (false)
+
 struct Scope {
     inline Scope(ExecutionContext *ctx)
-        : engine(ctx->d()->engine)
+        : engine(ctx->engine())
+        , mark(engine->jsStackTop)
+        , result(*engine->jsAlloca(1))
     {
-        mark = engine->jsStackTop;
+        result = Encode::undefined();
     }
 
     explicit Scope(ExecutionEngine *e)
         : engine(e)
+        , mark(engine->jsStackTop)
+        , result(*engine->jsAlloca(1))
     {
-        mark = engine->jsStackTop;
+        result = Encode::undefined();
     }
 
     ~Scope() {
@@ -93,7 +129,7 @@ struct Scope {
         engine->jsStackTop = mark;
     }
 
-    Value *alloc(int nValues) {
+    QML_NEARLY_ALWAYS_INLINE Value *alloc(int nValues) const {
         return engine->jsAlloca(nValues);
     }
 
@@ -103,6 +139,7 @@ struct Scope {
 
     ExecutionEngine *engine;
     Value *mark;
+    Value &result;
 
 private:
     Q_DISABLE_COPY(Scope)
@@ -184,65 +221,72 @@ struct Scoped
 {
     enum ConvertType { Convert };
 
-    inline void setPointer(const Managed *p) {
+    QML_NEARLY_ALWAYS_INLINE void setPointer(const Managed *p) {
         ptr->setM(p ? p->m() : 0);
     }
 
-    Scoped(const Scope &scope)
+    QML_NEARLY_ALWAYS_INLINE Scoped(const Scope &scope)
     {
-        ptr = scope.engine->jsStackTop++;
-        ptr->setM(0);
+        ptr = scope.engine->jsAlloca(1);
     }
 
-    Scoped(const Scope &scope, const Value &v)
+    QML_NEARLY_ALWAYS_INLINE Scoped(const Scope &scope, const Value &v)
     {
-        ptr = scope.engine->jsStackTop++;
+        ptr = scope.engine->jsAlloca(1);
         setPointer(v.as<T>());
     }
-    Scoped(const Scope &scope, Heap::Base *o)
+    QML_NEARLY_ALWAYS_INLINE Scoped(const Scope &scope, Heap::Base *o)
     {
         Value v;
         v = o;
-        ptr = scope.engine->jsStackTop++;
+        ptr = scope.engine->jsAlloca(1);
         setPointer(v.as<T>());
     }
-    Scoped(const Scope &scope, const ScopedValue &v)
+    QML_NEARLY_ALWAYS_INLINE Scoped(const Scope &scope, const ScopedValue &v)
     {
-        ptr = scope.engine->jsStackTop++;
+        ptr = scope.engine->jsAlloca(1);
         setPointer(v.ptr->as<T>());
     }
 
-    Scoped(const Scope &scope, const Value &v, ConvertType)
+    QML_NEARLY_ALWAYS_INLINE Scoped(const Scope &scope, const Value &v, ConvertType)
     {
-        ptr = scope.engine->jsStackTop++;
+        ptr = scope.engine->jsAlloca(1);
         ptr->setRawValue(value_convert<T>(scope.engine, v));
     }
 
-    Scoped(const Scope &scope, const Value *v)
+    QML_NEARLY_ALWAYS_INLINE Scoped(const Scope &scope, const Value *v)
     {
-        ptr = scope.engine->jsStackTop++;
+        ptr = scope.engine->jsAlloca(1);
         setPointer(v ? v->as<T>() : 0);
     }
 
-    Scoped(const Scope &scope, T *t)
+    QML_NEARLY_ALWAYS_INLINE Scoped(const Scope &scope, T *t)
     {
-        ptr = scope.engine->jsStackTop++;
+        ptr = scope.engine->jsAlloca(1);
         setPointer(t);
     }
-    Scoped(const Scope &scope, typename T::Data *t)
+
+    QML_NEARLY_ALWAYS_INLINE Scoped(const Scope &scope, const T *t)
     {
-        ptr = scope.engine->jsStackTop++;
+        ptr = scope.engine->jsAlloca(1);
+        setPointer(t);
+    }
+
+    QML_NEARLY_ALWAYS_INLINE Scoped(const Scope &scope, typename T::Data *t)
+    {
+        ptr = scope.engine->jsAlloca(1);
         *ptr = t;
     }
 
-    Scoped(const Scope &scope, const ReturnedValue &v)
+    QML_NEARLY_ALWAYS_INLINE Scoped(const Scope &scope, const ReturnedValue &v)
     {
-        ptr = scope.engine->jsStackTop++;
+        ptr = scope.engine->jsAlloca(1);
         setPointer(QV4::Value::fromReturnedValue(v).as<T>());
     }
-    Scoped(const Scope &scope, const ReturnedValue &v, ConvertType)
+
+    QML_NEARLY_ALWAYS_INLINE Scoped(const Scope &scope, const ReturnedValue &v, ConvertType)
     {
-        ptr = scope.engine->jsStackTop++;
+        ptr = scope.engine->jsAlloca(1);
         ptr->setRawValue(value_convert<T>(scope.engine, QV4::Value::fromReturnedValue(v)));
     }
 
@@ -286,7 +330,11 @@ struct Scoped
     }
 
     T *operator->() {
-        return ptr->cast<T>();
+        return getPointer();
+    }
+
+    const T *operator->() const {
+        return getPointer();
     }
 
     bool operator!() const {
@@ -297,25 +345,30 @@ struct Scoped
     }
 
     T *getPointer() {
-        return ptr->cast<T>();
+        return reinterpret_cast<T *>(ptr);
     }
+
+    const T *getPointer() const {
+        return reinterpret_cast<T *>(ptr);
+    }
+
     Value *getRef() {
         return ptr;
     }
 
-    ReturnedValue asReturnedValue() const {
-        return ptr->m() ? ptr->rawValue() : Encode::undefined();
+    QML_NEARLY_ALWAYS_INLINE ReturnedValue asReturnedValue() const {
+        return ptr->rawValue();
     }
 
     Value *ptr;
 };
 
 struct ScopedCallData {
-    ScopedCallData(Scope &scope, int argc = 0)
+    ScopedCallData(const Scope &scope, int argc = 0)
     {
-        int size = qMax(argc, (int)QV4::Global::ReservedArgumentCount) + qOffsetOf(QV4::CallData, args)/sizeof(QV4::Value);
+        int size = int(offsetof(QV4::CallData, args)/sizeof(QV4::Value)) + qMax(argc , int(QV4::Global::ReservedArgumentCount));
         ptr = reinterpret_cast<CallData *>(scope.alloc(size));
-        ptr->tag = QV4::Value::Integer_Type_Internal;
+        ptr->tag = quint32(QV4::Value::ValueTypeInternal::Integer);
         ptr->argc = argc;
     }
 
@@ -349,8 +402,6 @@ struct ScopedProperty
     ScopedProperty(Scope &scope)
     {
         property = reinterpret_cast<Property*>(scope.alloc(sizeof(Property) / sizeof(Value)));
-        property->value = Encode::undefined();
-        property->set = Encode::undefined();
     }
 
     Property *operator->() { return property; }
@@ -362,19 +413,19 @@ struct ScopedProperty
 
 struct ExecutionContextSaver
 {
-    ExecutionEngine *engine;
+    Scope scope; // this makes sure that a reference to context on the JS stack goes out of scope as soon as the context is not used anymore.
     ExecutionContext *savedContext;
 
-    ExecutionContextSaver(Scope &scope)
-        : engine(scope.engine)
+    ExecutionContextSaver(const Scope &scope)
+        : scope(scope.engine)
     {
-        savedContext = engine->currentContext;
+        savedContext = scope.engine->currentContext;
     }
     ~ExecutionContextSaver()
     {
-        Q_ASSERT(engine->jsStackTop > engine->currentContext);
-        engine->currentContext = savedContext;
-        engine->current = savedContext->d();
+        Q_ASSERT(scope.engine->jsStackTop > scope.engine->currentContext);
+        scope.engine->currentContext = savedContext;
+        scope.engine->current = savedContext->d();
     }
 };
 

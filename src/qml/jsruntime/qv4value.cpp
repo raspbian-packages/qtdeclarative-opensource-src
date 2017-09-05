@@ -77,24 +77,24 @@ int Value::toUInt16() const
 
 bool Value::toBoolean() const
 {
-    switch (type()) {
-    case Value::Undefined_Type:
-    case Value::Null_Type:
+    if (isInteger() || isBoolean())
+        return static_cast<bool>(int_32());
+
+    if (isUndefined() || isNull())
         return false;
-    case Value::Boolean_Type:
-    case Value::Integer_Type:
-        return (bool)int_32();
-    case Value::Managed_Type:
+
+    if (isManaged()) {
 #ifdef V4_BOOTSTRAP
         Q_UNIMPLEMENTED();
 #else
-        if (isString())
-            return stringValue()->toQString().length() > 0;
+        if (String *s = stringValue())
+            return s->toQString().length() > 0;
 #endif
         return true;
-    default: // double
-        return doubleValue() && !std::isnan(doubleValue());
     }
+
+    // double
+    return doubleValue() && !std::isnan(doubleValue());
 }
 
 double Value::toInteger() const
@@ -113,9 +113,10 @@ double Value::toNumberImpl() const
     case QV4::Value::Managed_Type:
 #ifdef V4_BOOTSTRAP
         Q_UNIMPLEMENTED();
+        Q_FALLTHROUGH();
 #else
-        if (isString())
-            return RuntimeHelpers::stringToNumber(stringValue()->toQString());
+        if (String *s = stringValue())
+            return RuntimeHelpers::stringToNumber(s->toQString());
     {
         Q_ASSERT(isObject());
         Scope scope(objectValue()->engine());
@@ -140,6 +141,7 @@ QString Value::toQStringNoThrow() const
     switch (type()) {
     case Value::Empty_Type:
         Q_ASSERT(!"empty Value encountered");
+        Q_UNREACHABLE();
     case Value::Undefined_Type:
         return QStringLiteral("undefined");
     case Value::Null_Type:
@@ -150,8 +152,8 @@ QString Value::toQStringNoThrow() const
         else
             return QStringLiteral("false");
     case Value::Managed_Type:
-        if (isString())
-            return stringValue()->toQString();
+        if (String *s = stringValue())
+            return s->toQString();
         {
             Q_ASSERT(isObject());
             Scope scope(objectValue()->engine());
@@ -193,6 +195,7 @@ QString Value::toQString() const
     switch (type()) {
     case Value::Empty_Type:
         Q_ASSERT(!"empty Value encountered");
+        Q_UNREACHABLE();
     case Value::Undefined_Type:
         return QStringLiteral("undefined");
     case Value::Null_Type:
@@ -203,8 +206,8 @@ QString Value::toQString() const
         else
             return QStringLiteral("false");
     case Value::Managed_Type:
-        if (isString())
-            return stringValue()->toQString();
+        if (String *s = stringValue())
+            return s->toQString();
         {
             Q_ASSERT(isObject());
             Scope scope(objectValue()->engine());
@@ -228,8 +231,10 @@ QString Value::toQString() const
 bool Value::sameValue(Value other) const {
     if (_val == other._val)
         return true;
-    if (isString() && other.isString())
-        return stringValue()->isEqualTo(other.stringValue());
+    String *s = stringValue();
+    String *os = other.stringValue();
+    if (s && os)
+        return s->isEqualTo(os);
     if (isInteger() && other.isDouble())
         return int_32() ? (double(int_32()) == other.doubleValue()) : (other._val == 0);
     if (isDouble() && other.isInteger())
@@ -298,15 +303,15 @@ double Primitive::toInteger(double number)
 #ifndef V4_BOOTSTRAP
 Heap::String *Value::toString(ExecutionEngine *e) const
 {
-    if (isString())
-        return stringValue()->d();
+    if (String *s = stringValue())
+        return s->d();
     return RuntimeHelpers::convertToString(e, *this);
 }
 
 Heap::Object *Value::toObject(ExecutionEngine *e) const
 {
-    if (isObject())
-        return objectValue()->d();
+    if (Object *o = objectValue())
+        return o->d();
     return RuntimeHelpers::convertToObject(e, *this);
 }
 
@@ -330,8 +335,8 @@ uint Value::asArrayLength(bool *ok) const
         }
         return idx;
     }
-    if (isString())
-        return stringValue()->toUInt(ok);
+    if (String *s = stringValue())
+        return s->toUInt(ok);
 
     uint idx = toUInt32();
     double d = toNumber();

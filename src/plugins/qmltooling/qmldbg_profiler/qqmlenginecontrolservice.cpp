@@ -46,6 +46,7 @@ QT_BEGIN_NAMESPACE
 QQmlEngineControlServiceImpl::QQmlEngineControlServiceImpl(QObject *parent) :
     QQmlEngineControlService(1, parent)
 {
+    blockingMode = QQmlDebugConnector::instance()->blockingMode();
 }
 
 void QQmlEngineControlServiceImpl::messageReceived(const QByteArray &message)
@@ -68,7 +69,7 @@ void QQmlEngineControlServiceImpl::messageReceived(const QByteArray &message)
 void QQmlEngineControlServiceImpl::engineAboutToBeAdded(QJSEngine *engine)
 {
     QMutexLocker lock(&dataMutex);
-    if (state() == Enabled) {
+    if (blockingMode && state() == Enabled) {
         Q_ASSERT(!stoppingEngines.contains(engine));
         Q_ASSERT(!startingEngines.contains(engine));
         startingEngines.append(engine);
@@ -81,7 +82,7 @@ void QQmlEngineControlServiceImpl::engineAboutToBeAdded(QJSEngine *engine)
 void QQmlEngineControlServiceImpl::engineAboutToBeRemoved(QJSEngine *engine)
 {
     QMutexLocker lock(&dataMutex);
-    if (state() == Enabled) {
+    if (blockingMode && state() == Enabled) {
         Q_ASSERT(!stoppingEngines.contains(engine));
         Q_ASSERT(!startingEngines.contains(engine));
         stoppingEngines.append(engine);
@@ -122,10 +123,10 @@ void QQmlEngineControlServiceImpl::stateChanged(State)
 {
     // We flush everything for any kind of state change, to avoid complicated timing issues.
     QMutexLocker lock(&dataMutex);
-    foreach (QJSEngine *engine, startingEngines)
+    for (QJSEngine *engine : qAsConst(startingEngines))
         emit attachedToEngine(engine);
     startingEngines.clear();
-    foreach (QJSEngine *engine, stoppingEngines)
+    for (QJSEngine *engine : qAsConst(stoppingEngines))
         emit detachedFromEngine(engine);
     stoppingEngines.clear();
 }

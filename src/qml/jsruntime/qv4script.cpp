@@ -54,91 +54,15 @@
 #include <private/qv4profiling_p.h>
 #include <qv4jsir_p.h>
 #include <qv4codegen_p.h>
-#include <private/qqmlcontextwrapper_p.h>
 
 #include <QtCore/QDebug>
 #include <QtCore/QString>
 
-QT_BEGIN_NAMESPACE
-
-namespace QV4 {
-namespace Heap {
-
-struct CompilationUnitHolder : Object {
-    inline CompilationUnitHolder(CompiledData::CompilationUnit *unit);
-
-    QQmlRefPointer<CompiledData::CompilationUnit> unit;
-};
-
-struct QmlBindingWrapper : FunctionObject {
-    QmlBindingWrapper(QV4::QmlContext *scope, Function *f);
-};
-
-}
-
-struct CompilationUnitHolder : public Object
-{
-    V4_OBJECT2(CompilationUnitHolder, Object)
-    V4_NEEDS_DESTROY
-};
-
-inline
-Heap::CompilationUnitHolder::CompilationUnitHolder(CompiledData::CompilationUnit *unit)
-    : unit(unit)
-{
-}
-
-struct QmlBindingWrapper : FunctionObject {
-    V4_OBJECT2(QmlBindingWrapper, FunctionObject)
-
-    static ReturnedValue call(const Managed *that, CallData *callData);
-};
-
-}
-
-QT_END_NAMESPACE
-
 using namespace QV4;
-
-DEFINE_OBJECT_VTABLE(QmlBindingWrapper);
-DEFINE_OBJECT_VTABLE(CompilationUnitHolder);
-
-Heap::QmlBindingWrapper::QmlBindingWrapper(QV4::QmlContext *scope, Function *f)
-    : Heap::FunctionObject(scope, scope->d()->engine->id_eval(), /*createProto = */ false)
-{
-    Q_ASSERT(scope->inUse());
-
-    function = f;
-    if (function)
-        function->compilationUnit->addref();
-}
-
-ReturnedValue QmlBindingWrapper::call(const Managed *that, CallData *callData)
-{
-    const QmlBindingWrapper *This = static_cast<const QmlBindingWrapper *>(that);
-    ExecutionEngine *v4 = static_cast<const Object *>(that)->engine();
-    if (v4->hasException)
-        return Encode::undefined();
-    CHECK_STACK_LIMITS(v4);
-
-    Scope scope(v4);
-    ExecutionContextSaver ctxSaver(scope);
-
-    QV4::Function *f = This->function();
-    if (!f)
-        return QV4::Encode::undefined();
-
-    Scoped<CallContext> ctx(scope, v4->currentContext->newCallContext(This, callData));
-    v4->pushContext(ctx);
-
-    ScopedValue result(scope, Q_V4_PROFILE(v4, f));
-
-    return result->asReturnedValue();
-}
 
 Script::Script(ExecutionEngine *v4, QmlContext *qml, CompiledData::CompilationUnit *compilationUnit)
     : line(0), column(0), scope(v4->rootContext()), strictMode(false), inheritContext(true), parsed(false)
-    , vmFunction(0), parseAsBinding(true)
+    , compilationUnit(compilationUnit), vmFunction(0), parseAsBinding(true)
 {
     if (qml)
         qmlContext.set(v4, *qml);
@@ -146,11 +70,6 @@ Script::Script(ExecutionEngine *v4, QmlContext *qml, CompiledData::CompilationUn
     parsed = true;
 
     vmFunction = compilationUnit ? compilationUnit->linkToEngine(v4) : 0;
-    if (vmFunction) {
-        Scope valueScope(v4);
-        ScopedObject holder(valueScope, v4->memoryManager->allocObject<CompilationUnitHolder>(compilationUnit));
-        compilationUnitHolder.set(v4, holder);
-    }
 }
 
 Script::~Script()
@@ -169,9 +88,7 @@ void Script::parse()
     ExecutionEngine *v4 = scope->engine();
     Scope valueScope(v4);
 
-    MemoryManager::GCBlocker gcBlocker(v4->memoryManager);
-
-    IR::Module module(v4->debugger != 0);
+    IR::Module module(v4->debugger() != 0);
 
     QQmlJS::Engine ee, *engine = &ee;
     Lexer lexer(engine);
@@ -180,7 +97,8 @@ void Script::parse()
 
     const bool parsed = parser.parseProgram();
 
-    foreach (const QQmlJS::DiagnosticMessage &m, parser.diagnosticMessages()) {
+    const auto diagnosticMessages = parser.diagnosticMessages();
+    for (const QQmlJS::DiagnosticMessage &m : diagnosticMessages) {
         if (m.isError()) {
             valueScope.engine->throwSyntaxError(m.message, sourceFile, m.loc.startLine, m.loc.startColumn);
             return;
@@ -217,10 +135,8 @@ void Script::parse()
         QScopedPointer<EvalInstructionSelection> isel(v4->iselFactory->create(QQmlEnginePrivate::get(v4), v4->executableAllocator, &module, &jsGenerator));
         if (inheritContext)
             isel->setUseFastLookups(false);
-        QQmlRefPointer<QV4::CompiledData::CompilationUnit> compilationUnit = isel->compile();
+        compilationUnit = isel->compile();
         vmFunction = compilationUnit->linkToEngine(v4);
-        ScopedObject holder(valueScope, v4->memoryManager->allocObject<CompilationUnitHolder>(compilationUnit));
-        compilationUnitHolder.set(v4, holder);
     }
 
     if (!vmFunction) {
@@ -247,15 +163,19 @@ ReturnedValue Script::run()
         ContextStateSaver stateSaver(valueScope, scope);
         scope->d()->strictMode = vmFunction->isStrict();
         scope->d()->lookups = vmFunction->compilationUnit->runtimeLookups;
+        scope->d()->constantTable = vmFunction->compilationUnit->constants;
         scope->d()->compilationUnit = vmFunction->compilationUnit;
 
         return Q_V4_PROFILE(engine, vmFunction);
     } else {
         Scoped<QmlContext> qml(valueScope, qmlContext.value());
-        ScopedFunctionObject f(valueScope, engine->memoryManager->allocObject<QmlBindingWrapper>(qml, vmFunction));
         ScopedCallData callData(valueScope);
         callData->thisObject = Primitive::undefinedValue();
-        return f->call(callData);
+        if (vmFunction->canUseSimpleFunction())
+            qml->simpleCall(valueScope, callData, vmFunction);
+        else
+            qml->call(valueScope, callData, vmFunction);
+        return valueScope.result.asReturnedValue();
     }
 }
 
@@ -282,7 +202,8 @@ QQmlRefPointer<QV4::CompiledData::CompilationUnit> Script::precompile(IR::Module
 
     QList<QQmlError> errors;
 
-    foreach (const QQmlJS::DiagnosticMessage &m, parser.diagnosticMessages()) {
+    const auto diagnosticMessages = parser.diagnosticMessages();
+    for (const QQmlJS::DiagnosticMessage &m : diagnosticMessages) {
         if (m.isWarning()) {
             qWarning("%s:%d : %s", qPrintable(url.toString()), m.loc.startLine, qPrintable(m.message));
             continue;
@@ -321,17 +242,6 @@ QQmlRefPointer<QV4::CompiledData::CompilationUnit> Script::precompile(IR::Module
     QScopedPointer<EvalInstructionSelection> isel(engine->iselFactory->create(QQmlEnginePrivate::get(engine), engine->executableAllocator, module, unitGenerator));
     isel->setUseFastLookups(false);
     return isel->compile(/*generate unit data*/false);
-}
-
-ReturnedValue Script::qmlBinding()
-{
-    if (!parsed)
-        parse();
-    ExecutionEngine *v4 = scope->engine();
-    Scope valueScope(v4);
-    Scoped<QmlContext> qml(valueScope, qmlContext.value());
-    ScopedObject v(valueScope, v4->memoryManager->allocObject<QmlBindingWrapper>(qml, vmFunction));
-    return v.asReturnedValue();
 }
 
 QV4::ReturnedValue Script::evaluate(ExecutionEngine *engine, const QString &script, QmlContext *qmlContext)

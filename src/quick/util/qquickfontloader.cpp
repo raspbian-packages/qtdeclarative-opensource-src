@@ -45,13 +45,17 @@
 #include <QStringList>
 #include <QUrl>
 #include <QDebug>
-#include <QNetworkRequest>
-#include <QNetworkReply>
+
 #include <QFontDatabase>
 
 #include <private/qobject_p.h>
 #include <qqmlinfo.h>
 #include <qqmlfile.h>
+
+#if QT_CONFIG(qml_network)
+#include <QNetworkRequest>
+#include <QNetworkReply>
+#endif
 
 #include <QtCore/QCoreApplication>
 
@@ -66,28 +70,37 @@ Q_OBJECT
 public:
     explicit QQuickFontObject(int _id = -1);
 
+#if QT_CONFIG(qml_network)
     void download(const QUrl &url, QNetworkAccessManager *manager);
 
 Q_SIGNALS:
     void fontDownloaded(const QString&, QQuickFontLoader::Status);
 
+private:
+    int redirectCount;
+    QNetworkReply *reply;
+
 private Q_SLOTS:
     void replyFinished();
+#endif // qml_network
 
 public:
     int id;
-
-private:
-    QNetworkReply *reply;
-    int redirectCount;
 
     Q_DISABLE_COPY(QQuickFontObject)
 };
 
 QQuickFontObject::QQuickFontObject(int _id)
-    : QObject(0), id(_id), reply(0), redirectCount(0) {}
+    : QObject(0)
+#if QT_CONFIG(qml_network)
+    ,redirectCount(0), reply(0)
+#endif
+    ,id(_id)
+{
 
+}
 
+#if QT_CONFIG(qml_network)
 void QQuickFontObject::download(const QUrl &url, QNetworkAccessManager *manager)
 {
     QNetworkRequest req(url);
@@ -128,7 +141,7 @@ void QQuickFontObject::replyFinished()
         reply = 0;
     }
 }
-
+#endif // qml_network
 
 class QQuickFontLoaderPrivate : public QObjectPrivate
 {
@@ -223,7 +236,7 @@ QQuickFontLoader::~QQuickFontLoader()
 
 /*!
     \qmlproperty url QtQuick::FontLoader::source
-    The url of the font to load.
+    The URL of the font to load.
 */
 QUrl QQuickFontLoader::source() const
 {
@@ -251,10 +264,11 @@ void QQuickFontLoader::setSource(const QUrl &url)
                 updateFontInfo(QString(), Error);
             }
         } else {
-            updateFontInfo(QFontDatabase::applicationFontFamilies(fontLoaderFonts()->map[d->url]->id).at(0), Ready);
+            updateFontInfo(QFontDatabase::applicationFontFamilies(fontLoaderFonts()->map.value(d->url)->id).at(0), Ready);
         }
     } else {
         if (!fontLoaderFonts()->map.contains(d->url)) {
+#if QT_CONFIG(qml_network)
             QQuickFontObject *fo = new QQuickFontObject;
             fontLoaderFonts()->map[d->url] = fo;
             fo->download(d->url, qmlEngine(this)->networkAccessManager());
@@ -262,13 +276,20 @@ void QQuickFontLoader::setSource(const QUrl &url)
             emit statusChanged();
             QObject::connect(fo, SIGNAL(fontDownloaded(QString,QQuickFontLoader::Status)),
                 this, SLOT(updateFontInfo(QString,QQuickFontLoader::Status)));
+#else
+// Silently fail if compiled with no_network
+#endif
         } else {
-            QQuickFontObject *fo = fontLoaderFonts()->map[d->url];
+            QQuickFontObject *fo = fontLoaderFonts()->map.value(d->url);
             if (fo->id == -1) {
+#if QT_CONFIG(qml_network)
                 d->status = Loading;
                 emit statusChanged();
                 QObject::connect(fo, SIGNAL(fontDownloaded(QString,QQuickFontLoader::Status)),
                     this, SLOT(updateFontInfo(QString,QQuickFontLoader::Status)));
+#else
+// Silently fail if compiled with no_network
+#endif
             }
             else
                 updateFontInfo(QFontDatabase::applicationFontFamilies(fo->id).at(0), Ready);
@@ -286,7 +307,7 @@ void QQuickFontLoader::updateFontInfo(const QString& name, QQuickFontLoader::Sta
     }
     if (status != d->status) {
         if (status == Error)
-            qmlInfo(this) << "Cannot load font: \"" << d->url.toString() << '"';
+            qmlWarning(this) << "Cannot load font: \"" << d->url.toString() << '"';
         d->status = status;
         emit statusChanged();
     }
@@ -296,7 +317,7 @@ void QQuickFontLoader::updateFontInfo(const QString& name, QQuickFontLoader::Sta
     \qmlproperty string QtQuick::FontLoader::name
 
     This property holds the name of the font family.
-    It is set automatically when a font is loaded using the \c url property.
+    It is set automatically when a font is loaded using the \l source property.
 
     Use this to set the \c font.family property of a \c Text item.
 
@@ -376,3 +397,5 @@ QQuickFontLoader::Status QQuickFontLoader::status() const
 QT_END_NAMESPACE
 
 #include <qquickfontloader.moc>
+
+#include "moc_qquickfontloader_p.cpp"

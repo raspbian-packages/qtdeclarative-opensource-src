@@ -37,17 +37,22 @@
 **
 ****************************************************************************/
 
+#include <private/qtquickglobal_p.h>
 #include "qquickitemgrabresult.h"
 
 #include "qquickwindow.h"
 #include "qquickitem.h"
+#if QT_CONFIG(quick_shadereffect)
 #include "qquickshadereffectsource_p.h"
+#endif
 
 #include <QtQml/QQmlEngine>
+#include <QtQml/QQmlInfo>
 
 #include <private/qquickpixmapcache_p.h>
 #include <private/qquickitem_p.h>
 #include <private/qsgcontext_p.h>
+#include <private/qsgadaptationlayer_p.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -70,7 +75,7 @@ public:
 
     void ensureImageInCache() const {
         if (url.isEmpty() && !image.isNull()) {
-            url.setScheme(QStringLiteral("ItemGrabber"));
+            url.setScheme(QQuickPixmap::itemGrabberScheme);
             url.setPath(QVariant::fromValue(item.data()).toString());
             static uint counter = 0;
             url.setFragment(QString::number(++counter));
@@ -180,12 +185,25 @@ QQuickItemGrabResult::QQuickItemGrabResult(QObject *parent)
 /*!
  * Saves the grab result as an image to \a fileName. Returns true
  * if successful; otherwise returns false.
+ *
+ * \note In Qt versions prior to 5.9, this function is marked as non-\c{const}.
+ */
+bool QQuickItemGrabResult::saveToFile(const QString &fileName) const
+{
+    Q_D(const QQuickItemGrabResult);
+    return d->image.save(fileName);
+}
+
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+/*!
+ * \overload
+ * \internal
  */
 bool QQuickItemGrabResult::saveToFile(const QString &fileName)
 {
-    Q_D(QQuickItemGrabResult);
-    return d->image.save(fileName);
+    return qAsConst(*this).saveToFile(fileName);
 }
+#endif // < Qt 6
 
 QUrl QQuickItemGrabResult::url() const
 {
@@ -240,8 +258,7 @@ void QQuickItemGrabResult::render()
         return;
 
     d->texture->setRect(QRectF(0, d->itemSize.height(), d->itemSize.width(), -d->itemSize.height()));
-    QSGContext *sg = QSGRenderContext::from(QOpenGLContext::currentContext())->sceneGraphContext();
-    const QSize minSize = sg->minimumFBOSize();
+    const QSize minSize = QQuickWindowPrivate::get(d->window.data())->context->sceneGraphContext()->minimumFBOSize();
     d->texture->setSize(QSize(qMax(minSize.width(), d->textureSize.width()),
                               qMax(minSize.height(), d->textureSize.height())));
     d->texture->scheduleUpdate();
@@ -263,17 +280,17 @@ QQuickItemGrabResult *QQuickItemGrabResultPrivate::create(QQuickItem *item, cons
         size = QSize(item->width(), item->height());
 
     if (size.width() < 1 || size.height() < 1) {
-        qWarning("Item::grabToImage: item has invalid dimensions");
+        qmlWarning(item) << "grabToImage: item has invalid dimensions";
         return 0;
     }
 
     if (!item->window()) {
-        qWarning("Item::grabToImage: item is not attached to a window");
+        qmlWarning(item) << "grabToImage: item is not attached to a window";
         return 0;
     }
 
     if (!item->window()->isVisible()) {
-        qWarning("Item::grabToImage: item's window is not visible");
+        qmlWarning(item) << "grabToImage: item's window is not visible";
         return 0;
     }
 
@@ -361,12 +378,12 @@ bool QQuickItem::grabToImage(const QJSValue &callback, const QSize &targetSize)
 {
     QQmlEngine *engine = qmlEngine(this);
     if (!engine) {
-        qWarning("Item::grabToImage: no QML Engine");
+        qmlWarning(this) << "grabToImage: item has no QML engine";
         return false;
     }
 
     if (!callback.isCallable()) {
-        qWarning("Item::grabToImage: 'callback' is not a function");
+        qmlWarning(this) << "grabToImage: 'callback' is not a function";
         return false;
     }
 
@@ -375,12 +392,12 @@ bool QQuickItem::grabToImage(const QJSValue &callback, const QSize &targetSize)
         size = QSize(width(), height());
 
     if (size.width() < 1 || size.height() < 1) {
-        qWarning("Item::grabToImage: item has invalid dimensions");
+        qmlWarning(this) << "grabToImage: item has invalid dimensions";
         return false;
     }
 
     if (!window()) {
-        qWarning("Item::grabToImage: item is not attached to a window");
+        qmlWarning(this) << "grabToImage: item is not attached to a window";
         return false;
     }
 
@@ -398,3 +415,5 @@ bool QQuickItem::grabToImage(const QJSValue &callback, const QSize &targetSize)
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qquickitemgrabresult.cpp"

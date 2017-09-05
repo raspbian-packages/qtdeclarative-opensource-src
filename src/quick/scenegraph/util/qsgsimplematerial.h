@@ -48,9 +48,9 @@ template <typename State>
 class QSGSimpleMaterialShader : public QSGMaterialShader
 {
 public:
-    void initialize() {
+    void initialize() override {
         QSGMaterialShader::initialize();
-
+#if QT_CONFIG(opengl)
         m_id_matrix = program()->uniformLocation(uniformMatrixName());
         if (m_id_matrix < 0) {
             qFatal("QSGSimpleMaterialShader does not implement 'uniform highp mat4 %s;' in its vertex shader",
@@ -67,14 +67,15 @@ public:
         } else {
             m_id_opacity = -1;
         }
-
+#endif
         resolveUniforms();
     }
 
+    // ### Qt 6: make both virtual and fix docs
     const char *uniformMatrixName() const { return "qt_Matrix"; }
     const char *uniformOpacityName() const { return "qt_Opacity"; }
 
-    void updateState(const RenderState &state, QSGMaterial *newMaterial, QSGMaterial *oldMaterial);
+    void updateState(const RenderState &state, QSGMaterial *newMaterial, QSGMaterial *oldMaterial) override;
 
     virtual void updateState(const State *newState, const State *oldState) = 0;
 
@@ -82,7 +83,7 @@ public:
 
     virtual QList<QByteArray> attributes() const = 0;
 
-    char const *const *attributeNames() const
+    char const *const *attributeNames() const override
     {
         if (m_attribute_pointers.size())
             return m_attribute_pointers.constData();
@@ -149,8 +150,8 @@ public:
     {
     }
 
-    QSGMaterialShader *createShader() const { return m_func(); }
-    QSGMaterialType *type() const { return &m_type; }
+    QSGMaterialShader *createShader() const override { return m_func(); }
+    QSGMaterialType *type() const override { return &m_type; }
 
     State *state() { return &m_state; }
     const State *state() const { return &m_state; }
@@ -197,11 +198,14 @@ QSGMaterialType QSGSimpleMaterial<State>::m_type;
 template <typename State>
 Q_INLINE_TEMPLATE void QSGSimpleMaterialShader<State>::updateState(const RenderState &state, QSGMaterial *newMaterial, QSGMaterial *oldMaterial)
 {
+#if QT_CONFIG(opengl)
     if (state.isMatrixDirty())
         program()->setUniformValue(m_id_matrix, state.combinedMatrix());
     if (state.isOpacityDirty() && m_id_opacity >= 0)
         program()->setUniformValue(m_id_opacity, state.opacity());
-
+#else
+    Q_UNUSED(state)
+#endif
     State *ns = static_cast<QSGSimpleMaterial<State> *>(newMaterial)->state();
     State *old = 0;
     if (oldMaterial)

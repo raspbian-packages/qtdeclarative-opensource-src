@@ -46,6 +46,7 @@
 
 QT_BEGIN_NAMESPACE
 
+#ifndef QT_NO_QML_DEBUGGER
 
 struct Q_QML_EXPORT QQmlDebuggingEnabler
 {
@@ -59,6 +60,7 @@ struct Q_QML_EXPORT QQmlDebuggingEnabler
     static QStringList debuggerServices();
     static QStringList inspectorServices();
     static QStringList profilerServices();
+    static QStringList nativeDebuggerServices();
 
     static void setServices(const QStringList &services);
 
@@ -75,6 +77,8 @@ struct Q_QML_EXPORT QQmlDebuggingEnabler
 static QQmlDebuggingEnabler qQmlEnableDebuggingHelper(false);
 #elif defined(QT_QML_DEBUG)
 static QQmlDebuggingEnabler qQmlEnableDebuggingHelper(true);
+#endif
+
 #endif
 
 QT_END_NAMESPACE

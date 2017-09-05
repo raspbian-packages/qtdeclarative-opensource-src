@@ -62,6 +62,12 @@ private slots:
     void itemtests_qml_data();
     void itemtests_qml();
 
+    void bindings_cpp();
+    void bindings_cpp2();
+    void bindings_qml();
+
+    void bindings_parent_qml();
+
     void anchors_creation();
     void anchors_heightChange();
 
@@ -215,12 +221,15 @@ inline void QQmlGraphics_setParent_noEvent(QObject *object, QObject *parent)
 
 void tst_creation::itemtree_notree_cpp()
 {
+    std::vector<QQuickItem *> kids;
+    kids.resize(30);
     QBENCHMARK {
         QQuickItem *item = new QQuickItem;
         for (int i = 0; i < 30; ++i) {
             QQuickItem *child = new QQuickItem;
-            Q_UNUSED(child);
+            kids[i] = child;
         }
+        qDeleteAll(kids);
         delete item;
     }
 }
@@ -252,12 +261,13 @@ void tst_creation::itemtree_cpp()
 
 void tst_creation::itemtree_data_cpp()
 {
+    QQmlEngine engine;
     QBENCHMARK {
         QQuickItem *item = new QQuickItem;
         for (int i = 0; i < 30; ++i) {
             QQuickItem *child = new QQuickItem;
             QQmlGraphics_setParent_noEvent(child,item);
-            QQmlListReference ref(item, "data");
+            QQmlListReference ref(item, "data", &engine);
             ref.append(child);
         }
         delete item;
@@ -323,6 +333,89 @@ void tst_creation::itemtests_qml()
 
     delete component.create();
     QBENCHMARK { delete component.create(); }
+}
+
+void tst_creation::bindings_cpp()
+{
+    QQuickItem item;
+    QMetaProperty widthProp = item.metaObject()->property(item.metaObject()->indexOfProperty("width"));
+    QMetaProperty heightProp = item.metaObject()->property(item.metaObject()->indexOfProperty("height"));
+    connect(&item, &QQuickItem::heightChanged, [&item, &widthProp, &heightProp](){
+        QVariant height = heightProp.read(&item);
+        widthProp.write(&item, height);
+    });
+
+    int height = 0;
+    QBENCHMARK {
+        item.setHeight(++height);
+    }
+}
+
+void tst_creation::bindings_cpp2()
+{
+    QQuickItem item;
+    int widthProp = item.metaObject()->indexOfProperty("width");
+    int heightProp = item.metaObject()->indexOfProperty("height");
+    connect(&item, &QQuickItem::heightChanged, [&item, widthProp, heightProp](){
+
+        qreal height = -1;
+        void *args[] = { &height, 0 };
+        QMetaObject::metacall(&item, QMetaObject::ReadProperty, heightProp, args);
+
+        int flags = 0;
+        int status = -1;
+        void *argv[] = { &height, 0, &status, &flags };
+        QMetaObject::metacall(&item, QMetaObject::WriteProperty, widthProp, argv);
+    });
+
+    int height = 0;
+    QBENCHMARK {
+        item.setHeight(++height);
+    }
+}
+
+void tst_creation::bindings_qml()
+{
+    QByteArray data = "import QtQuick 2.0\nItem { width: height }";
+
+    QQmlComponent component(&engine);
+    component.setData(data, QUrl());
+    if (!component.isReady()) {
+        qWarning() << "Unable to create component: " << component.errorString();
+        return;
+    }
+
+    QQuickItem *obj = dynamic_cast<QQuickItem *>(component.create());
+    QVERIFY(obj != nullptr);
+
+    int height = 0;
+    QBENCHMARK {
+        obj->setHeight(++height);
+    }
+
+    delete obj;
+}
+
+void tst_creation::bindings_parent_qml()
+{
+    QByteArray data = "import QtQuick 2.0\nItem { Item { width: parent.height }}";
+
+    QQmlComponent component(&engine);
+    component.setData(data, QUrl());
+    if (!component.isReady()) {
+        qWarning() << "Unable to create component: " << component.errorString();
+        return;
+    }
+
+    QQuickItem *obj = dynamic_cast<QQuickItem *>(component.create());
+    QVERIFY(obj != nullptr);
+
+    int height = 0;
+    QBENCHMARK {
+        obj->setHeight(++height);
+    }
+
+    delete obj;
 }
 
 void tst_creation::anchors_creation()

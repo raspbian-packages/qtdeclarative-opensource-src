@@ -56,7 +56,6 @@
 #include <QVector>
 #include <QHash>
 #include <QPointer>
-#include <QSignalMapper>
 #include <private/qquicksprite_p.h>
 #include <QAbstractAnimation>
 #include <QtQml/qqml.h>
@@ -389,11 +388,11 @@ public Q_SLOTS:
 
 protected:
     //This one only once per frame (effectively)
-    void componentComplete();
+    void componentComplete() override;
 
 private Q_SLOTS:
     void emittersChanged();
-    void loadPainter(QObject* p);
+    void loadPainter(QQuickParticlePainter *p);
     void createEngine(); //Not invoked by sprite engine, unlike Sprite uses
     void particleStateChange(int idx);
 
@@ -461,8 +460,6 @@ private:
     QSet<int> m_reusableIndexes;
     bool m_componentComplete;
 
-    QSignalMapper m_painterMapper;
-    QSignalMapper m_emitterMapper;
     bool m_paused;
     bool m_allDead;
     bool m_empty;
@@ -477,12 +474,12 @@ public:
         : QAbstractAnimation(static_cast<QObject*>(system)), m_system(system)
     { }
 protected:
-    virtual void updateCurrentTime( int t )
+    void updateCurrentTime(int t) override
     {
         m_system->updateCurrentTime(t);
     }
 
-    virtual int duration() const
+    int duration() const override
     {
         return -1;
     }

@@ -40,7 +40,9 @@
 #include "qsgdistancefieldutil_p.h"
 
 #include <private/qsgadaptationlayer_p.h>
-#include <QtGui/private/qopenglengineshadersource_p.h>
+#if QT_CONFIG(opengl)
+# include <QtGui/private/qopenglengineshadersource_p.h>
+#endif
 #include <QtQuick/private/qsgcontext_p.h>
 
 QT_BEGIN_NAMESPACE

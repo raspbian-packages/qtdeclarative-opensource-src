@@ -36,10 +36,12 @@
 #include <QSignalSpy>
 #include <QDebug>
 #include <QBuffer>
+#include <QCryptographicHash>
 #include <QQmlComponent>
 #include <QQmlNetworkAccessManagerFactory>
 #include <QQmlExpression>
 #include <QQmlIncubationController>
+#include <QTemporaryDir>
 #include <private/qqmlengine_p.h>
 #include <QQmlAbstractUrlInterceptor>
 
@@ -50,12 +52,14 @@ public:
     tst_qqmlengine() {}
 
 private slots:
+    void initTestCase() override;
     void rootContext();
     void networkAccessManager();
     void synchronousNetworkAccessManager();
     void baseUrl();
     void contextForObject();
     void offlineStoragePath();
+    void offlineDatabaseStoragePath();
     void clearComponentCache();
     void trimComponentCache();
     void trimComponentCache_data();
@@ -69,8 +73,8 @@ private slots:
     void qtqmlModule();
     void urlInterceptor_data();
     void urlInterceptor();
-
     void qmlContextProperties();
+    void testGCCorruption();
 
 public slots:
     QObject *createAQObjectForOwnershipTest ()
@@ -78,7 +82,16 @@ public slots:
         static QObject *ptr = new QObject();
         return ptr;
     }
+
+private:
+    QTemporaryDir m_tempDir;
 };
+
+void tst_qqmlengine::initTestCase()
+{
+    QVERIFY2(m_tempDir.isValid(), qPrintable(m_tempDir.errorString()));
+    QQmlDataTest::initTestCase();
+}
 
 void tst_qqmlengine::rootContext()
 {
@@ -252,13 +265,44 @@ void tst_qqmlengine::offlineStoragePath()
     QCOMPARE(engine.offlineStoragePath(), QDir::homePath());
 }
 
+void tst_qqmlengine::offlineDatabaseStoragePath()
+{
+    // Without these set, QDesktopServices::storageLocation returns
+    // strings with extra "//" at the end. We set them to ignore this problem.
+    qApp->setApplicationName("tst_qqmlengine");
+    qApp->setOrganizationName("QtProject");
+    qApp->setOrganizationDomain("www.qt-project.org");
+
+    QQmlEngine engine;
+    QString dataLocation = QStandardPaths::writableLocation(QStandardPaths::DataLocation);
+    const QString databaseName = QLatin1String("foo");
+    QString databaseLocation = engine.offlineStorageDatabaseFilePath(databaseName);
+    QCOMPARE(dataLocation.isEmpty(), databaseLocation.isEmpty());
+
+    QDir dir(dataLocation);
+    dir.mkpath("QML");
+    dir.cd("QML");
+    dir.mkpath("OfflineStorage");
+    dir.cd("OfflineStorage");
+    dir.mkpath("Databases");
+    dir.cd("Databases");
+    QCOMPARE(QFileInfo(databaseLocation).dir().path(), dir.path());
+
+    QCryptographicHash md5(QCryptographicHash::Md5);
+    md5.addData(databaseName.toUtf8());
+    QCOMPARE(databaseLocation, QDir::toNativeSeparators(dir.filePath(QLatin1String(md5.result().toHex()))));
+}
+
 void tst_qqmlengine::clearComponentCache()
 {
     QQmlEngine engine;
 
+    const QString fileName = m_tempDir.filePath(QStringLiteral("temp.qml"));
+    const QUrl fileUrl = QUrl::fromLocalFile(fileName);
+
     // Create original qml file
     {
-        QFile file("temp.qml");
+        QFile file(fileName);
         QVERIFY(file.open(QIODevice::WriteOnly));
         file.write("import QtQuick 2.0\nQtObject {\nproperty int test: 10\n}\n");
         file.close();
@@ -266,7 +310,7 @@ void tst_qqmlengine::clearComponentCache()
 
     // Test "test" property
     {
-        QQmlComponent component(&engine, "temp.qml");
+        QQmlComponent component(&engine, fileUrl);
         QObject *obj = component.create();
         QVERIFY(obj != 0);
         QCOMPARE(obj->property("test").toInt(), 10);
@@ -275,7 +319,13 @@ void tst_qqmlengine::clearComponentCache()
 
     // Modify qml file
     {
-        QFile file("temp.qml");
+        // On macOS with HFS+ the precision of file times is measured in seconds, so to ensure that
+        // the newly written file has a modification date newer than an existing cache file, we must
+        // wait.
+        // Similar effects of lacking precision have been observed on some Linux systems.
+        QThread::sleep(1);
+
+        QFile file(fileName);
         QVERIFY(file.open(QIODevice::WriteOnly));
         file.write("import QtQuick 2.0\nQtObject {\nproperty int test: 11\n}\n");
         file.close();
@@ -283,7 +333,7 @@ void tst_qqmlengine::clearComponentCache()
 
     // Test cache hit
     {
-        QQmlComponent component(&engine, "temp.qml");
+        QQmlComponent component(&engine, fileUrl);
         QObject *obj = component.create();
         QVERIFY(obj != 0);
         QCOMPARE(obj->property("test").toInt(), 10);
@@ -295,12 +345,18 @@ void tst_qqmlengine::clearComponentCache()
 
     // Test cache refresh
     {
-        QQmlComponent component(&engine, "temp.qml");
+        QQmlComponent component(&engine, fileUrl);
         QObject *obj = component.create();
         QVERIFY(obj != 0);
         QCOMPARE(obj->property("test").toInt(), 11);
         delete obj;
     }
+
+    // Regular Synchronous loading will leave us with an event posted
+    // to the gui thread and an extra refcount that will only be dropped after the
+    // event delivery. Call sendPostedEvents() to get rid of it so that
+    // the temporary directory can be removed.
+    QCoreApplication::sendPostedEvents();
 }
 
 struct ComponentCacheFunctions : public QObject, public QQmlIncubationController
@@ -316,6 +372,11 @@ public:
         // Wait for any pending deletions to occur
         QCoreApplication::sendPostedEvents(0, QEvent::DeferredDelete);
         QCoreApplication::processEvents();
+
+        // There might be JS function objects around that hold a last ref to the compilation unit that's
+        // keeping the type compilation data (CompilationUnit) around. Let's collect them as well so that
+        // trim works well.
+        engine->collectGarbage();
 
         engine->trimComponentCache();
     }
@@ -615,9 +676,9 @@ void tst_qqmlengine::qtqmlModule_data()
             << QString(testFileUrl("qtqmlModule.3.qml").toString() + QLatin1String(":1 module \"QtQml\" version 1.0 is not installed\n"))
             << QStringList();
 
-    QTest::newRow("import QtQml of incorrect version (2.5)")
+    QTest::newRow("import QtQml of incorrect version (2.50)")
             << testFileUrl("qtqmlModule.4.qml")
-            << QString(testFileUrl("qtqmlModule.4.qml").toString() + QLatin1String(":1 module \"QtQml\" version 2.5 is not installed\n"))
+            << QString(testFileUrl("qtqmlModule.4.qml").toString() + QLatin1String(":1 module \"QtQml\" version 2.50 is not installed\n"))
             << QStringList();
 
     QTest::newRow("QtQml 2.0 module provides Component, QtObject, Connections, Binding and Timer")
@@ -794,6 +855,15 @@ void tst_qqmlengine::qmlContextProperties()
         qDebug() << c.errorString();
     }
     QVERIFY(o);
+}
+
+void tst_qqmlengine::testGCCorruption()
+{
+    QQmlEngine e;
+
+    QQmlComponent c(&e, testFileUrl("testGCCorruption.qml"));
+    QObject *o = c.create();
+    QVERIFY2(o, qPrintable(c.errorString()));
 }
 
 QTEST_MAIN(tst_qqmlengine)

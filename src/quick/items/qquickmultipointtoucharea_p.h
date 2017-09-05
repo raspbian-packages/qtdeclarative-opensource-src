@@ -67,10 +67,13 @@ class Q_AUTOTEST_EXPORT QQuickTouchPoint : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(int pointId READ pointId NOTIFY pointIdChanged)
+    Q_PROPERTY(QPointingDeviceUniqueId uniqueId READ uniqueId NOTIFY uniqueIdChanged REVISION 9)
     Q_PROPERTY(bool pressed READ pressed NOTIFY pressedChanged)
     Q_PROPERTY(qreal x READ x NOTIFY xChanged)
     Q_PROPERTY(qreal y READ y NOTIFY yChanged)
+    Q_PROPERTY(QSizeF ellipseDiameters READ ellipseDiameters NOTIFY ellipseDiametersChanged REVISION 9)
     Q_PROPERTY(qreal pressure READ pressure NOTIFY pressureChanged)
+    Q_PROPERTY(qreal rotation READ rotation NOTIFY rotationChanged REVISION 9)
     Q_PROPERTY(QVector2D velocity READ velocity NOTIFY velocityChanged)
     Q_PROPERTY(QRectF area READ area NOTIFY areaChanged)
 
@@ -86,6 +89,7 @@ public:
         : _id(0),
           _x(0.0), _y(0.0),
           _pressure(0.0),
+          _rotation(0),
           _qmlDefined(qmlDefined),
           _inUse(false),
           _pressed(false),
@@ -97,14 +101,23 @@ public:
     int pointId() const { return _id; }
     void setPointId(int id);
 
+    QPointingDeviceUniqueId uniqueId() const { return _uniqueId; }
+    void setUniqueId(const QPointingDeviceUniqueId &id);
+
     qreal x() const { return _x; }
     void setX(qreal x);
 
     qreal y() const { return _y; }
     void setY(qreal y);
 
+    QSizeF ellipseDiameters() const { return _ellipseDiameters; }
+    void setEllipseDiameters(const QSizeF &d);
+
     qreal pressure() const { return _pressure; }
     void setPressure(qreal pressure);
+
+    qreal rotation() const { return _rotation; }
+    void setRotation(qreal r);
 
     QVector2D velocity() const { return _velocity; }
     void setVelocity(const QVector2D &velocity);
@@ -141,9 +154,12 @@ public:
 Q_SIGNALS:
     void pressedChanged();
     void pointIdChanged();
+    Q_REVISION(9) void uniqueIdChanged();
     void xChanged();
     void yChanged();
+    Q_REVISION(9) void ellipseDiametersChanged();
     void pressureChanged();
+    Q_REVISION(9) void rotationChanged();
     void velocityChanged();
     void areaChanged();
     void startXChanged();
@@ -159,6 +175,8 @@ private:
     qreal _x;
     qreal _y;
     qreal _pressure;
+    qreal _rotation;
+    QSizeF _ellipseDiameters;
     QVector2D _velocity;
     QRectF _area;
     bool _qmlDefined;
@@ -170,6 +188,7 @@ private:
     qreal _previousY;
     qreal _sceneX;
     qreal _sceneY;
+    QPointingDeviceUniqueId _uniqueId;
 };
 
 class QQuickGrabGestureEvent : public QObject
@@ -231,7 +250,7 @@ public:
 
     static QQuickTouchPoint* touchPoint_at(QQmlListProperty<QQuickTouchPoint> *list, int index) {
         QQuickMultiPointTouchArea *q = static_cast<QQuickMultiPointTouchArea*>(list->object);
-        return q->_touchPrototypes[index];
+        return q->_touchPrototypes.value(index);
     }
 
 Q_SIGNALS:
@@ -247,7 +266,7 @@ Q_SIGNALS:
 
 protected:
     void touchEvent(QTouchEvent *) Q_DECL_OVERRIDE;
-    bool childMouseEventFilter(QQuickItem *i, QEvent *event) Q_DECL_OVERRIDE;
+    bool childMouseEventFilter(QQuickItem *receiver, QEvent *event) Q_DECL_OVERRIDE;
     void mousePressEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void mouseReleaseEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void mouseMoveEvent(QMouseEvent *event) Q_DECL_OVERRIDE;

@@ -54,8 +54,8 @@
 #include "private/qv4isel_p.h"
 #include "qv4managed_p.h"
 #include "qv4context_p.h"
-#include "qv4internalclass_p.h"
 #include <private/qintrusivelist_p.h>
+#include "qv4enginebase_p.h"
 
 #ifndef V4_BOOTSTRAP
 #  include <private/qv8engine_p.h>
@@ -85,7 +85,10 @@ namespace CompiledData {
 struct CompilationUnit;
 }
 
-struct Q_QML_EXPORT ExecutionEngine
+struct InternalClass;
+struct InternalClassPool;
+
+struct Q_QML_EXPORT ExecutionEngine : public EngineBase
 {
 private:
     static qint32 maxCallDepth;
@@ -94,26 +97,14 @@ private:
     friend struct ExecutionContext;
     friend struct Heap::ExecutionContext;
 public:
-    Heap::ExecutionContext *current;
-
-    Value *jsStackTop;
-    quint32 hasException;
-    qint32 callDepth;
-
-    MemoryManager *memoryManager;
     ExecutableAllocator *executableAllocator;
     ExecutableAllocator *regExpAllocator;
     QScopedPointer<EvalISelFactory> iselFactory;
-
-    ExecutionContext *currentContext;
-
-    Value *jsStackLimit;
 
     WTF::BumpPointerAllocator *bumperPointerAllocator; // Used by Yarr Regex engine.
 
     enum { JSStackLimit = 4*1024*1024 };
     WTF::PageAllocation *jsStack;
-    Value *jsStackBase;
 
     void pushForGC(Heap::Base *m) {
         *jsStackTop = m;
@@ -123,19 +114,14 @@ public:
         --jsStackTop;
         return jsStackTop->heapObject();
     }
-    Value *jsAlloca(int nValues) {
+
+    QML_NEARLY_ALWAYS_INLINE Value *jsAlloca(int nValues) {
         Value *ptr = jsStackTop;
         jsStackTop = ptr + nValues;
-        memset(ptr, 0, nValues*sizeof(Value));
+        for (int i = 0; i < nValues; ++i)
+            ptr[i] = Primitive::undefinedValue();
         return ptr;
     }
-
-    IdentifierTable *identifierTable;
-
-    QV4::Debugging::Debugger *debugger;
-    QV4::Profiling::Profiler *profiler;
-
-    Object *globalObject;
 
     Function *globalCode;
 
@@ -144,7 +130,7 @@ public:
     QQmlEngine *qmlEngine() const;
 #else // !V4_BOOTSTRAP
     QJSEngine *jsEngine() const { return v8Engine->publicEngine(); }
-    QQmlEngine *qmlEngine() const { return v8Engine->engine(); }
+    QQmlEngine *qmlEngine() const { return v8Engine ? v8Engine->engine() : nullptr; }
 #endif // V4_BOOTSTRAP
     QV8Engine *v8Engine;
 
@@ -153,6 +139,7 @@ public:
         IntegerNull, // Has to come after the RootContext to make the context stack safe
         ObjectProto,
         ArrayProto,
+        PropertyListProto,
         StringProto,
         NumberProto,
         BooleanProto,
@@ -221,6 +208,7 @@ public:
 
     Object *objectPrototype() const { return reinterpret_cast<Object *>(jsObjects + ObjectProto); }
     Object *arrayPrototype() const { return reinterpret_cast<Object *>(jsObjects + ArrayProto); }
+    Object *propertyListPrototype() const { return reinterpret_cast<Object *>(jsObjects + PropertyListProto); }
     Object *stringPrototype() const { return reinterpret_cast<Object *>(jsObjects + StringProto); }
     Object *numberPrototype() const { return reinterpret_cast<Object *>(jsObjects + NumberProto); }
     Object *booleanPrototype() const { return reinterpret_cast<Object *>(jsObjects + BooleanProto); }
@@ -245,25 +233,6 @@ public:
     Object *signalHandlerPrototype() const { return reinterpret_cast<Object *>(jsObjects + SignalHandlerProto); }
 
     InternalClassPool *classPool;
-    InternalClass *emptyClass;
-
-    InternalClass *arrayClass;
-    InternalClass *stringClass;
-
-    InternalClass *functionClass;
-    InternalClass *simpleScriptFunctionClass;
-    InternalClass *protoClass;
-
-    InternalClass *regExpExecArrayClass;
-    InternalClass *regExpObjectClass;
-
-    InternalClass *argumentsObjectClass;
-    InternalClass *strictArgumentsObjectClass;
-
-    InternalClass *errorClass;
-    InternalClass *errorClassWithMessage;
-    InternalClass *errorProtoClass;
-
     EvalFunction *evalFunction() const { return reinterpret_cast<EvalFunction *>(jsObjects + Eval_Function); }
     FunctionObject *getStackFunction() const { return reinterpret_cast<FunctionObject *>(jsObjects + GetStack_Function); }
     FunctionObject *thrower() const { return reinterpret_cast<FunctionObject *>(jsObjects + ThrowerObject); }
@@ -377,14 +346,27 @@ public:
     ExecutionEngine(EvalISelFactory *iselFactory = 0);
     ~ExecutionEngine();
 
+#ifdef QT_NO_QML_DEBUGGER
+    QV4::Debugging::Debugger *debugger() const { return nullptr; }
+    QV4::Profiling::Profiler *profiler() const { return nullptr; }
+
+    void setDebugger(Debugging::Debugger *) {}
+    void setProfiler(Profiling::Profiler *) {}
+#else
+    QV4::Debugging::Debugger *debugger() const { return m_debugger; }
+    QV4::Profiling::Profiler *profiler() const { return m_profiler; }
+
     void setDebugger(Debugging::Debugger *debugger);
-    void enableProfiler();
+    void setProfiler(Profiling::Profiler *profiler);
+#endif // QT_NO_QML_DEBUGGER
 
     ExecutionContext *pushGlobalContext();
     void pushContext(Heap::ExecutionContext *context);
     void pushContext(ExecutionContext *context);
     void popContext();
     ExecutionContext *parentContext(ExecutionContext *context) const;
+
+    InternalClass *newInternalClass(const VTable *vtable, Object *prototype);
 
     Heap::Object *newObject();
     Heap::Object *newObject(InternalClass *internalClass, Object *prototype);
@@ -406,6 +388,7 @@ public:
 
     Heap::DateObject *newDateObject(const Value &value);
     Heap::DateObject *newDateObject(const QDateTime &dt);
+    Heap::DateObject *newDateObjectFromTime(const QTime &t);
 
     Heap::RegExpObject *newRegExpObject(const QString &pattern, int flags);
     Heap::RegExpObject *newRegExpObject(RegExp *re, bool global);
@@ -475,8 +458,27 @@ public:
 
     void assertObjectBelongsToEngine(const Heap::Base &baseObject);
 
-    bool checkStackLimits(ReturnedValue &exception);
+    bool checkStackLimits(Scope &scope);
+
+private:
+    void failStackLimitCheck(Scope &scope);
+
+#ifndef QT_NO_QML_DEBUGGER
+    QV4::Debugging::Debugger *m_debugger;
+    QV4::Profiling::Profiler *m_profiler;
+#endif
 };
+
+// This is a trick to tell the code generators that functions taking a NoThrowContext won't
+// throw exceptions and therefore don't need a check after the call.
+#ifndef V4_BOOTSTRAP
+struct NoThrowEngine : public ExecutionEngine
+{
+};
+#else
+struct NoThrowEngine;
+#endif
+
 
 inline void ExecutionEngine::pushContext(Heap::ExecutionContext *context)
 {
@@ -513,27 +515,6 @@ inline ExecutionContext *ExecutionEngine::parentContext(ExecutionContext *contex
     return o ? context - o : 0;
 }
 
-inline Heap::QmlContext *ExecutionEngine::qmlContext() const
-{
-    Heap::ExecutionContext *ctx = current;
-
-    // get the correct context when we're within a builtin function
-    if (ctx->type == Heap::ExecutionContext::Type_SimpleCallContext && !ctx->outer)
-        ctx = parentContext(currentContext)->d();
-
-    if (ctx->type != Heap::ExecutionContext::Type_QmlContext && !ctx->outer)
-        return 0;
-
-    while (ctx->outer && ctx->outer->type != Heap::ExecutionContext::Type_GlobalContext)
-        ctx = ctx->outer;
-
-    Q_ASSERT(ctx);
-    if (ctx->type != Heap::ExecutionContext::Type_QmlContext)
-        return 0;
-
-    return static_cast<Heap::QmlContext *>(ctx);
-}
-
 inline
 void Heap::Base::mark(QV4::ExecutionEngine *engine)
 {
@@ -549,15 +530,12 @@ void Heap::Base::mark(QV4::ExecutionEngine *engine)
 
 inline void Value::mark(ExecutionEngine *e)
 {
-    if (!isManaged())
-        return;
-
     Heap::Base *o = heapObject();
     if (o)
         o->mark(e);
 }
 
-#define CHECK_STACK_LIMITS(v4) { ReturnedValue e; if ((v4)->checkStackLimits(e)) return e; } \
+#define CHECK_STACK_LIMITS(v4, scope) if ((v4)->checkStackLimits(scope)) return; \
     ExecutionEngineCallDepthRecorder _executionEngineCallDepthRecorder(v4);
 
 struct ExecutionEngineCallDepthRecorder
@@ -568,10 +546,10 @@ struct ExecutionEngineCallDepthRecorder
     ~ExecutionEngineCallDepthRecorder() { --ee->callDepth; }
 };
 
-inline bool ExecutionEngine::checkStackLimits(ReturnedValue &exception)
+inline bool ExecutionEngine::checkStackLimits(Scope &scope)
 {
     if (Q_UNLIKELY((jsStackTop > jsStackLimit) || (callDepth >= maxCallDepth))) {
-        exception = throwRangeError(QStringLiteral("Maximum call stack size exceeded."));
+        failStackLimitCheck(scope);
         return true;
     }
 

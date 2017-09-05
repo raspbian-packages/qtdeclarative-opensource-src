@@ -51,11 +51,15 @@
 // We mean it.
 //
 
+#include <QtQuick/private/qtquickglobal_p.h>
+
+QT_REQUIRE_CONFIG(quick_shadereffect);
+
 #include "qquickitem.h"
 #include <QtQuick/qsgtextureprovider.h>
 #include <private/qsgadaptationlayer_p.h>
 #include <QtQuick/private/qsgcontext_p.h>
-#include <private/qsgdefaultimagenode_p.h>
+#include <private/qsgdefaultinternalimagenode_p.h>
 #include <private/qquickitemchangelistener_p.h>
 
 #include "qpointer.h"
@@ -93,11 +97,11 @@ public:
         Repeat
     };
     Q_ENUM(WrapMode)
-
+    // Equivalents to GL_ALPHA and similar type constants.
     enum Format {
-        Alpha = GL_ALPHA,
-        RGB = GL_RGB,
-        RGBA = GL_RGBA
+        Alpha = 0x1906,
+        RGB = 0x1907,
+        RGBA = 0x1908
     };
     Q_ENUM(Format)
 
@@ -168,7 +172,7 @@ protected:
     void releaseResources() Q_DECL_OVERRIDE;
     QSGNode *updatePaintNode(QSGNode *, UpdatePaintNodeData *) Q_DECL_OVERRIDE;
 
-    void itemGeometryChanged(QQuickItem *item, const QRectF &newRect, const QRectF &oldRect) Q_DECL_OVERRIDE;
+    void itemGeometryChanged(QQuickItem *item, QQuickGeometryChange change, const QRectF &) Q_DECL_OVERRIDE;
     void itemChange(ItemChange change, const ItemChangeData &value) Q_DECL_OVERRIDE;
 
 private:

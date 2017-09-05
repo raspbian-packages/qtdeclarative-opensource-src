@@ -39,11 +39,6 @@
 #ifndef MASM_EXECUTABLEALLOCATOR_H
 #define MASM_EXECUTABLEALLOCATOR_H
 
-// Defined via mkspec
-#if _MSC_VER >= 1900
-#include <windows.h>
-#endif
-
 #include <RefPtr.h>
 #include <RefCounted.h>
 #include <wtf/PageBlock.h>
@@ -66,7 +61,7 @@ namespace JSC {
 class JSGlobalData;
 
 struct ExecutableMemoryHandle : public RefCounted<ExecutableMemoryHandle> {
-    ExecutableMemoryHandle(QV4::ExecutableAllocator *allocator, int size)
+    ExecutableMemoryHandle(QV4::ExecutableAllocator *allocator, size_t size)
         : m_allocator(allocator)
         , m_size(size)
     {
@@ -84,14 +79,14 @@ struct ExecutableMemoryHandle : public RefCounted<ExecutableMemoryHandle> {
     inline bool isManaged() const { return true; }
 
     void* start() { return m_allocation->start(); }
-    int sizeInBytes() { return m_size; }
+    size_t sizeInBytes() { return m_size; }
 
     QV4::ExecutableAllocator::ChunkOfPages *chunk() const
     { return m_allocator->chunkForAllocation(m_allocation); }
 
     QV4::ExecutableAllocator *m_allocator;
     QV4::ExecutableAllocator::Allocation *m_allocation;
-    int m_size;
+    size_t m_size;
 };
 
 struct ExecutableAllocator {
@@ -99,7 +94,7 @@ struct ExecutableAllocator {
         : realAllocator(alloc)
     {}
 
-    PassRefPtr<ExecutableMemoryHandle> allocate(JSGlobalData&, int size, void*, int)
+    PassRefPtr<ExecutableMemoryHandle> allocate(JSGlobalData&, size_t size, void*, int)
     {
         return adoptRef(new ExecutableMemoryHandle(realAllocator, size));
     }
@@ -112,18 +107,16 @@ struct ExecutableAllocator {
         size = size + (iaddr - roundAddr);
         addr = reinterpret_cast<void*>(roundAddr);
 
-#if ENABLE(ASSEMBLER_WX_EXCLUSIVE)
+#if ENABLE(ASSEMBLER_WX_EXCLUSIVE) && !defined(V4_BOOTSTRAP)
 #  if OS(WINDOWS)
         DWORD oldProtect;
 #    if !OS(WINRT)
         VirtualProtect(addr, size, PAGE_READWRITE, &oldProtect);
-#    elif _MSC_VER >= 1900
+#    else
         bool hr = VirtualProtectFromApp(addr, size, PAGE_READWRITE, &oldProtect);
         if (!hr) {
             Q_UNREACHABLE();
         }
-#    else
-        (void)oldProtect;
 #    endif
 #  else
         int mode = PROT_READ | PROT_WRITE;
@@ -147,18 +140,17 @@ struct ExecutableAllocator {
         size = size + (iaddr - roundAddr);
         addr = reinterpret_cast<void*>(roundAddr);
 
+#if !defined(V4_BOOTSTRAP)
 #if ENABLE(ASSEMBLER_WX_EXCLUSIVE)
 #  if OS(WINDOWS)
         DWORD oldProtect;
 #    if !OS(WINRT)
         VirtualProtect(addr, size, PAGE_EXECUTE_READ, &oldProtect);
-#    elif _MSC_VER >= 1900
+#    else
         bool hr = VirtualProtectFromApp(addr, size, PAGE_EXECUTE_READ, &oldProtect);
         if (!hr) {
             Q_UNREACHABLE();
         }
-#    else
-        (void)oldProtect;
 #    endif
 #  else
         int mode = PROT_READ | PROT_EXEC;
@@ -169,6 +161,10 @@ struct ExecutableAllocator {
 #  endif
 #else
 #  error "Only W^X is supported"
+#endif
+#else
+        (void)addr; // suppress unused parameter warning
+        (void)size; // suppress unused parameter warning
 #endif
     }
 

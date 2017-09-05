@@ -39,7 +39,7 @@
 
 #include "qquickaccessibleattached_p.h"
 
-#ifndef QT_NO_ACCESSIBILITY
+#if QT_CONFIG(accessibility)
 
 #include "private/qquickitem_p.h"
 
@@ -461,5 +461,7 @@ void QQuickAccessibleAttached::availableActions(QStringList *actions) const
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qquickaccessibleattached_p.cpp"
 
 #endif

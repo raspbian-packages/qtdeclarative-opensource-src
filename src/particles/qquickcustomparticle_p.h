@@ -51,9 +51,8 @@
 // We mean it.
 //
 #include "qquickparticlepainter_p.h"
-#include <private/qquickshadereffectnode_p.h>
-#include <private/qquickshadereffect_p.h>
-#include <QSignalMapper>
+#include <private/qquickopenglshadereffectnode_p.h>
+#include <private/qquickopenglshadereffect_p.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -84,33 +83,35 @@ Q_SIGNALS:
     void vertexShaderChanged();
 
 protected:
-    virtual void initialize(int gIdx, int pIdx);
-    virtual void commit(int gIdx, int pIdx);
+    void initialize(int gIdx, int pIdx) override;
+    void commit(int gIdx, int pIdx) override;
 
-    QSGNode *updatePaintNode(QSGNode *, UpdatePaintNodeData *);
-    QQuickShaderEffectNode *prepareNextFrame(QQuickShaderEffectNode *rootNode);
-    void reset();
+    QSGNode *updatePaintNode(QSGNode *, UpdatePaintNodeData *) override;
+    QQuickOpenGLShaderEffectNode *prepareNextFrame(QQuickOpenGLShaderEffectNode *rootNode);
+    void reset() override;
     void resize(int oldCount, int newCount);
-    virtual void componentComplete();
-    QQuickShaderEffectNode *buildCustomNodes();
+    void componentComplete() override;
+    QQuickOpenGLShaderEffectNode *buildCustomNodes();
 
-    void sceneGraphInvalidated();
-    void itemChange(ItemChange change, const ItemChangeData &value);
+    void sceneGraphInvalidated() override;
+    void itemChange(ItemChange change, const ItemChangeData &value) override;
 
 private Q_SLOTS:
     void sourceDestroyed(QObject *object);
-    void propertyChanged(int mappedId);
 
 private:
-    typedef QQuickShaderEffectMaterialKey Key;
-    typedef QQuickShaderEffectMaterial::UniformData UniformData;
+    void propertyChanged(int mappedId);
 
-    void buildData(QQuickShaderEffectNode *rootNode);
+    typedef QQuickOpenGLShaderEffectMaterialKey Key;
+    typedef QQuickOpenGLShaderEffectMaterial::UniformData UniformData;
+
+    void buildData(QQuickOpenGLShaderEffectNode *rootNode);
     void updateVertexShader();
 
-    QQuickShaderEffectCommon m_common;
+    QQuickOpenGLShaderEffectCommon m_common;
+    const QMetaObject *m_myMetaObject;
 
-    QHash<int, QQuickShaderEffectNode*> m_nodes;
+    QHash<int, QQuickOpenGLShaderEffectNode*> m_nodes;
     qreal m_lastTime;
 
     uint m_dirtyUniforms : 1;

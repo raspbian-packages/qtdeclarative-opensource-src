@@ -307,7 +307,11 @@ void QQuickStackLayout::rearrange(const QSizeF &newSize)
     QQuickItem *item = itemAt(d->currentIndex);
     Q_ASSERT(item);
     item->setPosition(QPointF(0,0));    // ### respect alignment?
-    item->setSize(newSize.expandedTo(hints.min()).boundedTo(hints.max()));
+    const QSizeF oldSize(item->width(), item->height());
+    const QSizeF effectiveNewSize = newSize.expandedTo(hints.min()).boundedTo(hints.max());
+    item->setSize(effectiveNewSize);
+    if (effectiveNewSize == oldSize)
+        item->polish();
     QQuickLayout::rearrange(newSize);
 }
 
@@ -337,3 +341,5 @@ bool QQuickStackLayout::shouldIgnoreItem(QQuickItem *item) const
         d_func()->m_ignoredItems << item;
     return ignored;
 }
+
+#include "moc_qquickstacklayout_p.cpp"

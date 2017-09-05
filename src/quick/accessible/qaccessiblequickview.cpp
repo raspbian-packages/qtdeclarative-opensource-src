@@ -46,7 +46,7 @@
 
 #include "qaccessiblequickitem_p.h"
 
-#ifndef QT_NO_ACCESSIBILITY
+#if QT_CONFIG(accessibility)
 
 QT_BEGIN_NAMESPACE
 
@@ -79,6 +79,14 @@ QAccessibleInterface *QAccessibleQuickWindow::child(int index) const
     if (index >= 0 && index < kids.count())
         return QAccessible::queryAccessibleInterface(kids.at(index));
     return 0;
+}
+
+QAccessibleInterface *QAccessibleQuickWindow::focusChild() const
+{
+    QObject *focusObject = window()->focusObject();
+    if (focusObject)
+        return QAccessible::queryAccessibleInterface(focusObject);
+    return nullptr;
 }
 
 QAccessible::Role QAccessibleQuickWindow::role() const
@@ -145,4 +153,4 @@ int QAccessibleQuickWindow::indexOfChild(const QAccessibleInterface *iface) cons
 
 QT_END_NAMESPACE
 
-#endif // QT_NO_ACCESSIBILITY
+#endif // accessibility

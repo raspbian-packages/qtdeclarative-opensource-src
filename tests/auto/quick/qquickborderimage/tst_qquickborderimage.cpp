@@ -44,6 +44,7 @@
 
 #include "../../shared/testhttpserver.h"
 #include "../../shared/util.h"
+#include "../shared/visualtestutil.h"
 
 Q_DECLARE_METATYPE(QQuickImageBase::Status)
 
@@ -75,6 +76,9 @@ private slots:
     void statusChanges_data();
     void sourceSizeChanges();
     void progressAndStatusChanges();
+#if QT_CONFIG(opengl)
+    void borderImageMesh();
+#endif
 
 private:
     QQmlEngine engine;
@@ -242,6 +246,11 @@ void tst_qquickborderimage::mirror()
 
     image->setProperty("mirror", true);
     screenshot = window->grabWindow();
+
+    window->show();
+    QTest::qWaitForWindowExposed(window);
+    if (window->rendererInterface()->graphicsApi() == QSGRendererInterface::Software)
+        QSKIP("QTBUG-53823");
     QCOMPARE(screenshot, srcPixmap);
 
     delete window;
@@ -574,7 +583,22 @@ void tst_qquickborderimage::progressAndStatusChanges()
 
     delete obj;
 }
+#if QT_CONFIG(opengl)
+void tst_qquickborderimage::borderImageMesh()
+{
+    QQuickView *window = new QQuickView;
 
+    window->setSource(testFileUrl("nonmesh.qml"));
+    window->show();
+    QTest::qWaitForWindowExposed(window);
+    QImage nonmesh = window->grabWindow();
+
+    window->setSource(testFileUrl("mesh.qml"));
+    QImage mesh = window->grabWindow();
+
+    QVERIFY(QQuickVisualTestUtil::compareImages(mesh, nonmesh));
+}
+#endif
 QTEST_MAIN(tst_qquickborderimage)
 
 #include "tst_qquickborderimage.moc"

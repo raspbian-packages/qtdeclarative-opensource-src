@@ -69,11 +69,12 @@
 
 QT_BEGIN_NAMESPACE
 
+Q_DECLARE_LOGGING_CATEGORY(DBG_HOVER_TRACE)
 
 const QChar QQuickTextPrivate::elideChar = QChar(0x2026);
 
 QQuickTextPrivate::QQuickTextPrivate()
-    : elideLayout(0), textLine(0), lineWidth(0)
+    : fontInfo(font), elideLayout(0), textLine(0), lineWidth(0)
     , color(0xFF000000), linkColor(0xFF0000FF), styleColor(0xFF000000)
     , lineCount(1), multilengthEos(-1)
     , elideMode(QQuickText::ElideNone), hAlign(QQuickText::AlignLeft), vAlign(QQuickText::AlignTop)
@@ -273,15 +274,9 @@ void QQuickTextPrivate::updateLayout()
                     elideLayout->clearFormats();
                 QString tmp = text;
                 multilengthEos = tmp.indexOf(QLatin1Char('\x9c'));
-                if (multilengthEos != -1) {
+                if (multilengthEos != -1)
                     tmp = tmp.mid(0, multilengthEos);
-                    tmp.replace(QLatin1Char('\n'), QChar::LineSeparator);
-                } else if (tmp.contains(QLatin1Char('\n'))) {
-                    // Replace always does a detach.  Checking for the new line character first
-                    // means iterating over those items again if found but prevents a realloc
-                    // otherwise.
-                    tmp.replace(QLatin1Char('\n'), QChar::LineSeparator);
-                }
+                tmp.replace(QLatin1Char('\n'), QChar::LineSeparator);
                 layout.setText(tmp);
             }
             textHasChanged = false;
@@ -321,7 +316,7 @@ void QQuickText::imageDownloadFinished()
 
     if (d->extra.isAllocated() && d->extra->nbActiveDownloads == 0) {
         bool needToUpdateLayout = false;
-        foreach (QQuickStyledTextImgTag *img, d->extra->visibleImgTags) {
+        for (QQuickStyledTextImgTag *img : qAsConst(d->extra->visibleImgTags)) {
             if (!img->size.isValid()) {
                 img->size = img->pix->implicitSize();
                 needToUpdateLayout = true;
@@ -1017,6 +1012,17 @@ QRectF QQuickTextPrivate::setupTextLayout(qreal *const baseline)
     implicitWidthValid = true;
     implicitHeightValid = true;
 
+    QFontInfo scaledFontInfo(scaledFont);
+    if (fontInfo.weight() != scaledFontInfo.weight()
+            || fontInfo.pixelSize() != scaledFontInfo.pixelSize()
+            || fontInfo.italic() != scaledFontInfo.italic()
+            || !qFuzzyCompare(fontInfo.pointSizeF(), scaledFontInfo.pointSizeF())
+            || fontInfo.family() != scaledFontInfo.family()
+            || fontInfo.styleName() != scaledFontInfo.styleName()) {
+        fontInfo = scaledFontInfo;
+        emit q->fontInfoChanged();
+    }
+
     if (eos != multilengthEos)
         truncated = true;
 
@@ -1114,7 +1120,7 @@ void QQuickTextPrivate::setLineGeometry(QTextLine &line, qreal lineWidth, qreal 
     QList<QQuickStyledTextImgTag *> imagesInLine;
 
     if (extra.isAllocated()) {
-        foreach (QQuickStyledTextImgTag *image, extra->imgTags) {
+        for (QQuickStyledTextImgTag *image : qAsConst(extra->imgTags)) {
             if (image->position >= line.textStart() &&
                 image->position < line.textStart() + line.textLength()) {
 
@@ -1134,7 +1140,7 @@ void QQuickTextPrivate::setLineGeometry(QTextLine &line, qreal lineWidth, qreal 
                             needToUpdateLayout = true;
                         }
                     } else if (image->pix->isError()) {
-                        qmlInfo(q) << image->pix->error();
+                        qmlWarning(q) << image->pix->error();
                     }
                 }
 
@@ -1151,7 +1157,7 @@ void QQuickTextPrivate::setLineGeometry(QTextLine &line, qreal lineWidth, qreal 
         }
     }
 
-    foreach (QQuickStyledTextImgTag *image, imagesInLine) {
+    for (QQuickStyledTextImgTag *image : qAsConst(imagesInLine)) {
         totalLineHeight = qMax(totalLineHeight, textTop + image->pos.y() + image->size.height());
         const int leadX = line.cursorToX(image->position);
         const int trailX = line.cursorToX(image->position, QTextLine::Trailing);
@@ -1429,6 +1435,39 @@ QQuickText::~QQuickText()
 
     \qml
     Text { text: "Hello"; font.capitalization: Font.AllLowercase }
+    \endqml
+*/
+
+/*!
+    \qmlproperty enumeration QtQuick::Text::font.hintingPreference
+    \since 5.8
+
+    Sets the preferred hinting on the text. This is a hint to the underlying text rendering system
+    to use a certain level of hinting, and has varying support across platforms. See the table in
+    the documentation for QFont::HintingPreference for more details.
+
+    \note This property only has an effect when used together with render type Text.NativeRendering.
+
+    \list
+    \value Font.PreferDefaultHinting - Use the default hinting level for the target platform.
+    \value Font.PreferNoHinting - If possible, render text without hinting the outlines
+           of the glyphs. The text layout will be typographically accurate, using the same metrics
+           as are used e.g. when printing.
+    \value Font.PreferVerticalHinting - If possible, render text with no horizontal hinting,
+           but align glyphs to the pixel grid in the vertical direction. The text will appear
+           crisper on displays where the density is too low to give an accurate rendering
+           of the glyphs. But since the horizontal metrics of the glyphs are unhinted, the text's
+           layout will be scalable to higher density devices (such as printers) without impacting
+           details such as line breaks.
+    \value Font.PreferFullHinting - If possible, render text with hinting in both horizontal and
+           vertical directions. The text will be altered to optimize legibility on the target
+           device, but since the metrics will depend on the target size of the text, the positions
+           of glyphs, line breaks, and other typographical detail will not scale, meaning that a
+           text layout may look different on devices with different pixel densities.
+    \endlist
+
+    \qml
+    Text { text: "Hello"; renderType: Text.NativeRendering; font.hintingPreference: Font.PreferVerticalHinting }
     \endqml
 */
 QFont QQuickText::font() const
@@ -1785,7 +1824,7 @@ bool QQuickTextPrivate::setHAlign(QQuickText::HAlignment alignment, bool forceAl
 bool QQuickTextPrivate::determineHorizontalAlignment()
 {
     if (hAlignImplicit) {
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
         bool alignToRight = text.isEmpty() ? QGuiApplication::inputMethod()->inputDirection() == Qt::RightToLeft : rightToLeftText;
 #else
         bool alignToRight = rightToLeftText;
@@ -2308,7 +2347,7 @@ QSGNode *QQuickText::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *data
             node->addTextLayout(QPointF(dx, dy), d->elideLayout, color, d->style, styleColor, linkColor);
 
         if (d->extra.isAllocated()) {
-            foreach (QQuickStyledTextImgTag *img, d->extra->visibleImgTags) {
+            for (QQuickStyledTextImgTag *img : qAsConst(d->extra->visibleImgTags)) {
                 QQuickPixmap *pix = img->pix;
                 if (pix && pix->isReady())
                     node->addImage(QRectF(img->pos.x() + dx, img->pos.y() + dy, pix->width(), pix->height()), pix->image());
@@ -2562,7 +2601,8 @@ QString QQuickTextPrivate::anchorAt(const QTextLayout *layout, const QPointF &mo
         QTextLine line = layout->lineAt(i);
         if (line.naturalTextRect().contains(mousePos)) {
             int charPos = line.xToCursor(mousePos.x(), QTextLine::CursorOnCharacter);
-            foreach (const QTextLayout::FormatRange &formatRange, layout->formats()) {
+            const auto formats = layout->formats();
+            for (const QTextLayout::FormatRange &formatRange : formats) {
                 if (formatRange.format.isAnchor()
                         && charPos >= formatRange.start
                         && charPos < formatRange.start + formatRange.length) {
@@ -2678,12 +2718,12 @@ QString QQuickText::hoveredLink() const
         if (d->extra.isAllocated())
             return d->extra->hoveredLink;
     } else {
-#ifndef QT_NO_CURSOR
+#if QT_CONFIG(cursor)
         if (QQuickWindow *wnd = window()) {
             QPointF pos = QCursor::pos(wnd->screen()) - wnd->position() - mapToScene(QPointF(0, 0));
             return d->anchorAt(pos);
         }
-#endif // QT_NO_CURSOR
+#endif // cursor
     }
     return QString();
 }
@@ -2691,6 +2731,7 @@ QString QQuickText::hoveredLink() const
 void QQuickTextPrivate::processHoverEvent(QHoverEvent *event)
 {
     Q_Q(QQuickText);
+    qCDebug(DBG_HOVER_TRACE) << q;
     QString link;
     if (isLinkHoveredConnected()) {
         if (event->type() != QEvent::HoverLeave)
@@ -2759,10 +2800,22 @@ void QQuickText::setRenderType(QQuickText::RenderType renderType)
 
 /*!
     \qmlmethod QtQuick::Text::doLayout()
+    \deprecated
+
+    Use \l forceLayout() instead.
+*/
+void QQuickText::doLayout()
+{
+    forceLayout();
+}
+
+/*!
+    \qmlmethod QtQuick::Text::forceLayout()
+    \since 5.9
 
     Triggers a re-layout of the displayed text.
 */
-void QQuickText::doLayout()
+void QQuickText::forceLayout()
 {
     Q_D(QQuickText);
     d->updateSize();
@@ -2926,4 +2979,82 @@ void QQuickText::resetBottomPadding()
     d->setBottomPadding(0, true);
 }
 
+/*!
+    \qmlproperty string QtQuick::Text::fontInfo.family
+    \since 5.9
+
+    The family name of the font that has been resolved for the current font
+    and fontSizeMode.
+*/
+
+/*!
+    \qmlproperty string QtQuick::Text::fontInfo.styleName
+    \since 5.9
+
+    The style name of the font info that has been resolved for the current font
+    and fontSizeMode.
+*/
+
+/*!
+    \qmlproperty bool QtQuick::Text::fontInfo.bold
+    \since 5.9
+
+    The bold state of the font info that has been resolved for the current font
+    and fontSizeMode. This is true if the weight of the resolved font is bold or higher.
+*/
+
+/*!
+    \qmlproperty int QtQuick::Text::fontInfo.weight
+    \since 5.9
+
+    The weight of the font info that has been resolved for the current font
+    and fontSizeMode.
+*/
+
+/*!
+    \qmlproperty bool QtQuick::Text::fontInfo.italic
+    \since 5.9
+
+    The italic state of the font info that has been resolved for the current font
+    and fontSizeMode.
+*/
+
+/*!
+    \qmlproperty real QtQuick::Text::fontInfo.pointSize
+    \since 5.9
+
+    The pointSize of the font info that has been resolved for the current font
+    and fontSizeMode.
+*/
+
+/*!
+    \qmlproperty string QtQuick::Text::fontInfo.pixelSize
+    \since 5.9
+
+    The pixel size of the font info that has been resolved for the current font
+    and fontSizeMode.
+*/
+QJSValue QQuickText::fontInfo() const
+{
+    Q_D(const QQuickText);
+
+    QJSEngine *engine = qjsEngine(this);
+    if (!engine) {
+        qmlWarning(this) << "fontInfo: item has no JS engine";
+        return QJSValue();
+    }
+
+    QJSValue value = engine->newObject();
+    value.setProperty(QStringLiteral("family"), d->fontInfo.family());
+    value.setProperty(QStringLiteral("styleName"), d->fontInfo.styleName());
+    value.setProperty(QStringLiteral("bold"), d->fontInfo.bold());
+    value.setProperty(QStringLiteral("weight"), d->fontInfo.weight());
+    value.setProperty(QStringLiteral("italic"), d->fontInfo.italic());
+    value.setProperty(QStringLiteral("pointSize"), d->fontInfo.pointSizeF());
+    value.setProperty(QStringLiteral("pixelSize"), d->fontInfo.pixelSize());
+    return value;
+}
+
 QT_END_NAMESPACE
+
+#include "moc_qquicktext_p.cpp"

@@ -29,7 +29,6 @@
 #include <qtest.h>
 #include <QLibraryInfo>
 #include <QDir>
-#include <QProcess>
 #include <QDebug>
 #include <QtQuick/QQuickItem>
 #include <QtQuick/QQuickView>
@@ -88,12 +87,6 @@ tst_examples::tst_examples()
     excludedDirs << "snippets/qml/qtbinding";
     excludedDirs << "snippets/qml/imports";
 
-#ifdef QT_NO_WEBKIT
-    excludedDirs << "qtquick/modelviews/webview";
-    excludedDirs << "demos/webbrowser";
-    excludedDirs << "doc/src/snippets/qml/webview";
-#endif
-
 #ifdef QT_NO_XMLPATTERNS
     excludedDirs << "demos/twitter";
     excludedDirs << "demos/flickr";
@@ -101,6 +94,18 @@ tst_examples::tst_examples()
     excludedFiles << "snippets/qml/xmlrole.qml";
     excludedFiles << "particles/itemparticle/particleview.qml";
     excludedFiles << "views/visualdatamodel/slideshow.qml";
+#endif
+
+#if !QT_CONFIG(opengl)
+    //No support for Particles
+    excludedFiles << "examples/qml/dynamicscene/dynamicscene.qml";
+    excludedFiles << "examples/quick/animation/basics/color-animation.qml";
+    excludedFiles << "examples/quick/particles/affectors/content/age.qml";
+    excludedFiles << "examples/quick/touchinteraction/multipointtouch/bearwhack.qml";
+    excludedFiles << "examples/quick/touchinteraction/multipointtouch/multiflame.qml";
+    excludedDirs << "examples/quick/particles";
+    // No Support for ShaderEffect
+    excludedFiles << "src/quick/doc/snippets/qml/animators.qml";
 #endif
 
 }

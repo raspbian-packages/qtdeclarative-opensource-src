@@ -51,13 +51,19 @@
 // We mean it.
 //
 
+#include <private/qtquickglobal_p.h>
+
+QT_REQUIRE_CONFIG(quick_listview);
+
 #include "qquickitemview_p.h"
+
+#include <private/qtquickglobal_p.h>
 
 QT_BEGIN_NAMESPACE
 
 class QQuickListView;
 class QQuickListViewPrivate;
-class Q_AUTOTEST_EXPORT QQuickViewSection : public QObject
+class Q_QUICK_PRIVATE_EXPORT QQuickViewSection : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(QString property READ property WRITE setProperty NOTIFY propertyChanged)
@@ -82,7 +88,7 @@ public:
 
     enum LabelPositioning { InlineLabels = 0x01, CurrentLabelAtStart = 0x02, NextLabelAtEnd = 0x04 };
     Q_ENUM(LabelPositioning)
-    int labelPositioning() { return m_labelPositioning; }
+    int labelPositioning() const { return m_labelPositioning; }
     void setLabelPositioning(int pos);
 
 Q_SIGNALS:
@@ -103,7 +109,7 @@ private:
 
 class QQmlInstanceModel;
 class QQuickListViewAttached;
-class Q_AUTOTEST_EXPORT QQuickListView : public QQuickItemView
+class Q_QUICK_PRIVATE_EXPORT QQuickListView : public QQuickItemView
 {
     Q_OBJECT
     Q_DECLARE_PRIVATE(QQuickListView)
@@ -140,7 +146,7 @@ public:
     QQuickViewSection *sectionCriteria();
     QString currentSection() const;
 
-    void setHighlightFollowsCurrentItem(bool) Q_DECL_OVERRIDE;
+    void setHighlightFollowsCurrentItem(bool) override;
 
     qreal highlightMoveVelocity() const;
     void setHighlightMoveVelocity(qreal);
@@ -151,7 +157,7 @@ public:
     int highlightResizeDuration() const;
     void setHighlightResizeDuration(int);
 
-    void setHighlightMoveDuration(int) Q_DECL_OVERRIDE;
+    void setHighlightMoveDuration(int) override;
 
     enum SnapMode { NoSnap, SnapToItem, SnapOneItem };
     Q_ENUM(SnapMode)
@@ -186,10 +192,12 @@ Q_SIGNALS:
     Q_REVISION(2) void footerPositioningChanged();
 
 protected:
-    void viewportMoved(Qt::Orientations orient) Q_DECL_OVERRIDE;
-    void keyPressEvent(QKeyEvent *) Q_DECL_OVERRIDE;
-    void geometryChanged(const QRectF &newGeometry,const QRectF &oldGeometry) Q_DECL_OVERRIDE;
-    void initItem(int index, QObject *item) Q_DECL_OVERRIDE;
+    void viewportMoved(Qt::Orientations orient) override;
+    void keyPressEvent(QKeyEvent *) override;
+    void geometryChanged(const QRectF &newGeometry,const QRectF &oldGeometry) override;
+    void initItem(int index, QObject *item) override;
+    qreal maxYExtent() const override;
+    qreal maxXExtent() const override;
 };
 
 class QQuickListViewAttached : public QQuickItemViewAttached

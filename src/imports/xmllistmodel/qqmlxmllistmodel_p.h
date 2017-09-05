@@ -79,7 +79,6 @@ class QQuickXmlListModel : public QAbstractListModel, public QQmlParserStatus
 {
     Q_OBJECT
     Q_INTERFACES(QQmlParserStatus)
-    Q_ENUMS(Status)
 
     Q_PROPERTY(Status status READ status NOTIFY statusChanged)
     Q_PROPERTY(qreal progress READ progress NOTIFY progressChanged)
@@ -95,10 +94,10 @@ public:
     QQuickXmlListModel(QObject *parent = 0);
     ~QQuickXmlListModel();
 
-    QModelIndex index(int row, int column, const QModelIndex &parent) const;
-    int rowCount(const QModelIndex &parent) const;
-    QVariant data(const QModelIndex &index, int role) const;
-    QHash<int, QByteArray> roleNames() const;
+    QModelIndex index(int row, int column, const QModelIndex &parent) const override;
+    int rowCount(const QModelIndex &parent) const override;
+    QVariant data(const QModelIndex &index, int role) const override;
+    QHash<int, QByteArray> roleNames() const override;
 
     int count() const;
 
@@ -119,13 +118,14 @@ public:
     Q_INVOKABLE QQmlV4Handle get(int index) const;
 
     enum Status { Null, Ready, Loading, Error };
+    Q_ENUM(Status)
     Status status() const;
     qreal progress() const;
 
     Q_INVOKABLE QString errorString() const;
 
-    virtual void classBegin();
-    virtual void componentComplete();
+    void classBegin() override;
+    void componentComplete() override;
 
 Q_SIGNALS:
     void statusChanged(QQuickXmlListModel::Status);
@@ -177,7 +177,7 @@ public:
     void setQuery(const QString &query)
     {
         if (query.startsWith(QLatin1Char('/'))) {
-            qmlInfo(this) << tr("An XmlRole query must not start with '/'");
+            qmlWarning(this) << tr("An XmlRole query must not start with '/'");
             return;
         }
         if (m_query == query)
@@ -194,7 +194,7 @@ public:
         Q_EMIT isKeyChanged();
     }
 
-    bool isValid() {
+    bool isValid() const {
         return !m_name.isEmpty() && !m_query.isEmpty();
     }
 

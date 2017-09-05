@@ -153,7 +153,7 @@ bool QQuickWindowInspector::eventFilter(QObject *obj, QEvent *event)
     case QEvent::MouseButtonDblClick:
         m_tool->mouseDoubleClickEvent(static_cast<QMouseEvent*>(event));
         return true;
-#ifndef QT_NO_WHEELEVENT
+#if QT_CONFIG(wheelevent)
     case QEvent::Wheel:
         return true;
 #endif
@@ -230,3 +230,5 @@ QQuickItem *QQuickWindowInspector::topVisibleItemAt(const QPointF &pos) const
 } // namespace QmlJSDebugger
 
 QT_END_NAMESPACE
+
+#include "moc_qquickwindowinspector.cpp"

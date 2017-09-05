@@ -45,7 +45,6 @@
 #include <QtQuick/private/qsgrenderer_p.h>
 #include <qsgsimplerectnode.h>
 
-#include "qopenglframebufferobject.h"
 #include "qmath.h"
 #include <QtQuick/private/qsgtexture_p.h>
 #include <QtCore/QRunnable>
@@ -65,7 +64,7 @@ public:
     {
     }
 
-    QSGTexture *texture() const {
+    QSGTexture *texture() const override {
         sourceTexture->setMipmapFiltering(mipmapFiltering);
         sourceTexture->setFiltering(filtering);
         sourceTexture->setHorizontalWrapMode(horizontalWrap);
@@ -309,11 +308,11 @@ QQuickItem *QQuickShaderEffectSource::sourceItem() const
     return m_sourceItem;
 }
 
-void QQuickShaderEffectSource::itemGeometryChanged(QQuickItem *item, const QRectF &newRect, const QRectF &oldRect)
+void QQuickShaderEffectSource::itemGeometryChanged(QQuickItem *item, QQuickGeometryChange change, const QRectF &)
 {
     Q_ASSERT(item == m_sourceItem);
     Q_UNUSED(item);
-    if (newRect.size() != oldRect.size())
+    if (change.sizeChange())
         update();
 }
 
@@ -680,7 +679,7 @@ QSGNode *QQuickShaderEffectSource::updatePaintNode(QSGNode *oldNode, UpdatePaint
     m_texture->setDevicePixelRatio(d->window->effectiveDevicePixelRatio());
     m_texture->setSize(textureSize);
     m_texture->setRecursive(m_recursive);
-    m_texture->setFormat(GLenum(m_format));
+    m_texture->setFormat(m_format);
     m_texture->setHasMipmaps(m_mipmap);
     m_texture->setMirrorHorizontal(m_textureMirroring & MirrorHorizontally);
     m_texture->setMirrorVertical(m_textureMirroring & MirrorVertically);
@@ -709,9 +708,9 @@ QSGNode *QQuickShaderEffectSource::updatePaintNode(QSGNode *oldNode, UpdatePaint
         return 0;
     }
 
-    QSGImageNode *node = static_cast<QSGImageNode *>(oldNode);
+    QSGInternalImageNode *node = static_cast<QSGInternalImageNode *>(oldNode);
     if (!node) {
-        node = d->sceneGraphContext()->createImageNode();
+        node = d->sceneGraphContext()->createInternalImageNode();
         node->setFlag(QSGNode::UsePreprocess);
         node->setTexture(m_texture);
         QQuickShaderSourceAttachedNode *attached = new QQuickShaderSourceAttachedNode;
@@ -757,5 +756,6 @@ void QQuickShaderEffectSource::itemChange(ItemChange change, const ItemChangeDat
 }
 
 #include "qquickshadereffectsource.moc"
+#include "moc_qquickshadereffectsource_p.cpp"
 
 QT_END_NAMESPACE

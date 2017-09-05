@@ -67,6 +67,8 @@ static char assets_string[] = "assets";
 #endif
 
 class QQmlFilePrivate;
+
+#if QT_CONFIG(qml_network)
 class QQmlFileNetworkReply : public QObject
 {
 Q_OBJECT
@@ -97,6 +99,7 @@ private:
     int m_redirectCount;
     QNetworkReply *m_reply;
 };
+#endif
 
 class QQmlFilePrivate
 {
@@ -114,10 +117,12 @@ public:
 
     Error error;
     QString errorString;
-
+#if QT_CONFIG(qml_network)
     QQmlFileNetworkReply *reply;
+#endif
 };
 
+#if QT_CONFIG(qml_network)
 int QQmlFileNetworkReply::finishedIndex = -1;
 int QQmlFileNetworkReply::downloadProgressIndex = -1;
 int QQmlFileNetworkReply::networkFinishedIndex = -1;
@@ -200,9 +205,13 @@ void QQmlFileNetworkReply::networkDownloadProgress(qint64 a, qint64 b)
 {
     emit downloadProgress(a, b);
 }
+#endif // qml_network
 
 QQmlFilePrivate::QQmlFilePrivate()
-: error(None), reply(0)
+: error(None)
+#if QT_CONFIG(qml_network)
+, reply(0)
+#endif
 {
 }
 
@@ -218,14 +227,15 @@ QQmlFile::QQmlFile(QQmlEngine *e, const QUrl &url)
 }
 
 QQmlFile::QQmlFile(QQmlEngine *e, const QString &url)
-: d(new QQmlFilePrivate)
+    : QQmlFile(e, QUrl(url))
 {
-    load(e, url);
 }
 
 QQmlFile::~QQmlFile()
 {
+#if QT_CONFIG(qml_network)
     delete d->reply;
+#endif
     delete d;
     d = 0;
 }
@@ -263,8 +273,10 @@ QQmlFile::Status QQmlFile::status() const
 {
     if (d->url.isEmpty() && d->urlString.isEmpty())
         return Null;
+#if QT_CONFIG(qml_network)
     else if (d->reply)
         return Loading;
+#endif
     else if (d->error != QQmlFilePrivate::None)
         return Error;
     else
@@ -321,7 +333,11 @@ void QQmlFile::load(QQmlEngine *engine, const QUrl &url)
             d->error = QQmlFilePrivate::NotFound;
         }
     } else {
+#if QT_CONFIG(qml_network)
         d->reply = new QQmlFileNetworkReply(engine, d, url);
+#else
+        d->error = QQmlFilePrivate::NotFound;
+#endif
     }
 }
 
@@ -348,10 +364,14 @@ void QQmlFile::load(QQmlEngine *engine, const QString &url)
             d->error = QQmlFilePrivate::NotFound;
         }
     } else {
+#if QT_CONFIG(qml_network)
         QUrl qurl(url);
         d->url = qurl;
         d->urlString = QString();
         d->reply = new QQmlFileNetworkReply(engine, d, qurl);
+#else
+        d->error = QQmlFilePrivate::NotFound;
+#endif
     }
 }
 
@@ -368,6 +388,7 @@ void QQmlFile::clear(QObject *)
     clear();
 }
 
+#if QT_CONFIG(qml_network)
 bool QQmlFile::connectFinished(QObject *object, const char *method)
 {
     if (!d || !d->reply) {
@@ -411,6 +432,7 @@ bool QQmlFile::connectDownloadProgress(QObject *object, int method)
     return QMetaObject::connect(d->reply, QQmlFileNetworkReply::downloadProgressIndex,
                                 object, method);
 }
+#endif
 
 /*!
 Returns true if QQmlFile will open \a url synchronously.
@@ -581,6 +603,12 @@ empty string.
 */
 QString QQmlFile::urlToLocalFileOrQrc(const QString& url)
 {
+    if (url.startsWith(QLatin1String("qrc://"), Qt::CaseInsensitive)) {
+        if (url.length() > 6)
+            return QLatin1Char(':') + url.midRef(6);
+        return QString();
+    }
+
     if (url.startsWith(QLatin1String("qrc:"), Qt::CaseInsensitive)) {
         if (url.length() > 4)
             return QLatin1Char(':') + url.midRef(4);

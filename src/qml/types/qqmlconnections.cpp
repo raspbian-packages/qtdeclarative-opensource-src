@@ -44,7 +44,6 @@
 #include <private/qqmlboundsignal_p.h>
 #include <qqmlcontext.h>
 #include <private/qqmlcontext_p.h>
-#include <private/qqmlcompiler_p.h>
 #include <qqmlinfo.h>
 
 #include <QtCore/qdebug.h>
@@ -67,7 +66,7 @@ public:
     bool ignoreUnknownSignals;
     bool componentcomplete;
 
-    QQmlRefPointer<QQmlCompiledData> cdata;
+    QQmlRefPointer<QV4::CompiledData::CompilationUnit> compilationUnit;
     QList<const QV4::CompiledData::Binding *> bindings;
 };
 
@@ -166,10 +165,10 @@ private:
 void QQmlConnections::setTarget(QObject *obj)
 {
     Q_D(QQmlConnections);
-    d->targetSet = true; // even if setting to 0, it is *set*
-    if (d->target == obj)
+    if (d->targetSet && d->target == obj)
         return;
-    foreach (QQmlBoundSignal *s, d->boundsignals) {
+    d->targetSet = true; // even if setting to 0, it is *set*
+    for (QQmlBoundSignal *s : qAsConst(d->boundsignals)) {
         // It is possible that target is being changed due to one of our signal
         // handlers -> use deleteLater().
         if (s->isNotifying())
@@ -205,7 +204,7 @@ void QQmlConnections::setEnabled(bool enabled)
 
     d->enabled = enabled;
 
-    foreach (QQmlBoundSignal *s, d->boundsignals)
+    for (QQmlBoundSignal *s : qAsConst(d->boundsignals))
         s->setEnabled(d->enabled);
 
     emit enabledChanged();
@@ -258,11 +257,11 @@ void QQmlConnectionsParser::verifyBindings(const QV4::CompiledData::Unit *qmlUni
     }
 }
 
-void QQmlConnectionsParser::applyBindings(QObject *object, QQmlCompiledData *cdata, const QList<const QV4::CompiledData::Binding *> &bindings)
+void QQmlConnectionsParser::applyBindings(QObject *object, QV4::CompiledData::CompilationUnit *compilationUnit, const QList<const QV4::CompiledData::Binding *> &bindings)
 {
     QQmlConnectionsPrivate *p =
         static_cast<QQmlConnectionsPrivate *>(QObjectPrivate::get(object));
-    p->cdata = cdata;
+    p->compilationUnit = compilationUnit;
     p->bindings = bindings;
 }
 
@@ -278,8 +277,8 @@ void QQmlConnections::connectSignals()
     QQmlData *ddata = QQmlData::get(this);
     QQmlContextData *ctxtdata = ddata ? ddata->outerContext : 0;
 
-    const QV4::CompiledData::Unit *qmlUnit = d->cdata->compilationUnit->data;
-    foreach (const QV4::CompiledData::Binding *binding, d->bindings) {
+    const QV4::CompiledData::Unit *qmlUnit = d->compilationUnit->data;
+    for (const QV4::CompiledData::Binding *binding : qAsConst(d->bindings)) {
         Q_ASSERT(binding->type == QV4::CompiledData::Binding::Type_Script);
         QString propName = qmlUnit->stringAt(binding->propertyNameIndex);
 
@@ -288,15 +287,16 @@ void QQmlConnections::connectSignals()
             int signalIndex = QQmlPropertyPrivate::get(prop)->signalIndex();
             QQmlBoundSignal *signal =
                 new QQmlBoundSignal(target, signalIndex, this, qmlEngine(this));
+            signal->setEnabled(d->enabled);
 
             QQmlBoundSignalExpression *expression = ctxtdata ?
                 new QQmlBoundSignalExpression(target, signalIndex,
-                                              ctxtdata, this, d->cdata->compilationUnit->runtimeFunctions[binding->value.compiledScriptIndex]) : 0;
+                                              ctxtdata, this, d->compilationUnit->runtimeFunctions[binding->value.compiledScriptIndex]) : 0;
             signal->takeExpression(expression);
             d->boundsignals += signal;
         } else {
             if (!d->ignoreUnknownSignals)
-                qmlInfo(this) << tr("Cannot assign to non-existent property \"%1\"").arg(propName);
+                qmlWarning(this) << tr("Cannot assign to non-existent property \"%1\"").arg(propName);
         }
     }
 }
@@ -315,3 +315,5 @@ void QQmlConnections::componentComplete()
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qqmlconnections_p.cpp"

@@ -42,6 +42,7 @@
 #include <QtCore/qcoreapplication.h>
 #include <QtCore/private/qnumeric_p.h>
 #include <QtCore/qmath.h>
+#include <QtQml/qqmlinfo.h>
 #include <limits>
 
 /*!
@@ -678,7 +679,7 @@ QQuickLayout *QQuickLayoutAttached::parentLayout() const
         parentItem = parentItem->parentItem();
         return qobject_cast<QQuickLayout *>(parentItem);
     } else {
-        qWarning("Layout must be attached to Item elements");
+        qmlWarning(parent()) << "Layout must be attached to Item elements";
     }
     return 0;
 }
@@ -695,13 +696,20 @@ QQuickLayout::QQuickLayout(QQuickLayoutPrivate &dd, QQuickItem *parent)
 {
 }
 
+static QQuickItemPrivate::ChangeTypes changeTypes =
+    QQuickItemPrivate::SiblingOrder
+    | QQuickItemPrivate::ImplicitWidth
+    | QQuickItemPrivate::ImplicitHeight
+    | QQuickItemPrivate::Destroyed
+    | QQuickItemPrivate::Visibility;
+
 QQuickLayout::~QQuickLayout()
 {
     d_func()->m_isReady = false;
 
     const auto childItems = d_func()->childItems;
     for (QQuickItem *child : childItems)
-        QQuickItemPrivate::get(child)->removeItemChangeListener(this, QQuickItemPrivate::SiblingOrder);
+        QQuickItemPrivate::get(child)->removeItemChangeListener(this, changeTypes);
 }
 
 QQuickLayoutAttached *QQuickLayout::qmlAttachedProperties(QObject *object)
@@ -758,28 +766,21 @@ bool QQuickLayout::shouldIgnoreItem(QQuickItem *child, QQuickLayoutAttached *&in
         d->m_ignoredItems << child;
     return ignoreItem;
 }
-struct QQuickItemPublic : public QQuickItem {
-    static bool isCompleted(QQuickItem *item) {
-        return static_cast<QQuickItemPublic*>(item)->isComponentComplete();
-    }
-};
 
 void QQuickLayout::itemChange(ItemChange change, const ItemChangeData &value)
 {
     if (change == ItemChildAddedChange) {
+        Q_D(QQuickLayout);
         QQuickItem *item = value.item;
-        QObject::connect(item, SIGNAL(implicitWidthChanged()), this, SLOT(invalidateSenderItem()));
-        QObject::connect(item, SIGNAL(implicitHeightChanged()), this, SLOT(invalidateSenderItem()));
-        QObject::connect(item, SIGNAL(baselineOffsetChanged(qreal)), this, SLOT(invalidateSenderItem()));
-        QQuickItemPrivate::get(item)->addItemChangeListener(this, QQuickItemPrivate::SiblingOrder);
+        qmlobject_connect(item, QQuickItem, SIGNAL(baselineOffsetChanged(qreal)), this, QQuickLayout, SLOT(invalidateSenderItem()));
+        QQuickItemPrivate::get(item)->addItemChangeListener(this, changeTypes);
+        d->m_hasItemChangeListeners = true;
         if (isReady())
             updateLayoutItems();
     } else if (change == ItemChildRemovedChange) {
         QQuickItem *item = value.item;
-        QObject::disconnect(item, SIGNAL(implicitWidthChanged()), this, SLOT(invalidateSenderItem()));
-        QObject::disconnect(item, SIGNAL(implicitHeightChanged()), this, SLOT(invalidateSenderItem()));
-        QObject::disconnect(item, SIGNAL(baselineOffsetChanged(qreal)), this, SLOT(invalidateSenderItem()));
-        QQuickItemPrivate::get(item)->removeItemChangeListener(this, QQuickItemPrivate::SiblingOrder);
+        qmlobject_disconnect(item, QQuickItem, SIGNAL(baselineOffsetChanged(qreal)), this, QQuickLayout, SLOT(invalidateSenderItem()));
+        QQuickItemPrivate::get(item)->removeItemChangeListener(this, changeTypes);
         if (isReady())
             updateLayoutItems();
     }
@@ -811,10 +812,58 @@ bool QQuickLayout::isReady() const
     return d_func()->m_isReady;
 }
 
+/*!
+ * \brief QQuickLayout::deactivateRecur
+ * \internal
+ *
+ * Call this from the dtor of the top-level layout.
+ * Otherwise, it will trigger lots of unneeded item change listeners (itemVisibleChanged()) for all its descendants
+ * that will have its impact thrown away.
+ */
+void QQuickLayout::deactivateRecur()
+{
+    if (d_func()->m_hasItemChangeListeners) {
+        for (int i = 0; i < itemCount(); ++i) {
+            QQuickItem *item = itemAt(i);
+            // When deleting a layout with children, there is no reason for the children to inform the layout that their
+            // e.g. visibility got changed. The layout already knows that all its children will eventually become invisible, so
+            // we therefore remove its change listener.
+            QQuickItemPrivate::get(item)->removeItemChangeListener(this, changeTypes);
+            if (QQuickLayout *layout = qobject_cast<QQuickLayout*>(item))
+                layout->deactivateRecur();
+        }
+        d_func()->m_hasItemChangeListeners = false;
+    }
+}
+
 void QQuickLayout::itemSiblingOrderChanged(QQuickItem *item)
 {
     Q_UNUSED(item);
     updateLayoutItems();
+}
+
+void QQuickLayout::itemImplicitWidthChanged(QQuickItem *item)
+{
+    if (!isReady() || item->signalsBlocked())
+        return;
+    invalidate(item);
+}
+
+void QQuickLayout::itemImplicitHeightChanged(QQuickItem *item)
+{
+    if (!isReady() || item->signalsBlocked())
+        return;
+    invalidate(item);
+}
+
+void QQuickLayout::itemDestroyed(QQuickItem *item)
+{
+    Q_UNUSED(item);
+}
+
+void QQuickLayout::itemVisibilityChanged(QQuickItem *item)
+{
+    Q_UNUSED(item);
 }
 
 void QQuickLayout::rearrange(const QSizeF &/*size*/)

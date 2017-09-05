@@ -47,7 +47,6 @@
 #include <QtCore/QLibraryInfo>
 #include <QtCore/private/qabstractanimation_p.h>
 
-#include <QtGui/QOpenGLContext>
 #include <QtGui/QOffscreenSurface>
 #include <QtGui/private/qguiapplication_p.h>
 #include <qpa/qplatformintegration.h>
@@ -59,7 +58,13 @@
 #include <QtQuick/private/qsgcontext_p.h>
 #include <private/qquickprofiler_p.h>
 
-#include <private/qquickshadereffectnode_p.h>
+#if QT_CONFIG(opengl)
+# include <QtGui/QOpenGLContext>
+# include <private/qsgdefaultrendercontext_p.h>
+#if QT_CONFIG(quick_shadereffect)
+# include <private/qquickopenglshadereffectnode_p.h>
+#endif
+#endif
 
 #ifdef Q_OS_WIN
 #  include <QtCore/qt_windows.h>
@@ -67,9 +72,9 @@
 
 QT_BEGIN_NAMESPACE
 
-
+extern bool qsg_useConsistentTiming();
 extern Q_GUI_EXPORT QImage qt_gl_read_framebuffer(const QSize &size, bool alpha_format, bool include_alpha);
-
+#if QT_CONFIG(opengl)
 /*!
     expectations for this manager to work:
      - one opengl context to render multiple windows
@@ -81,7 +86,7 @@ extern Q_GUI_EXPORT QImage qt_gl_read_framebuffer(const QSize &size, bool alpha_
 
 DEFINE_BOOL_CONFIG_OPTION(qmlNoThreadedRenderer, QML_BAD_GUI_RENDER_LOOP);
 DEFINE_BOOL_CONFIG_OPTION(qmlForceThreadedRenderer, QML_FORCE_THREADED_RENDERER); // Might trigger graphics driver threading bugs, use at own risk
-
+#endif
 QSGRenderLoop *QSGRenderLoop::s_instance = 0;
 
 QSGRenderLoop::~QSGRenderLoop()
@@ -97,7 +102,7 @@ void QSGRenderLoop::cleanup()
 {
     if (!s_instance)
         return;
-    foreach (QQuickWindow *w, s_instance->windows()) {
+    for (QQuickWindow *w : s_instance->windows()) {
         QQuickWindowPrivate *wd = QQuickWindowPrivate::get(w);
         if (wd->windowManager == s_instance) {
            s_instance->windowDestroyed(w);
@@ -113,17 +118,20 @@ void QSGRenderLoop::cleanup()
  */
 void QSGRenderLoop::postJob(QQuickWindow *window, QRunnable *job)
 {
-    Q_ASSERT(window);
     Q_ASSERT(job);
-
+#if QT_CONFIG(opengl)
+    Q_ASSERT(window);
     if (window->openglContext()) {
         window->openglContext()->makeCurrent(window);
         job->run();
     }
-
+#else
+    Q_UNUSED(window)
+    job->run();
+#endif
     delete job;
 }
-
+#if QT_CONFIG(opengl)
 class QSGGuiThreadRenderLoop : public QSGRenderLoop
 {
     Q_OBJECT
@@ -164,7 +172,7 @@ public:
 
     QImage grabContent;
 };
-
+#endif
 QSGRenderLoop *QSGRenderLoop::instance()
 {
     if (!s_instance) {
@@ -174,7 +182,7 @@ QSGRenderLoop *QSGRenderLoop::instance()
             const_cast<QLoggingCategory &>(QSG_LOG_INFO()).setEnabled(QtDebugMsg, true);
 
         s_instance = QSGContext::createWindowManager();
-
+#if QT_CONFIG(opengl)
         if (!s_instance) {
 
             enum RenderLoopType {
@@ -203,11 +211,11 @@ QSGRenderLoop *QSGRenderLoop::instance()
 
             if (Q_UNLIKELY(qEnvironmentVariableIsSet("QSG_RENDER_LOOP"))) {
                 const QByteArray loopName = qgetenv("QSG_RENDER_LOOP");
-                if (loopName == QByteArrayLiteral("windows"))
+                if (loopName == "windows")
                     loopType = WindowsRenderLoop;
-                else if (loopName == QByteArrayLiteral("basic"))
+                else if (loopName == "basic")
                     loopType = BasicRenderLoop;
-                else if (loopName == QByteArrayLiteral("threaded"))
+                else if (loopName == "threaded")
                     loopType = ThreadedRenderLoop;
             }
 
@@ -226,9 +234,10 @@ QSGRenderLoop *QSGRenderLoop::instance()
                 break;
             }
         }
-
+#endif
         qAddPostRoutine(QSGRenderLoop::cleanup);
     }
+
     return s_instance;
 }
 
@@ -253,20 +262,24 @@ void QSGRenderLoop::handleContextCreationFailure(QQuickWindow *window,
     const bool signalEmitted =
         QQuickWindowPrivate::get(window)->emitError(QQuickWindow::ContextNotAvailable,
                                                     translatedMessage);
-#if defined(Q_OS_WIN) && !defined(Q_OS_WINCE) && !defined(Q_OS_WINRT)
+#if defined(Q_OS_WIN) && !defined(Q_OS_WINRT)
     if (!signalEmitted && !QLibraryInfo::isDebugBuild() && !GetConsoleWindow()) {
         MessageBox(0, (LPCTSTR) translatedMessage.utf16(),
                    (LPCTSTR)(QCoreApplication::applicationName().utf16()),
                    MB_OK | MB_ICONERROR);
     }
-#endif // Q_OS_WIN && !Q_OS_WINCE && !Q_OS_WINRT
+#endif // Q_OS_WIN && !Q_OS_WINRT
     if (!signalEmitted)
         qFatal("%s", qPrintable(untranslatedMessage));
 }
-
+#if QT_CONFIG(opengl)
 QSGGuiThreadRenderLoop::QSGGuiThreadRenderLoop()
     : gl(0)
 {
+    if (qsg_useConsistentTiming()) {
+        QUnifiedTimer::instance(true)->setConsistentTiming(true);
+        qCDebug(QSG_LOG_INFO, "using fixed animation steps");
+    }
     sg = QSGContext::createDefaultContext();
     rc = sg->createRenderContext();
 }
@@ -315,7 +328,9 @@ void QSGGuiThreadRenderLoop::windowDestroyed(QQuickWindow *window)
     if (Q_UNLIKELY(!current))
         qCDebug(QSG_LOG_RENDERLOOP) << "cleanup without an OpenGL context";
 
-    QQuickShaderEffectMaterial::cleanupMaterialCache();
+#if QT_CONFIG(quick_shadereffect) && QT_CONFIG(opengl)
+    QQuickOpenGLShaderEffectMaterial::cleanupMaterialCache();
+#endif
 
     d->cleanupNodesOnShutdown();
     if (m_windows.size() == 0) {
@@ -354,8 +369,10 @@ void QSGGuiThreadRenderLoop::renderWindow(QQuickWindow *window)
             cd->fireOpenGLContextCreated(gl);
             current = gl->makeCurrent(window);
         }
-        if (current)
-            cd->context->initialize(gl);
+        if (current) {
+            auto openglRenderContext = static_cast<QSGDefaultRenderContext *>(cd->context);
+            openglRenderContext->initialize(gl);
+        }
     } else {
         current = gl->makeCurrent(window);
     }
@@ -363,11 +380,21 @@ void QSGGuiThreadRenderLoop::renderWindow(QQuickWindow *window)
     bool alsoSwap = data.updatePending;
     data.updatePending = false;
 
+    bool lastDirtyWindow = true;
+    auto i = m_windows.constBegin();
+    while (i != m_windows.constEnd()) {
+        if (i.value().updatePending) {
+            lastDirtyWindow = false;
+            break;
+        }
+        i++;
+    }
+
     if (!current)
         return;
 
     if (!data.grabOnly) {
-        cd->flushDelayedTouchEvent();
+        cd->flushFrameSynchronousEvents();
         // Event delivery/processing triggered the window to be deleted or stop rendering.
         if (!m_windows.contains(window))
             return;
@@ -384,25 +411,31 @@ void QSGGuiThreadRenderLoop::renderWindow(QQuickWindow *window)
     if (profileFrames)
         polishTime = renderTimer.nsecsElapsed();
     Q_QUICK_SG_PROFILE_SWITCH(QQuickProfiler::SceneGraphPolishFrame,
-                              QQuickProfiler::SceneGraphRenderLoopFrame);
+                              QQuickProfiler::SceneGraphRenderLoopFrame,
+                              QQuickProfiler::SceneGraphPolishPolish);
 
     emit window->afterAnimating();
 
     cd->syncSceneGraph();
+    if (lastDirtyWindow)
+        rc->endSync();
 
     if (profileFrames)
         syncTime = renderTimer.nsecsElapsed();
-    Q_QUICK_SG_PROFILE_RECORD(QQuickProfiler::SceneGraphRenderLoopFrame);
+    Q_QUICK_SG_PROFILE_RECORD(QQuickProfiler::SceneGraphRenderLoopFrame,
+                              QQuickProfiler::SceneGraphRenderLoopSync);
 
     cd->renderSceneGraph(window->size());
 
     if (profileFrames)
         renderTime = renderTimer.nsecsElapsed();
-    Q_QUICK_SG_PROFILE_RECORD(QQuickProfiler::SceneGraphRenderLoopFrame);
+    Q_QUICK_SG_PROFILE_RECORD(QQuickProfiler::SceneGraphRenderLoopFrame,
+                              QQuickProfiler::SceneGraphRenderLoopRender);
 
     if (data.grabOnly) {
         bool alpha = window->format().alphaBufferSize() > 0 && window->color().alpha() != 255;
         grabContent = qt_gl_read_framebuffer(window->size() * window->effectiveDevicePixelRatio(), alpha, alpha);
+        grabContent.setDevicePixelRatio(window->effectiveDevicePixelRatio());
         data.grabOnly = false;
     }
 
@@ -415,7 +448,8 @@ void QSGGuiThreadRenderLoop::renderWindow(QQuickWindow *window)
     qint64 swapTime = 0;
     if (profileFrames)
         swapTime = renderTimer.nsecsElapsed();
-    Q_QUICK_SG_PROFILE_END(QQuickProfiler::SceneGraphRenderLoopFrame);
+    Q_QUICK_SG_PROFILE_END(QQuickProfiler::SceneGraphRenderLoopFrame,
+                           QQuickProfiler::SceneGraphRenderLoopSwap);
 
     if (QSG_LOG_TIME_RENDERLOOP().isDebugEnabled()) {
         static QTime lastFrameTime = QTime::currentTime();
@@ -476,6 +510,9 @@ void QSGGuiThreadRenderLoop::handleUpdateRequest(QQuickWindow *window)
     renderWindow(window);
 }
 
+#endif
+
 #include "qsgrenderloop.moc"
+#include "moc_qsgrenderloop_p.cpp"
 
 QT_END_NAMESPACE

@@ -118,7 +118,7 @@ public:
     Managed *asManaged() const {
         if (!val)
             return 0;
-        return val->as<Managed>();
+        return val->managed();
     }
     template<typename T>
     T *as() const {
@@ -154,9 +154,26 @@ public:
     WeakValue &operator=(const WeakValue &other);
     ~WeakValue();
 
-    void set(ExecutionEngine *engine, const Value &value);
-    void set(ExecutionEngine *engine, ReturnedValue value);
-    void set(ExecutionEngine *engine, Heap::Base *obj);
+    void set(ExecutionEngine *engine, const Value &value)
+    {
+        if (!val)
+            allocVal(engine);
+        *val = value;
+    }
+
+    void set(ExecutionEngine *engine, ReturnedValue value)
+    {
+        if (!val)
+            allocVal(engine);
+        *val = value;
+    }
+
+    void set(ExecutionEngine *engine, Heap::Base *obj)
+    {
+        if (!val)
+            allocVal(engine);
+        *val = obj;
+    }
 
     ReturnedValue value() const {
         return (val ? val->asReturnedValue() : Encode::undefined());
@@ -167,7 +184,7 @@ public:
     Managed *asManaged() const {
         if (!val)
             return 0;
-        return val->as<Managed>();
+        return val->managed();
     }
     template <typename T>
     T *as() const {
@@ -192,6 +209,8 @@ private:
     Value *val;
 
 private:
+    Q_NEVER_INLINE void allocVal(ExecutionEngine *engine);
+
     void free();
 };
 

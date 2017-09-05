@@ -101,7 +101,9 @@ private:
 private Q_SLOTS:
     void doUpdate();
     void requestFinished() Q_DECL_OVERRIDE;
+#if QT_CONFIG(qml_network)
     void sciRequestFinished();
+#endif
 
 private:
     Q_DISABLE_COPY(QQuickBorderImage)

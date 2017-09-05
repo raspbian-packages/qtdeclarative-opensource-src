@@ -49,6 +49,7 @@
 #include <private/qquicksprite_p.h>
 #include <private/qquickspriteengine_p.h>
 #include <QOpenGLFunctions>
+#include <QSGRendererInterface>
 #include <QtQuick/private/qsgshadersourcebuilder_p.h>
 #include <QtQuick/private/qsgtexture_p.h>
 #include <private/qqmlglobal_p.h>
@@ -56,12 +57,6 @@
 #include <cmath>
 
 QT_BEGIN_NAMESPACE
-
-#if defined(Q_OS_BLACKBERRY)
-#define SHADER_PLATFORM_DEFINES "Q_OS_BLACKBERRY\n"
-#else
-#define SHADER_PLATFORM_DEFINES
-#endif
 
 //TODO: Make it larger on desktop? Requires fixing up shader code with the same define
 #define UNIFORM_ARRAY_SIZE 64
@@ -101,7 +96,6 @@ public:
         const bool isES = QOpenGLContext::currentContext()->isOpenGLES();
 
         builder.appendSourceFile(QStringLiteral(":/particles/shaders/imageparticle.vert"));
-        builder.addDefinition(QByteArray(SHADER_PLATFORM_DEFINES));
         builder.addDefinition(QByteArrayLiteral("TABLE"));
         builder.addDefinition(QByteArrayLiteral("DEFORM"));
         builder.addDefinition(QByteArrayLiteral("COLOR"));
@@ -112,7 +106,6 @@ public:
         builder.clear();
 
         builder.appendSourceFile(QStringLiteral(":/particles/shaders/imageparticle.frag"));
-        builder.addDefinition(QByteArray(SHADER_PLATFORM_DEFINES));
         builder.addDefinition(QByteArrayLiteral("TABLE"));
         builder.addDefinition(QByteArrayLiteral("DEFORM"));
         builder.addDefinition(QByteArrayLiteral("COLOR"));
@@ -179,7 +172,6 @@ public:
         const bool isES = QOpenGLContext::currentContext()->isOpenGLES();
 
         builder.appendSourceFile(QStringLiteral(":/particles/shaders/imageparticle.vert"));
-        builder.addDefinition(QByteArray(SHADER_PLATFORM_DEFINES));
         builder.addDefinition(QByteArrayLiteral("DEFORM"));
         builder.addDefinition(QByteArrayLiteral("COLOR"));
         if (isES)
@@ -189,7 +181,6 @@ public:
         builder.clear();
 
         builder.appendSourceFile(QStringLiteral(":/particles/shaders/imageparticle.frag"));
-        builder.addDefinition(QByteArray(SHADER_PLATFORM_DEFINES));
         builder.addDefinition(QByteArrayLiteral("DEFORM"));
         builder.addDefinition(QByteArrayLiteral("COLOR"));
         if (isES)
@@ -244,7 +235,6 @@ public:
         const bool isES = QOpenGLContext::currentContext()->isOpenGLES();
 
         builder.appendSourceFile(QStringLiteral(":/particles/shaders/imageparticle.vert"));
-        builder.addDefinition(QByteArray(SHADER_PLATFORM_DEFINES));
         builder.addDefinition(QByteArrayLiteral("SPRITE"));
         builder.addDefinition(QByteArrayLiteral("TABLE"));
         builder.addDefinition(QByteArrayLiteral("DEFORM"));
@@ -256,7 +246,6 @@ public:
         builder.clear();
 
         builder.appendSourceFile(QStringLiteral(":/particles/shaders/imageparticle.frag"));
-        builder.addDefinition(QByteArray(SHADER_PLATFORM_DEFINES));
         builder.addDefinition(QByteArrayLiteral("SPRITE"));
         builder.addDefinition(QByteArrayLiteral("TABLE"));
         builder.addDefinition(QByteArrayLiteral("DEFORM"));
@@ -326,7 +315,6 @@ public:
         const bool isES = QOpenGLContext::currentContext()->isOpenGLES();
 
         builder.appendSourceFile(QStringLiteral(":/particles/shaders/imageparticle.vert"));
-        builder.addDefinition(QByteArray(SHADER_PLATFORM_DEFINES));
         builder.addDefinition(QByteArrayLiteral("COLOR"));
         if (isES)
             builder.removeVersion();
@@ -335,7 +323,6 @@ public:
         builder.clear();
 
         builder.appendSourceFile(QStringLiteral(":/particles/shaders/imageparticle.frag"));
-        builder.addDefinition(QByteArray(SHADER_PLATFORM_DEFINES));
         builder.addDefinition(QByteArrayLiteral("COLOR"));
         if (isES)
             builder.removeVersion();
@@ -404,7 +391,6 @@ public:
         const bool isES = QOpenGLContext::currentContext()->isOpenGLES();
 
         builder.appendSourceFile(QStringLiteral(":/particles/shaders/imageparticle.vert"));
-        builder.addDefinition(QByteArray(SHADER_PLATFORM_DEFINES));
         if (isES)
             builder.removeVersion();
 
@@ -412,7 +398,6 @@ public:
         builder.clear();
 
         builder.appendSourceFile(QStringLiteral(":/particles/shaders/imageparticle.frag"));
-        builder.addDefinition(QByteArray(SHADER_PLATFORM_DEFINES));
         if (isES)
             builder.removeVersion();
 
@@ -509,6 +494,8 @@ void fillUniformArrayFromImage(float* array, const QImage& img, int size)
     So if you explicitly set an attribute affecting color, such as redVariation, and then reset it (by setting redVariation
     to undefined), all color data will be reset and it will begin to have an implicit value of any shared color from
     other ImageParticles.
+
+    \note The maximum number of image particles is limited to 16383.
 */
 /*!
     \qmlproperty url QtQuick.Particles::ImageParticle::source
@@ -1239,8 +1226,9 @@ void QQuickImageParticle::finishBuildParticleNodes(QSGNode** node)
     if (!QOpenGLContext::currentContext())
         return;
 
-    if (QOpenGLContext::currentContext()->isOpenGLES() && m_count * 4 > 0xffff) {
-        printf("ImageParticle: Too many particles - maximum 16,000 per ImageParticle.\n");//ES 2 vertex count limit is ushort
+    if (m_count * 4 > 0xffff) {
+        // Index data is ushort.
+        qmlInfo(this) << "ImageParticle: Too many particles - maximum 16383 per ImageParticle";
         return;
     }
 
@@ -1291,14 +1279,16 @@ void QQuickImageParticle::finishBuildParticleNodes(QSGNode** node)
     // OS X 10.8.3 introduced a bug in the AMD drivers, for at least the 2011 macbook pros,
     // causing point sprites who read gl_PointCoord in the frag shader to come out as
     // green-red blobs.
-    if (perfLevel < Deformable && strstr((char *) glGetString(GL_VENDOR), "ATI")) {
+    const GLubyte *glVendor = QOpenGLContext::currentContext()->functions()->glGetString(GL_VENDOR);
+    if (perfLevel < Deformable && glVendor && strstr((char *) glVendor, "ATI")) {
         perfLevel = Deformable;
     }
 #endif
 
 #ifdef Q_OS_LINUX
     // Nouveau drivers can potentially freeze a machine entirely when taking the point-sprite path.
-    if (perfLevel < Deformable && strstr((const char *) glGetString(GL_VENDOR), "nouveau"))
+    const GLubyte *glVendor = QOpenGLContext::currentContext()->functions()->glGetString(GL_VENDOR);
+    if (perfLevel < Deformable && glVendor && strstr((const char *) glVendor, "nouveau"))
         perfLevel = Deformable;
 #endif
 
@@ -1333,6 +1323,7 @@ void QQuickImageParticle::finishBuildParticleNodes(QSGNode** node)
         getState<ImageMaterialData>(m_material)->animSheetSize = QSizeF(image.size());
         if (m_spriteEngine)
             m_spriteEngine->setCount(m_count);
+        Q_FALLTHROUGH();
     case Tabled:
         if (!m_material)
             m_material = TabledMaterial::createMaterial();
@@ -1341,21 +1332,21 @@ void QQuickImageParticle::finishBuildParticleNodes(QSGNode** node)
             if (m_colorTable->pix.isReady())
                 colortable = m_colorTable->pix.image();
             else
-                qmlInfo(this) << "Error loading color table: " << m_colorTable->pix.error();
+                qmlWarning(this) << "Error loading color table: " << m_colorTable->pix.error();
         }
 
         if (m_sizeTable) {
             if (m_sizeTable->pix.isReady())
                 sizetable = m_sizeTable->pix.image();
             else
-                qmlInfo(this) << "Error loading size table: " << m_sizeTable->pix.error();
+                qmlWarning(this) << "Error loading size table: " << m_sizeTable->pix.error();
         }
 
         if (m_opacityTable) {
             if (m_opacityTable->pix.isReady())
                 opacitytable = m_opacityTable->pix.image();
             else
-                qmlInfo(this) << "Error loading opacity table: " << m_opacityTable->pix.error();
+                qmlWarning(this) << "Error loading opacity table: " << m_opacityTable->pix.error();
         }
 
         if (colortable.isNull()){//###Goes through image just for this
@@ -1365,19 +1356,22 @@ void QQuickImageParticle::finishBuildParticleNodes(QSGNode** node)
         getState<ImageMaterialData>(m_material)->colorTable = QSGPlainTexture::fromImage(colortable);
         fillUniformArrayFromImage(getState<ImageMaterialData>(m_material)->sizeTable, sizetable, UNIFORM_ARRAY_SIZE);
         fillUniformArrayFromImage(getState<ImageMaterialData>(m_material)->opacityTable, opacitytable, UNIFORM_ARRAY_SIZE);
+        Q_FALLTHROUGH();
     case Deformable:
         if (!m_material)
             m_material = DeformableMaterial::createMaterial();
+        Q_FALLTHROUGH();
     case Colored:
         if (!m_material)
             m_material = ColoredMaterial::createMaterial();
+        Q_FALLTHROUGH();
     default://Also Simple
         if (!m_material)
             m_material = SimpleMaterial::createMaterial();
         if (!imageLoaded) {
             if (!m_image || !m_image->pix.isReady()) {
                 if (m_image)
-                    qmlInfo(this) << m_image->pix.error();
+                    qmlWarning(this) << m_image->pix.error();
                 delete m_material;
                 return;
             }
@@ -1469,8 +1463,17 @@ void QQuickImageParticle::finishBuildParticleNodes(QSGNode** node)
     update();
 }
 
+static inline bool isOpenGL(QSGRenderContext *rc)
+{
+    QSGRendererInterface *rif = rc->sceneGraphContext()->rendererInterface(rc);
+    return !rif || rif->graphicsApi() == QSGRendererInterface::OpenGL;
+}
+
 QSGNode *QQuickImageParticle::updatePaintNode(QSGNode *node, UpdatePaintNodeData *)
 {
+    if (!node && !isOpenGL(QQuickItemPrivate::get(this)->sceneGraphRenderContext()))
+        return 0;
+
     if (m_pleaseReset){
         if (node)
             delete node;
@@ -1531,6 +1534,7 @@ void QQuickImageParticle::prepareNextFrame(QSGNode **node)
         if (m_spriteEngine)
             m_spriteEngine->updateSprites(timeStamp);//fires signals if anim changed
         spritesUpdate(time);
+        Q_FALLTHROUGH();
     case Tabled:
     case Deformable:
     case Colored:
@@ -1692,6 +1696,7 @@ void QQuickImageParticle::initialize(int gIdx, int pIdx)
                 writeTo->animWidth = getState<ImageMaterialData>(m_material)->animSheetSize.width();
                 writeTo->animHeight = getState<ImageMaterialData>(m_material)->animSheetSize.height();
             }
+            Q_FALLTHROUGH();
         case Tabled:
         case Deformable:
             //Initial Rotation
@@ -1738,6 +1743,7 @@ void QQuickImageParticle::initialize(int gIdx, int pIdx)
                     getShadowDatum(datum)->autoRotate = autoRotate;
                 }
             }
+            Q_FALLTHROUGH();
         case Colored:
             //Color initialization
             // Particle color
@@ -1921,3 +1927,5 @@ void QQuickImageParticle::commit(int gIdx, int pIdx)
 
 
 QT_END_NAMESPACE
+
+#include "moc_qquickimageparticle_p.cpp"

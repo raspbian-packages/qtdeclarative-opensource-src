@@ -64,7 +64,7 @@ public:
     bool *m_wasDeleted;
 
 protected:
-    void finished() Q_DECL_OVERRIDE;
+    void finished() override;
 };
 
 
@@ -246,7 +246,7 @@ void QQuickItemViewTransitioner::resetTargetLists()
     moveTransitionTargets.clear();
 }
 
-QQuickTransition *QQuickItemViewTransitioner::transitionObject(QQuickItemViewTransitioner::TransitionType type, bool asTarget)
+QQuickTransition *QQuickItemViewTransitioner::transitionObject(QQuickItemViewTransitioner::TransitionType type, bool asTarget) const
 {
     if (type == QQuickItemViewTransitioner::NoTransition)
         return 0;
@@ -942,3 +942,5 @@ QQuickViewTransitionAttached *QQuickViewTransitionAttached::qmlAttachedPropertie
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qquickitemviewtransition_p.cpp"

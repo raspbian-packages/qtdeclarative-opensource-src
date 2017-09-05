@@ -6,27 +6,28 @@ Uploaders: Sune Vuorela <debian@pusling.com>,
            Pino Toscano <pino@debian.org>,
            Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>,
            Timo Jyrinki <timo@debian.org>,
-           Dmitry Shachnev <mitya57@debian.org>
-Build-Depends: debhelper (>= 9.20160114~),
-               dpkg-dev (>= 1.16.1),
+           Dmitry Shachnev <mitya57@debian.org>,
+           Simon Quigley <tsimonq2@ubuntu.com>
+Build-Depends: debhelper (>= 10),
+               dpkg-dev (>= 1.17.14),
                libgl1-mesa-dri,
-               libqt5opengl5-dev (>= 5.7.1+dfsg~),
-               libqt5xmlpatterns5-dev (>= 5.7.1~20161021~),
+               libqt5opengl5-dev (>= 5.9.1+dfsg~),
+               libqt5xmlpatterns5-dev (>= 5.9.1~),
                pkg-kde-tools (>= 0.15.17~),
                python,
-               qtbase5-private-dev (>= 5.7.1+dfsg~),
+               qtbase5-private-dev (>= 5.9.1+dfsg~),
                xauth,
                xvfb
-Build-Depends-Indep: libqt5sql5-sqlite (>= 5.7.1~20161021+dfsg~),
-                     qtbase5-doc-html (>= 5.7.1~20161021+dfsg~),
-                     qttools5-dev-tools (>= 5.7.1~20161021~)
-Standards-Version: 3.9.8
+Build-Depends-Indep: libqt5sql5-sqlite (>= 5.9.1+dfsg~) <!nodoc>,
+                     qtbase5-doc-html (>= 5.9.1+dfsg~) <!nodoc>,
+                     qttools5-dev-tools (>= 5.9.1~) <!nodoc>
+Standards-Version: 4.0.0
 Homepage: http://qt-project.org/
 Vcs-Git: https://anonscm.debian.org/git/pkg-kde/qt/qtdeclarative.git
 Vcs-Browser: https://anonscm.debian.org/cgit/pkg-kde/qt/qtdeclarative.git
 
 Package: libqt5qml5
-Provides: qtdeclarative-abi-5-7-0
+Provides: qtdeclarative-abi-5-9-1
 Architecture: any
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
@@ -135,6 +136,17 @@ Description: Qt 5 localstorage QML module
  is its rich set of widgets that provide standard GUI functionality.
  .
  This is a singleton type for reading and writing to SQLite databases.
+
+Package: qml-module-qt-labs-sharedimage
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: Qt 5 SharedImage QML module
+ Qt is a cross-platform C++ application framework. Qt's primary feature
+ is its rich set of widgets that provide standard GUI functionality.
+ .
+ This package contains the Shared Image plugin.
 
 Package: qml-module-qtqml-models2
 Architecture: any
@@ -317,6 +329,7 @@ Description: Qt 5 declarative examples
  This package contains Qt 5 declarative examples.
 
 Package: qtdeclarative5-doc
+Build-Profiles: <!nodoc>
 Priority: extra
 Architecture: all
 Section: doc
@@ -328,6 +341,7 @@ Description: Qt 5 declarative documentation
  This package contains the documentation for the Qt 5 declarative libraries.
 
 Package: qtdeclarative5-doc-html
+Build-Profiles: <!nodoc>
 Priority: extra
 Architecture: all
 Section: doc

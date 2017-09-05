@@ -44,6 +44,7 @@
 
 #include <qcoreapplication.h>
 #include <qfont.h>
+#include <qfontmetrics.h>
 #include <qevent.h>
 #include <qdebug.h>
 #include <qdrag.h>
@@ -57,6 +58,7 @@
 #include "qtextlist.h"
 #include "qtextdocumentwriter.h"
 #include "private/qtextcursor_p.h"
+#include <QtCore/qloggingcategory.h>
 
 #include <qtextformat.h>
 #include <qdatetime.h>
@@ -75,9 +77,7 @@
 const int textCursorWidth = 1;
 
 QT_BEGIN_NAMESPACE
-
-#ifndef QT_NO_CONTEXTMENU
-#endif
+Q_DECLARE_LOGGING_CATEGORY(DBG_HOVER_TRACE)
 
 // could go into QTextCursor...
 static QTextLine currentTextLine(const QTextCursor &cursor)
@@ -96,7 +96,7 @@ static QTextLine currentTextLine(const QTextCursor &cursor)
 
 QQuickTextControlPrivate::QQuickTextControlPrivate()
     : doc(0),
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
       preeditCursor(0),
 #endif
       interactionFlags(Qt::TextEditorInteraction),
@@ -120,7 +120,7 @@ QQuickTextControlPrivate::QQuickTextControlPrivate()
 
 bool QQuickTextControlPrivate::cursorMoveKeyEvent(QKeyEvent *e)
 {
-#ifdef QT_NO_SHORTCUT
+#if !QT_CONFIG(shortcut)
     Q_UNUSED(e);
 #endif
 
@@ -136,7 +136,7 @@ bool QQuickTextControlPrivate::cursorMoveKeyEvent(QKeyEvent *e)
 
     if (false) {
     }
-#ifndef QT_NO_SHORTCUT
+#if QT_CONFIG(shortcut)
     if (e == QKeySequence::MoveToNextChar) {
             op = QTextCursor::Right;
     }
@@ -229,7 +229,7 @@ bool QQuickTextControlPrivate::cursorMoveKeyEvent(QKeyEvent *e)
     else if (e == QKeySequence::MoveToEndOfDocument) {
             op = QTextCursor::End;
     }
-#endif // QT_NO_SHORTCUT
+#endif // shortcut
     else {
         return false;
     }
@@ -287,7 +287,7 @@ void QQuickTextControlPrivate::setContent(Qt::TextFormat format, const QString &
 {
     Q_Q(QQuickTextControl);
 
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
     cancelPreedit();
 #endif
 
@@ -323,7 +323,7 @@ void QQuickTextControlPrivate::setContent(Qt::TextFormat format, const QString &
             formatCursor.setCharFormat(charFormatForInsertion);
             formatCursor.endEditBlock();
         } else {
-#ifndef QT_NO_TEXTHTMLPARSER
+#if QT_CONFIG(texthtmlparser)
             doc->setHtml(text);
 #else
             doc->setPlainText(text);
@@ -404,7 +404,7 @@ void QQuickTextControlPrivate::selectionChanged(bool forceEmitSelectionChanged /
 {
     Q_Q(QQuickTextControl);
     if (forceEmitSelectionChanged) {
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
         if (hasFocus)
             qGuiApp->inputMethod()->update(Qt::ImCurrentSelection);
 #endif
@@ -426,7 +426,7 @@ void QQuickTextControlPrivate::selectionChanged(bool forceEmitSelectionChanged /
     lastSelectionEnd = selectionEnd;
 
     if (!forceEmitSelectionChanged) {
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
         if (hasFocus)
             qGuiApp->inputMethod()->update(Qt::ImCurrentSelection);
 #endif
@@ -440,7 +440,7 @@ void QQuickTextControlPrivate::_q_updateCurrentCharFormatAndSelection()
     selectionChanged();
 }
 
-#ifndef QT_NO_CLIPBOARD
+#if QT_CONFIG(clipboard)
 void QQuickTextControlPrivate::setClipboardSelection()
 {
     QClipboard *clipboard = QGuiApplication::clipboard();
@@ -541,7 +541,7 @@ void QQuickTextControlPrivate::extendWordwiseSelection(int suggestedNewPosition,
     }
 
     if (interactionFlags & Qt::TextSelectableByMouse) {
-#ifndef QT_NO_CLIPBOARD
+#if QT_CONFIG(clipboard)
         setClipboardSelection();
 #endif
         selectionChanged(true);
@@ -571,7 +571,7 @@ void QQuickTextControlPrivate::extendBlockwiseSelection(int suggestedNewPosition
     }
 
     if (interactionFlags & Qt::TextSelectableByMouse) {
-#ifndef QT_NO_CLIPBOARD
+#if QT_CONFIG(clipboard)
         setClipboardSelection();
 #endif
         selectionChanged(true);
@@ -608,7 +608,7 @@ void QQuickTextControl::clear()
 }
 
 QQuickTextControl::QQuickTextControl(QTextDocument *doc, QObject *parent)
-    : QObject(*new QQuickTextControlPrivate, parent)
+    : QInputControl(TextEdit, *new QQuickTextControlPrivate, parent)
 {
     Q_D(QQuickTextControl);
     Q_ASSERT(doc);
@@ -653,7 +653,7 @@ void QQuickTextControl::updateCursorRectangle(bool force)
 void QQuickTextControl::setTextCursor(const QTextCursor &cursor)
 {
     Q_D(QQuickTextControl);
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
     d->commitPreedit();
 #endif
     d->cursorIsFocusIndicator = false;
@@ -674,7 +674,7 @@ QTextCursor QQuickTextControl::textCursor() const
     return d->cursor;
 }
 
-#ifndef QT_NO_CLIPBOARD
+#if QT_CONFIG(clipboard)
 
 void QQuickTextControl::cut()
 {
@@ -756,7 +756,7 @@ void QQuickTextControl::processEvent(QEvent *e, const QMatrix &matrix)
             QHoverEvent *ev = static_cast<QHoverEvent *>(e);
             d->hoverEvent(ev, matrix.map(ev->posF()));
             break; }
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
         case QEvent::InputMethod:
             d->inputMethodEvent(static_cast<QInputMethodEvent *>(e));
             break;
@@ -769,52 +769,8 @@ void QQuickTextControl::processEvent(QEvent *e, const QMatrix &matrix)
         case QEvent::ShortcutOverride:
             if (d->interactionFlags & Qt::TextEditable) {
                 QKeyEvent* ke = static_cast<QKeyEvent *>(e);
-                if (ke->modifiers() == Qt::NoModifier
-                    || ke->modifiers() == Qt::ShiftModifier
-                    || ke->modifiers() == Qt::KeypadModifier) {
-                    if (ke->key() < Qt::Key_Escape) {
-                        ke->accept();
-                    } else {
-                        switch (ke->key()) {
-                            case Qt::Key_Return:
-                            case Qt::Key_Enter:
-                            case Qt::Key_Delete:
-                            case Qt::Key_Home:
-                            case Qt::Key_End:
-                            case Qt::Key_Backspace:
-                            case Qt::Key_Left:
-                            case Qt::Key_Right:
-                            case Qt::Key_Up:
-                            case Qt::Key_Down:
-                            case Qt::Key_Tab:
-                            ke->accept();
-                        default:
-                            break;
-                        }
-                    }
-#ifndef QT_NO_SHORTCUT
-                } else if (ke == QKeySequence::Copy
-                           || ke == QKeySequence::Paste
-                           || ke == QKeySequence::Cut
-                           || ke == QKeySequence::Redo
-                           || ke == QKeySequence::Undo
-                           || ke == QKeySequence::MoveToNextWord
-                           || ke == QKeySequence::MoveToPreviousWord
-                           || ke == QKeySequence::MoveToStartOfDocument
-                           || ke == QKeySequence::MoveToEndOfDocument
-                           || ke == QKeySequence::SelectNextWord
-                           || ke == QKeySequence::SelectPreviousWord
-                           || ke == QKeySequence::SelectStartOfLine
-                           || ke == QKeySequence::SelectEndOfLine
-                           || ke == QKeySequence::SelectStartOfBlock
-                           || ke == QKeySequence::SelectEndOfBlock
-                           || ke == QKeySequence::SelectStartOfDocument
-                           || ke == QKeySequence::SelectEndOfDocument
-                           || ke == QKeySequence::SelectAll
-                          ) {
+                if (isCommonTextEditShortcut(ke))
                     ke->accept();
-#endif
-                }
             }
             break;
         default:
@@ -870,20 +826,23 @@ void QQuickTextControlPrivate::keyPressEvent(QKeyEvent *e)
          return;
     }
 
-#ifndef QT_NO_SHORTCUT
+#if QT_CONFIG(shortcut)
     if (e == QKeySequence::SelectAll) {
             e->accept();
             q->selectAll();
+#if QT_CONFIG(clipboard)
+            setClipboardSelection();
+#endif
             return;
     }
-#ifndef QT_NO_CLIPBOARD
+#if QT_CONFIG(clipboard)
     else if (e == QKeySequence::Copy) {
             e->accept();
             q->copy();
             return;
     }
 #endif
-#endif // QT_NO_SHORTCUT
+#endif // shortcut
 
     if (interactionFlags & Qt::TextSelectableByKeyboard
         && cursorMoveKeyEvent(e))
@@ -921,7 +880,7 @@ void QQuickTextControlPrivate::keyPressEvent(QKeyEvent *e)
         }
         goto accept;
     }
-#ifndef QT_NO_SHORTCUT
+#if QT_CONFIG(shortcut)
       else if (e == QKeySequence::InsertParagraphSeparator) {
         cursor.insertBlock();
         e->accept();
@@ -934,14 +893,14 @@ void QQuickTextControlPrivate::keyPressEvent(QKeyEvent *e)
 #endif
     if (false) {
     }
-#ifndef QT_NO_SHORTCUT
+#if QT_CONFIG(shortcut)
     else if (e == QKeySequence::Undo) {
             q->undo();
     }
     else if (e == QKeySequence::Redo) {
            q->redo();
     }
-#ifndef QT_NO_CLIPBOARD
+#if QT_CONFIG(clipboard)
     else if (e == QKeySequence::Cut) {
            q->cut();
     }
@@ -972,7 +931,7 @@ void QQuickTextControlPrivate::keyPressEvent(QKeyEvent *e)
             cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
         cursor.removeSelectedText();
     }
-#endif // QT_NO_SHORTCUT
+#endif // shortcut
     else {
         goto process;
     }
@@ -980,9 +939,16 @@ void QQuickTextControlPrivate::keyPressEvent(QKeyEvent *e)
 
 process:
     {
-        QString text = e->text();
-        if (!text.isEmpty() && (text.at(0).isPrint() || text.at(0) == QLatin1Char('\t'))) {
-            cursor.insertText(text);
+        if (q->isAcceptableInput(e)) {
+            if (overwriteMode
+                // no need to call deleteChar() if we have a selection, insertText
+                // does it already
+                && !cursor.hasSelection()
+                && !cursor.atBlockEnd()) {
+                cursor.deleteChar();
+            }
+
+            cursor.insertText(e->text());
             selectionChanged();
         } else {
             e->ignore();
@@ -991,6 +957,10 @@ process:
     }
 
  accept:
+
+#if QT_CONFIG(clipboard)
+    setClipboardSelection();
+#endif
 
     e->accept();
     cursorOn = true;
@@ -1008,7 +978,7 @@ QRectF QQuickTextControlPrivate::rectForPosition(int position) const
     const QTextLayout *layout = block.layout();
     const QPointF layoutPos = q->blockBoundingRect(block).topLeft();
     int relativePos = position - block.position();
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
     if (preeditCursor != 0) {
         int preeditPos = layout->preeditAreaPosition();
         if (relativePos == preeditPos)
@@ -1024,6 +994,12 @@ QRectF QQuickTextControlPrivate::rectForPosition(int position) const
     if (line.isValid()) {
         qreal x = line.cursorToX(relativePos);
         qreal w = 0;
+        if (overwriteMode) {
+            if (relativePos < line.textLength() - line.textStart())
+                w = line.cursorToX(relativePos + 1) - x;
+            else
+                w = QFontMetrics(block.layout()->font()).width(QLatin1Char(' ')); // in sync with QTextLine::draw()
+        }
         r = QRectF(layoutPos.x() + x, layoutPos.y() + line.y(), textCursorWidth + w, line.height());
     } else {
         r = QRectF(layoutPos.x(), layoutPos.y(), textCursorWidth, 10); // #### correct height
@@ -1066,7 +1042,7 @@ void QQuickTextControlPrivate::mousePressEvent(QMouseEvent *e, const QPointF &po
     const QTextCursor oldSelection = cursor;
     const int oldCursorPos = cursor.position();
 
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
     commitPreedit();
 #endif
 
@@ -1140,7 +1116,7 @@ void QQuickTextControlPrivate::mouseMoveEvent(QMouseEvent *e, const QPointF &mou
 
         int newCursorPos = q->hitTest(mousePos, Qt::FuzzyHit);
 
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
         if (isPreediting()) {
             // note: oldCursorPos not including preedit
             int selectionStartPos = q->hitTest(mousePressPos, Qt::FuzzyHit);
@@ -1166,7 +1142,7 @@ void QQuickTextControlPrivate::mouseMoveEvent(QMouseEvent *e, const QPointF &mou
             extendBlockwiseSelection(newCursorPos);
         else if (selectedWordOnDoubleClick.hasSelection())
             extendWordwiseSelection(newCursorPos, mouseX);
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
         else if (!isPreediting())
             setCursorPosition(newCursorPos, QTextCursor::KeepAnchor);
 #endif
@@ -1177,7 +1153,7 @@ void QQuickTextControlPrivate::mouseMoveEvent(QMouseEvent *e, const QPointF &mou
                 q->updateCursorRectangle(true);
             }
             _q_updateCurrentCharFormatAndSelection();
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
             if (qGuiApp)
                 qGuiApp->inputMethod()->update(Qt::ImQueryInput);
 #endif
@@ -1204,7 +1180,7 @@ void QQuickTextControlPrivate::mouseReleaseEvent(QMouseEvent *e, const QPointF &
 
     if (mousePressed) {
         mousePressed = false;
-#ifndef QT_NO_CLIPBOARD
+#if QT_CONFIG(clipboard)
         setClipboardSelection();
         selectionChanged(true);
     } else if (e->button() == Qt::MidButton
@@ -1253,7 +1229,7 @@ void QQuickTextControlPrivate::mouseDoubleClickEvent(QMouseEvent *e, const QPoin
     Q_Q(QQuickTextControl);
 
     if (e->button() == Qt::LeftButton && (interactionFlags & Qt::TextSelectableByMouse)) {
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
         commitPreedit();
 #endif
 
@@ -1274,7 +1250,7 @@ void QQuickTextControlPrivate::mouseDoubleClickEvent(QMouseEvent *e, const QPoin
         tripleClickTimer.start(QGuiApplication::styleHints()->mouseDoubleClickInterval(), q);
         if (doEmit) {
             selectionChanged();
-#ifndef QT_NO_CLIPBOARD
+#if QT_CONFIG(clipboard)
             setClipboardSelection();
 #endif
             emit q->cursorPositionChanged();
@@ -1287,7 +1263,7 @@ void QQuickTextControlPrivate::mouseDoubleClickEvent(QMouseEvent *e, const QPoin
 
 bool QQuickTextControlPrivate::sendMouseEventToInputContext(QMouseEvent *e, const QPointF &pos)
 {
-#if !defined(QT_NO_IM)
+#if QT_CONFIG(im)
     Q_Q(QQuickTextControl);
 
     Q_UNUSED(e);
@@ -1311,7 +1287,7 @@ bool QQuickTextControlPrivate::sendMouseEventToInputContext(QMouseEvent *e, cons
     return false;
 }
 
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
 void QQuickTextControlPrivate::inputMethodEvent(QInputMethodEvent *e)
 {
     Q_Q(QQuickTextControl);
@@ -1464,7 +1440,7 @@ QVariant QQuickTextControl::inputMethodQuery(Qt::InputMethodQuery property, QVar
         return QVariant();
     }
 }
-#endif // QT_NO_IM
+#endif // im
 
 void QQuickTextControlPrivate::focusEvent(QFocusEvent *e)
 {
@@ -1498,12 +1474,28 @@ void QQuickTextControlPrivate::hoverEvent(QHoverEvent *e, const QPointF &pos)
         hoveredLink = link;
         emit q->linkHovered(link);
     }
+    qCDebug(DBG_HOVER_TRACE) << q << e->type() << pos << "hoveredLink" << hoveredLink;
 }
 
 bool QQuickTextControl::hasImState() const
 {
     Q_D(const QQuickTextControl);
     return d->hasImState;
+}
+
+bool QQuickTextControl::overwriteMode() const
+{
+    Q_D(const QQuickTextControl);
+    return d->overwriteMode;
+}
+
+void QQuickTextControl::setOverwriteMode(bool overwrite)
+{
+    Q_D(QQuickTextControl);
+    if (d->overwriteMode == overwrite)
+        return;
+    d->overwriteMode = overwrite;
+    emit overwriteModeChanged(overwrite);
 }
 
 bool QQuickTextControl::cursorVisible() const
@@ -1578,7 +1570,7 @@ void QQuickTextControl::moveCursor(QTextCursor::MoveOperation op, QTextCursor::M
 
 bool QQuickTextControl::canPaste() const
 {
-#ifndef QT_NO_CLIPBOARD
+#if QT_CONFIG(clipboard)
     Q_D(const QQuickTextControl);
     if (d->interactionFlags & Qt::TextEditable) {
         const QMimeData *md = QGuiApplication::clipboard()->mimeData();
@@ -1628,11 +1620,11 @@ void QQuickTextControl::insertFromMimeData(const QMimeData *source)
 
     bool hasData = false;
     QTextDocumentFragment fragment;
-#ifndef QT_NO_TEXTHTMLPARSER
+#if QT_CONFIG(texthtmlparser)
     if (source->hasFormat(QLatin1String("application/x-qrichtext")) && d->acceptRichText) {
         // x-qrichtext is always UTF-8 (taken from Qt3 since we don't use it anymore).
-        QString richtext = QString::fromUtf8(source->data(QLatin1String("application/x-qrichtext")));
-        richtext.prepend(QLatin1String("<meta name=\"qrichtext\" content=\"1\" />"));
+        const QString richtext = QLatin1String("<meta name=\"qrichtext\" content=\"1\" />")
+                + QString::fromUtf8(source->data(QLatin1String("application/x-qrichtext")));
         fragment = QTextDocumentFragment::fromHtml(richtext, d->doc);
         hasData = true;
     } else if (source->hasHtml() && d->acceptRichText) {
@@ -1647,7 +1639,7 @@ void QQuickTextControl::insertFromMimeData(const QMimeData *source)
     }
 #else
     fragment = QTextDocumentFragment::fromPlainText(source->text());
-#endif // QT_NO_TEXTHTMLPARSER
+#endif // texthtmlparser
 
     if (hasData)
         d->cursor.insertFragment(fragment);
@@ -1718,7 +1710,7 @@ void QQuickTextControlPrivate::activateLinkUnderCursor(QString href)
     emit q_func()->linkActivated(href);
 }
 
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
 bool QQuickTextControlPrivate::isPreediting() const
 {
     QTextLayout *layout = cursor.block().layout();
@@ -1756,7 +1748,7 @@ void QQuickTextControlPrivate::cancelPreedit()
     QInputMethodEvent event;
     QCoreApplication::sendEvent(q->parent(), &event);
 }
-#endif // QT_NO_IM
+#endif // im
 
 void QQuickTextControl::setTextInteractionFlags(Qt::TextInteractionFlags flags)
 {
@@ -1780,7 +1772,7 @@ QString QQuickTextControl::toPlainText() const
     return document()->toPlainText();
 }
 
-#ifndef QT_NO_TEXTHTMLPARSER
+#if QT_CONFIG(texthtmlparser)
 QString QQuickTextControl::toHtml() const
 {
     return document()->toHtml();
@@ -1807,7 +1799,7 @@ QRectF QQuickTextControl::blockBoundingRect(const QTextBlock &block) const
 
 QString QQuickTextControl::preeditText() const
 {
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
     Q_D(const QQuickTextControl);
     QTextLayout *layout = d->cursor.block().layout();
     if (!layout)
@@ -1824,7 +1816,7 @@ QStringList QQuickTextEditMimeData::formats() const
 {
     if (!fragment.isEmpty())
         return QStringList() << QString::fromLatin1("text/plain") << QString::fromLatin1("text/html")
-#ifndef QT_NO_TEXTODFWRITER
+#if QT_CONFIG(textodfwriter)
             << QString::fromLatin1("application/vnd.oasis.opendocument.text")
 #endif
         ;
@@ -1842,10 +1834,10 @@ QVariant QQuickTextEditMimeData::retrieveData(const QString &mimeType, QVariant:
 void QQuickTextEditMimeData::setup() const
 {
     QQuickTextEditMimeData *that = const_cast<QQuickTextEditMimeData *>(this);
-#ifndef QT_NO_TEXTHTMLPARSER
+#if QT_CONFIG(texthtmlparser)
     that->setData(QLatin1String("text/html"), fragment.toHtml("utf-8").toUtf8());
 #endif
-#ifndef QT_NO_TEXTODFWRITER
+#if QT_CONFIG(textodfwriter)
     {
         QBuffer buffer;
         QTextDocumentWriter writer(&buffer, "ODF");

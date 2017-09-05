@@ -66,14 +66,24 @@ namespace QV4 {
 namespace Heap {
 
 struct QQmlValueTypeWrapper : Object {
-    QQmlValueTypeWrapper() {}
-    ~QQmlValueTypeWrapper();
-    QQmlRefPointer<QQmlPropertyCache> propertyCache;
+    void init() { Object::init(); }
+    void destroy();
+    QQmlPropertyCache *propertyCache() const { return _propertyCache; }
+    void setPropertyCache(QQmlPropertyCache *c) {
+        if (c)
+            c->addref();
+        if (_propertyCache)
+            _propertyCache->release();
+        _propertyCache = c;
+    }
     mutable void *gadgetPtr;
     QQmlValueType *valueType;
 
     void setValue(const QVariant &value) const;
     QVariant toVariant() const;
+
+private:
+    QQmlPropertyCache *_propertyCache;
 };
 
 }
@@ -82,7 +92,7 @@ struct Q_QML_EXPORT QQmlValueTypeWrapper : Object
 {
     V4_OBJECT2(QQmlValueTypeWrapper, Object)
     V4_PROTOTYPE(valueTypeWrapperPrototype)
-    static void destroy(Heap::Base *b);
+    V4_NEEDS_DESTROY
 
 public:
 
@@ -91,7 +101,7 @@ public:
 
     QVariant toVariant() const;
     bool toGadget(void *data) const;
-    bool isEqual(const QVariant& value);
+    bool isEqual(const QVariant& value) const;
     int typeId() const;
     bool write(QObject *target, int propertyIndex) const;
 
@@ -99,8 +109,9 @@ public:
     static void put(Managed *m, String *name, const Value &value);
     static bool isEqualTo(Managed *m, Managed *other);
     static PropertyAttributes query(const Managed *, String *name);
+    static void advanceIterator(Managed *m, ObjectIterator *it, Value *name, uint *index, Property *p, PropertyAttributes *attributes);
 
-    static QV4::ReturnedValue method_toString(CallContext *ctx);
+    static void method_toString(const BuiltinFunction *, Scope &scope, CallData *callData);
 
     static void initProto(ExecutionEngine *v4);
 };

@@ -143,7 +143,7 @@ QQuickFlipable::~QQuickFlipable()
   The front and back sides of the flipable.
 */
 
-QQuickItem *QQuickFlipable::front()
+QQuickItem *QQuickFlipable::front() const
 {
     Q_D(const QQuickFlipable);
     return d->front;
@@ -153,7 +153,7 @@ void QQuickFlipable::setFront(QQuickItem *front)
 {
     Q_D(QQuickFlipable);
     if (d->front) {
-        qmlInfo(this) << tr("front is a write-once property");
+        qmlWarning(this) << tr("front is a write-once property");
         return;
     }
     d->front = front;
@@ -175,7 +175,7 @@ void QQuickFlipable::setBack(QQuickItem *back)
 {
     Q_D(QQuickFlipable);
     if (d->back) {
-        qmlInfo(this) << tr("back is a write-once property");
+        qmlWarning(this) << tr("back is a write-once property");
         return;
     }
     if (back == 0)
@@ -314,3 +314,4 @@ void QQuickFlipablePrivate::setBackTransform()
 QT_END_NAMESPACE
 
 #include "qquickflipable.moc"
+#include "moc_qquickflipable_p.cpp"

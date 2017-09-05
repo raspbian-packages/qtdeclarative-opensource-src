@@ -66,12 +66,12 @@ private slots:
 class ClearNode : public QSGRenderNode
 {
 public:
-    virtual StateFlags changedStates()
+    StateFlags changedStates() const override
     {
         return ColorState;
     }
 
-    virtual void render(const RenderState &)
+    void render(const RenderState *) override
     {
         // If clip has been set, scissoring will make sure the right area is cleared.
         QOpenGLContext::currentContext()->functions()->glClearColor(color.redF(), color.greenF(), color.blueF(), 1.0f);
@@ -122,13 +122,13 @@ class MessUpNode : public QSGRenderNode, protected QOpenGLFunctions
 public:
     MessUpNode() : initialized(false) { }
 
-    virtual StateFlags changedStates()
+    StateFlags changedStates() const override
     {
         return StateFlags(DepthState) | StencilState | ScissorState | ColorState | BlendState
-                | CullState | ViewportState;
+                | CullState | ViewportState | RenderTargetState;
     }
 
-    virtual void render(const RenderState &)
+    void render(const RenderState *) override
     {
         if (!initialized) {
             initializeOpenGLFunctions();
@@ -152,6 +152,9 @@ public:
         glGetIntegerv(GL_FRONT_FACE, &frontFace);
         glFrontFace(frontFace == GL_CW ? GL_CCW : GL_CW);
         glEnable(GL_CULL_FACE);
+        GLuint fbo;
+        glGenFramebuffers(1, &fbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     }
 
     bool initialized;
@@ -212,16 +215,18 @@ void tst_rendernode::renderOrder()
         QSKIP("This test does not work at display depths < 24");
     QImage fb = runTest("RenderOrder.qml");
 
-    QCOMPARE(fb.width(), 200);
-    QCOMPARE(fb.height(), 200);
+    const qreal scaleFactor = QGuiApplication::primaryScreen()->devicePixelRatio();
+    QCOMPARE(fb.width(), qRound(200 * scaleFactor));
+    QCOMPARE(fb.height(), qRound(200 * scaleFactor));
 
-    QCOMPARE(fb.pixel(50, 50), qRgb(0xff, 0xff, 0xff));
-    QCOMPARE(fb.pixel(50, 150), qRgb(0xff, 0xff, 0xff));
-    QCOMPARE(fb.pixel(150, 50), qRgb(0x00, 0x00, 0xff));
+    QCOMPARE(fb.pixel(50 * scaleFactor, 50 * scaleFactor), qRgb(0xff, 0xff, 0xff));
+    QCOMPARE(fb.pixel(50 * scaleFactor, 150 * scaleFactor), qRgb(0xff, 0xff, 0xff));
+    QCOMPARE(fb.pixel(150 * scaleFactor, 50 * scaleFactor), qRgb(0x00, 0x00, 0xff));
 
     QByteArray errorMessage;
-    QVERIFY2(fuzzyCompareColor(fb.pixel(150, 150), qRgb(0x7f, 0x7f, 0xff), &errorMessage),
-             msgColorMismatchAt(errorMessage, 150, 150).constData());
+    const qreal coordinate = 150 * scaleFactor;
+    QVERIFY2(fuzzyCompareColor(fb.pixel(coordinate, coordinate), qRgb(0x7f, 0x7f, 0xff), &errorMessage),
+             msgColorMismatchAt(errorMessage, coordinate, coordinate).constData());
 }
 
 /* The test uses a number of nested rectangles with clipping
@@ -257,8 +262,8 @@ void tst_rendernode::messUpState()
 class StateRecordingRenderNode : public QSGRenderNode
 {
 public:
-    StateFlags changedStates() { return StateFlags(-1); }
-    void render(const RenderState &) {
+    StateFlags changedStates() const override { return StateFlags(-1); }
+    void render(const RenderState *) override {
         matrices[name] = *matrix();
 
     }

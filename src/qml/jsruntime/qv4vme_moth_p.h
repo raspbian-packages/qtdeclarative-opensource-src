@@ -51,8 +51,11 @@
 // We mean it.
 //
 
+#include <private/qv4global_p.h>
 #include <private/qv4runtime_p.h>
 #include <private/qv4instr_moth_p.h>
+
+QT_REQUIRE_CONFIG(qml_interpreter);
 
 QT_BEGIN_NAMESPACE
 
@@ -64,16 +67,8 @@ class VME
 public:
     static QV4::ReturnedValue exec(QV4::ExecutionEngine *, const uchar *);
 
-#ifdef MOTH_THREADED_INTERPRETER
-    static void **instructionJumpTable();
-#endif
-
 private:
-    QV4::ReturnedValue run(QV4::ExecutionEngine *, const uchar *code
-#ifdef MOTH_THREADED_INTERPRETER
-            , void ***storeJumpTable = 0
-#endif
-            );
+    QV4::ReturnedValue run(QV4::ExecutionEngine *, const uchar *code);
 };
 
 } // namespace Moth

@@ -79,6 +79,8 @@ QV4Debugger::QV4Debugger(QV4::ExecutionEngine *engine)
     static int pauseReasonId = qRegisterMetaType<QV4Debugger::PauseReason>();
     Q_UNUSED(debuggerId);
     Q_UNUSED(pauseReasonId);
+    connect(this, &QV4Debugger::scheduleJob,
+            this, &QV4Debugger::runJobUnpaused, Qt::QueuedConnection);
 }
 
 QV4::ExecutionEngine *QV4Debugger::engine() const
@@ -228,7 +230,12 @@ void QV4Debugger::leavingFunction(const QV4::ReturnedValue &retVal)
     QMutexLocker locker(&m_lock);
 
     if (m_stepping != NotStepping && m_currentContext.asManaged()->d() == m_engine->current) {
-        m_currentContext.set(m_engine, *m_engine->parentContext(m_engine->currentContext));
+        if (QV4::ExecutionContext *parentContext
+                = m_engine->parentContext(m_engine->currentContext)) {
+            m_currentContext.set(m_engine, *parentContext);
+        } else {
+            m_currentContext.clear();
+        }
         m_stepping = StepOver;
         m_returnedValue.set(m_engine, retVal);
     }
@@ -250,11 +257,10 @@ QV4::Function *QV4Debugger::getFunction() const
 {
     QV4::Scope scope(m_engine);
     QV4::ExecutionContext *context = m_engine->currentContext;
-    QV4::ScopedFunctionObject function(scope, context->getFunctionObject());
-    if (function)
-        return function->function();
+    if (QV4::Function *function = context->getFunction())
+        return function;
     else
-        return context->d()->engine->globalCode;
+        return m_engine->globalCode;
 }
 
 void QV4Debugger::runJobUnpaused()
@@ -320,9 +326,11 @@ void QV4Debugger::runInEngine_havingLock(QV4DebugJob *job)
     if (state() == Paused)
         m_runningCondition.wakeAll();
     else
-        QMetaObject::invokeMethod(this, "runJobUnpaused", Qt::QueuedConnection);
+        emit scheduleJob();
     m_jobIsRunning.wait(&m_lock);
     m_runningJob = 0;
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qv4debugger.cpp"

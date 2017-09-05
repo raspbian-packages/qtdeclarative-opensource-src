@@ -60,12 +60,13 @@ class JavaScriptJob : public QV4DebugJob
 {
     QV4::ExecutionEngine *engine;
     int frameNr;
+    int context;
     const QString &script;
     bool resultIsException;
 
 public:
-    JavaScriptJob(QV4::ExecutionEngine *engine, int frameNr, const QString &script);
-    void run();
+    JavaScriptJob(QV4::ExecutionEngine *engine, int frameNr, int context, const QString &script);
+    void run() override;
     bool hasExeption() const;
 
 protected:
@@ -77,11 +78,24 @@ class CollectJob : public QV4DebugJob
 protected:
     QV4DataCollector *collector;
     QJsonObject result;
-    QJsonArray collectedRefs;
+    QJsonArray collectedRefs; // only for redundantRefs
+
+    void flushRedundantRefs()
+    {
+        if (collector->redundantRefs())
+            collectedRefs = collector->flushCollectedRefs();
+    }
+
 public:
     CollectJob(QV4DataCollector *collector) : collector(collector) {}
     const QJsonObject &returnValue() const { return result; }
-    const QJsonArray &refs() const { return collectedRefs; }
+
+    // TODO: Drop this method once we don't need to support redundantRefs anymore
+    const QJsonArray &refs() const
+    {
+        Q_ASSERT(collector->redundantRefs());
+        return collectedRefs;
+    }
 };
 
 class BacktraceJob: public CollectJob
@@ -90,7 +104,7 @@ class BacktraceJob: public CollectJob
     int toFrame;
 public:
     BacktraceJob(QV4DataCollector *collector, int fromFrame, int toFrame);
-    void run();
+    void run() override;
 };
 
 class FrameJob: public CollectJob
@@ -100,7 +114,7 @@ class FrameJob: public CollectJob
 
 public:
     FrameJob(QV4DataCollector *collector, int frameNr);
-    void run();
+    void run() override;
     bool wasSuccessful() const;
 };
 
@@ -112,7 +126,7 @@ class ScopeJob: public CollectJob
 
 public:
     ScopeJob(QV4DataCollector *collector, int frameNr, int scopeNr);
-    void run();
+    void run() override;
     bool wasSuccessful() const;
 };
 
@@ -123,7 +137,7 @@ class ValueLookupJob: public CollectJob
 
 public:
     ValueLookupJob(const QJsonArray &handles, QV4DataCollector *collector);
-    void run();
+    void run() override;
     const QString &exceptionMessage() const;
 };
 
@@ -132,15 +146,15 @@ class ExpressionEvalJob: public JavaScriptJob
     QV4DataCollector *collector;
     QString exception;
     QJsonObject result;
-    QJsonArray collectedRefs;
+    QJsonArray collectedRefs; // only for redundantRefs
 
 public:
-    ExpressionEvalJob(QV4::ExecutionEngine *engine, int frameNr, const QString &expression,
-                      QV4DataCollector *collector);
-    virtual void handleResult(QV4::ScopedValue &value);
+    ExpressionEvalJob(QV4::ExecutionEngine *engine, int frameNr, int context,
+                      const QString &expression, QV4DataCollector *collector);
+    void handleResult(QV4::ScopedValue &value) override;
     const QString &exceptionMessage() const;
     const QJsonObject &returnValue() const;
-    const QJsonArray &refs() const;
+    const QJsonArray &refs() const; // only for redundantRefs
 };
 
 class GatherSourcesJob: public QV4DebugJob
@@ -150,7 +164,7 @@ class GatherSourcesJob: public QV4DebugJob
 
 public:
     GatherSourcesJob(QV4::ExecutionEngine *engine);
-    void run();
+    void run() override;
     const QStringList &result() const;
 };
 
@@ -161,7 +175,7 @@ class EvalJob: public JavaScriptJob
 public:
     EvalJob(QV4::ExecutionEngine *engine, const QString &script);
 
-    virtual void handleResult(QV4::ScopedValue &result);
+    void handleResult(QV4::ScopedValue &result) override;
     bool resultAsBoolean() const;
 };
 

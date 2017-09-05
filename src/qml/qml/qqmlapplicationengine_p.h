@@ -42,7 +42,6 @@
 
 #include "qqmlapplicationengine.h"
 #include "qqmlengine_p.h"
-#include <QSignalMapper>
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QLibraryInfo>
@@ -73,12 +72,11 @@ public:
 
     void startLoad(const QUrl &url, const QByteArray &data = QByteArray(), bool dataFlag = false);
     void loadTranslations(const QUrl &rootFile);
-    void _q_finishLoad(QObject *component);
+    void finishLoad(QQmlComponent *component);
     QList<QObject *> objects;
-    QSignalMapper statusMapper;
     QObject *appObj;
 
-#ifndef QT_NO_TRANSLATIONS
+#if QT_CONFIG(translation)
     QList<QTranslator *> translators;
 #endif
 };

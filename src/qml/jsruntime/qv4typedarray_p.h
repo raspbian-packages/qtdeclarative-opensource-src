@@ -86,7 +86,7 @@ struct TypedArray : Object {
         NTypes
     };
 
-    TypedArray(Type t);
+    void init(Type t);
 
     const TypedArrayOperations *type;
     Pointer<ArrayBuffer> buffer;
@@ -96,13 +96,13 @@ struct TypedArray : Object {
 };
 
 struct TypedArrayCtor : FunctionObject {
-    TypedArrayCtor(QV4::ExecutionContext *scope, TypedArray::Type t);
+    void init(QV4::ExecutionContext *scope, TypedArray::Type t);
 
     TypedArray::Type type;
 };
 
 struct TypedArrayPrototype : Object {
-    inline TypedArrayPrototype(TypedArray::Type t);
+    inline void init(TypedArray::Type t);
     TypedArray::Type type;
 };
 
@@ -140,30 +140,32 @@ struct TypedArrayCtor: FunctionObject
 {
     V4_OBJECT2(TypedArrayCtor, FunctionObject)
 
-    static ReturnedValue construct(const Managed *m, CallData *callData);
-    static ReturnedValue call(const Managed *that, CallData *callData);
+    static void construct(const Managed *m, Scope &scope, CallData *callData);
+    static void call(const Managed *that, Scope &scope, CallData *callData);
 };
 
 
 struct TypedArrayPrototype : Object
 {
     V4_OBJECT2(TypedArrayPrototype, Object)
+    V4_PROTOTYPE(objectPrototype)
 
     void init(ExecutionEngine *engine, TypedArrayCtor *ctor);
 
-    static ReturnedValue method_get_buffer(CallContext *ctx);
-    static ReturnedValue method_get_byteLength(CallContext *ctx);
-    static ReturnedValue method_get_byteOffset(CallContext *ctx);
-    static ReturnedValue method_get_length(CallContext *ctx);
+    static void method_get_buffer(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_get_byteLength(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_get_byteOffset(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_get_length(const BuiltinFunction *, Scope &scope, CallData *callData);
 
-    static ReturnedValue method_set(CallContext *ctx);
-    static ReturnedValue method_subarray(CallContext *ctx);
+    static void method_set(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_subarray(const BuiltinFunction *, Scope &scope, CallData *callData);
 };
 
-inline
-Heap::TypedArrayPrototype::TypedArrayPrototype(TypedArray::Type t)
-    : type(t)
+inline void
+Heap::TypedArrayPrototype::init(TypedArray::Type t)
 {
+    Object::init();
+    type = t;
 }
 
 } // namespace QV4

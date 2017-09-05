@@ -126,6 +126,16 @@ QQmlDebugConnector *QQmlDebugConnector::instance()
             params->instance = loadQQmlDebugConnector(params->pluginKey);
         } else if (params->arguments.isEmpty()) {
             return 0; // no explicit class name given and no command line arguments
+        } else if (params->arguments.startsWith(QLatin1String("connector:"))) {
+            static const int connectorBegin = int(strlen("connector:"));
+
+            int connectorEnd = params->arguments.indexOf(QLatin1Char(','), connectorBegin);
+            if (connectorEnd == -1)
+                connectorEnd = params->arguments.length();
+
+            params->instance = loadQQmlDebugConnector(params->arguments.mid(
+                                                          connectorBegin,
+                                                          connectorEnd - connectorBegin));
         } else {
             params->instance = loadQQmlDebugConnector(
                         params->arguments.startsWith(QLatin1String("native")) ?
@@ -134,9 +144,11 @@ QQmlDebugConnector *QQmlDebugConnector::instance()
         }
 
         if (params->instance) {
-            foreach (const QJsonObject &object, metaDataForQQmlDebugService()) {
-                foreach (const QJsonValue &key, object.value(QLatin1String("MetaData")).toObject()
-                         .value(QLatin1String("Keys")).toArray()) {
+            const auto metaData = metaDataForQQmlDebugService();
+            for (const QJsonObject &object : metaData) {
+                const auto keys = object.value(QLatin1String("MetaData")).toObject()
+                        .value(QLatin1String("Keys")).toArray();
+                for (const QJsonValue &key : keys) {
                     QString keyString = key.toString();
                     if (params->services.isEmpty() || params->services.contains(keyString))
                         loadQQmlDebugService(keyString);
@@ -152,10 +164,15 @@ QQmlDebugConnectorFactory::~QQmlDebugConnectorFactory()
 {
     // This is triggered when the plugin is unloaded.
     QQmlDebugConnectorParams *params = qmlDebugConnectorParams();
-    if (params && params->instance) {
+    if (params) {
+        params->pluginKey.clear();
+        params->arguments.clear();
+        params->services.clear();
         delete params->instance;
         params->instance = 0;
     }
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qqmldebugconnector_p.cpp"

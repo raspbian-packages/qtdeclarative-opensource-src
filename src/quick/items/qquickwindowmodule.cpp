@@ -73,6 +73,7 @@ QQuickWindowQmlImpl::QQuickWindowQmlImpl(QWindow *parent)
 {
     connect(this, &QWindow::visibleChanged, this, &QQuickWindowQmlImpl::visibleChanged);
     connect(this, &QWindow::visibilityChanged, this, &QQuickWindowQmlImpl::visibilityChanged);
+    connect(this, &QWindow::screenChanged, this, &QQuickWindowQmlImpl::screenChanged);
 }
 
 void QQuickWindowQmlImpl::setVisible(bool visible)
@@ -100,6 +101,9 @@ void QQuickWindowQmlImpl::classBegin()
 {
     Q_D(QQuickWindowQmlImpl);
     QQmlEngine* e = qmlEngine(this);
+
+    QQmlEngine::setContextForObject(contentItem(), e->rootContext());
+
     //Give QQuickView behavior when created from QML with QQmlApplicationEngine
     if (QCoreApplication::instance()->property("__qml_using_qqmlapplicationengine") == QVariant(true)) {
         if (e && !e->incubationController())
@@ -170,6 +174,17 @@ void QQuickWindowQmlImpl::setWindowVisibility()
     }
 }
 
+QObject *QQuickWindowQmlImpl::screen() const
+{
+    return new QQuickScreenInfo(const_cast<QQuickWindowQmlImpl *>(this), QWindow::screen());
+}
+
+void QQuickWindowQmlImpl::setScreen(QObject *screen)
+{
+    QQuickScreenInfo *screenWrapper = qobject_cast<QQuickScreenInfo *>(screen);
+    QWindow::setScreen(screenWrapper ? screenWrapper->wrappedScreen() : nullptr);
+}
+
 void QQuickWindowModule::defineModule()
 {
     const char uri[] = "QtQuick.Window";
@@ -181,9 +196,14 @@ void QQuickWindowModule::defineModule()
     qmlRegisterRevision<QQuickWindow,2>(uri, 2, 2);
     qmlRegisterType<QQuickWindowQmlImpl>(uri, 2, 1, "Window");
     qmlRegisterType<QQuickWindowQmlImpl,1>(uri, 2, 2, "Window");
+    qmlRegisterType<QQuickWindowQmlImpl,2>(uri, 2, 3, "Window");
     qmlRegisterUncreatableType<QQuickScreen>(uri, 2, 0, "Screen", QStringLiteral("Screen can only be used via the attached property."));
+    qmlRegisterUncreatableType<QQuickScreen,1>(uri, 2, 3, "Screen", QStringLiteral("Screen can only be used via the attached property."));
+    qmlRegisterUncreatableType<QQuickScreenInfo,2>(uri, 2, 3, "ScreenInfo", QStringLiteral("ScreenInfo can only be used via the attached property."));
 }
 
 QT_END_NAMESPACE
 
 QML_DECLARE_TYPEINFO(QQuickWindowQmlImpl, QML_HAS_ATTACHED_PROPERTIES)
+
+#include "moc_qquickwindowmodule_p.cpp"

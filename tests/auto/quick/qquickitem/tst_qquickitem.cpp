@@ -48,7 +48,8 @@ public:
     TestItem(QQuickItem *parent = 0)
         : QQuickItem(parent), focused(false), pressCount(0), releaseCount(0)
         , wheelCount(0), acceptIncomingTouchEvents(true)
-        , touchEventReached(false) {}
+        , touchEventReached(false), timestamp(0)
+        , lastWheelEventPos(0, 0), lastWheelEventGlobalPos(0, 0) {}
 
     bool focused;
     int pressCount;
@@ -56,6 +57,9 @@ public:
     int wheelCount;
     bool acceptIncomingTouchEvents;
     bool touchEventReached;
+    ulong timestamp;
+    QPoint lastWheelEventPos;
+    QPoint lastWheelEventGlobalPos;
 protected:
     virtual void focusInEvent(QFocusEvent *) { Q_ASSERT(!focused); focused = true; }
     virtual void focusOutEvent(QFocusEvent *) { Q_ASSERT(focused); focused = false; }
@@ -65,7 +69,13 @@ protected:
         touchEventReached = true;
         event->setAccepted(acceptIncomingTouchEvents);
     }
-    virtual void wheelEvent(QWheelEvent *event) { event->accept(); ++wheelCount; }
+    virtual void wheelEvent(QWheelEvent *event) {
+        event->accept();
+        ++wheelCount;
+        timestamp = event->timestamp();
+        lastWheelEventPos = event->pos();
+        lastWheelEventGlobalPos = event->globalPos();
+    }
 };
 
 class TestWindow: public QQuickWindow
@@ -170,6 +180,8 @@ private slots:
     void childAt();
 
     void ignoreButtonPressNotInAcceptedMouseButtons();
+
+    void shortcutOverride();
 
 private:
 
@@ -1419,25 +1431,34 @@ void tst_qquickitem::wheelEvent()
 
     const bool shouldReceiveWheelEvents = visible && enabled;
 
+    const int width = 200;
+    const int height = 200;
+
     QQuickWindow window;
-    window.resize(200, 200);
+    window.resize(width, height);
     window.show();
     QTest::qWaitForWindowExposed(&window);
 
     TestItem *item = new TestItem;
-    item->setSize(QSizeF(200, 100));
+    item->setSize(QSizeF(width, height));
     item->setParentItem(window.contentItem());
 
     item->setEnabled(enabled);
     item->setVisible(visible);
 
-    QWheelEvent event(QPoint(100, 50), -120, Qt::NoButton, Qt::NoModifier, Qt::Vertical);
+    QPoint localPoint(width / 2, height / 2);
+    QPoint globalPoint = window.mapToGlobal(localPoint);
+    QWheelEvent event(localPoint, globalPoint, -120, Qt::NoButton, Qt::NoModifier, Qt::Vertical);
+    event.setTimestamp(123456UL);
     event.setAccepted(false);
     QGuiApplication::sendEvent(&window, &event);
 
     if (shouldReceiveWheelEvents) {
         QVERIFY(event.isAccepted());
         QCOMPARE(item->wheelCount, 1);
+        QCOMPARE(item->timestamp, 123456UL);
+        QCOMPARE(item->lastWheelEventPos, localPoint);
+        QCOMPARE(item->lastWheelEventGlobalPos, globalPoint);
     } else {
         QVERIFY(!event.isAccepted());
         QCOMPARE(item->wheelCount, 0);
@@ -2031,6 +2052,39 @@ void tst_qquickitem::ignoreButtonPressNotInAcceptedMouseButtons()
 
     QCOMPARE(item.pressCount, 1);
     QCOMPARE(item.releaseCount, 1);
+}
+
+void tst_qquickitem::shortcutOverride()
+{
+    QQuickView view;
+    view.setSource(testFileUrl("shortcutOverride.qml"));
+    ensureFocus(&view);
+
+    QCOMPARE(view.rootObject()->property("escapeHandlerActivationCount").toInt(), 0);
+    QCOMPARE(view.rootObject()->property("shortcutActivationCount").toInt(), 0);
+
+    QQuickItem *escapeItem = view.rootObject()->property("escapeItem").value<QQuickItem*>();
+    QVERIFY(escapeItem);
+    QVERIFY(escapeItem->hasActiveFocus());
+
+    // escapeItem's onEscapePressed handler should accept the first escape press event.
+    QTest::keyPress(&view, Qt::Key_Escape);
+    QCOMPARE(view.rootObject()->property("escapeHandlerActivationCount").toInt(), 1);
+    QCOMPARE(view.rootObject()->property("shortcutActivationCount").toInt(), 0);
+    // Now it shouldn't have focus, so it can't handle the next escape press event.
+    QVERIFY(!escapeItem->hasActiveFocus());
+
+    QTest::keyRelease(&view, Qt::Key_Escape);
+    QCOMPARE(view.rootObject()->property("escapeHandlerActivationCount").toInt(), 1);
+    QCOMPARE(view.rootObject()->property("shortcutActivationCount").toInt(), 0);
+
+    QTest::keyPress(&view, Qt::Key_Escape);
+    QCOMPARE(view.rootObject()->property("escapeHandlerActivationCount").toInt(), 1);
+    QCOMPARE(view.rootObject()->property("shortcutActivationCount").toInt(), 1);
+
+    QTest::keyRelease(&view, Qt::Key_Escape);
+    QCOMPARE(view.rootObject()->property("escapeHandlerActivationCount").toInt(), 1);
+    QCOMPARE(view.rootObject()->property("shortcutActivationCount").toInt(), 1);
 }
 
 QTEST_MAIN(tst_qquickitem)

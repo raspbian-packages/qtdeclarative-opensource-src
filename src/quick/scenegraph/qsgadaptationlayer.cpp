@@ -46,6 +46,7 @@
 #include <private/qrawfont_p.h>
 #include <QtGui/qguiapplication.h>
 #include <qdir.h>
+#include <qsgrendernode.h>
 
 #include <private/qquickprofiler_p.h>
 #include <QElapsedTimer>
@@ -65,15 +66,18 @@ QSGDistanceFieldGlyphCache::QSGDistanceFieldGlyphCache(QSGDistanceFieldGlyphCach
     QRawFontPrivate *fontD = QRawFontPrivate::get(font);
     m_glyphCount = fontD->fontEngine->glyphCount();
 
-    m_doubleGlyphResolution = qt_fontHasNarrowOutlines(font) && m_glyphCount < QT_DISTANCEFIELD_HIGHGLYPHCOUNT;
+    m_doubleGlyphResolution = qt_fontHasNarrowOutlines(font) && m_glyphCount < QT_DISTANCEFIELD_HIGHGLYPHCOUNT();
 
     m_referenceFont = font;
     // we set the same pixel size as used by the distance field internally.
     // this allows us to call pathForGlyph once and reuse the result.
     m_referenceFont.setPixelSize(QT_DISTANCEFIELD_BASEFONTSIZE(m_doubleGlyphResolution) * QT_DISTANCEFIELD_SCALE(m_doubleGlyphResolution));
     Q_ASSERT(m_referenceFont.isValid());
-
+#if QT_CONFIG(opengl)
     m_coreProfile = (c->format().profile() == QSurfaceFormat::CoreProfile);
+#else
+    Q_UNUSED(c)
+#endif
 }
 
 QSGDistanceFieldGlyphCache::~QSGDistanceFieldGlyphCache()
@@ -118,7 +122,7 @@ void QSGDistanceFieldGlyphCache::populate(const QVector<glyph_t> &glyphs)
     int count = glyphs.count();
     for (int i = 0; i < count; ++i) {
         glyph_t glyphIndex = glyphs.at(i);
-        if ((int) glyphIndex >= glyphCount()) {
+        if ((int) glyphIndex >= glyphCount() && glyphCount() > 0) {
             qWarning("Warning: distance-field glyph is not available with index %d", glyphIndex);
             continue;
         }
@@ -185,14 +189,15 @@ void QSGDistanceFieldGlyphCache::update()
     int count = m_pendingGlyphs.size();
     if (profileFrames)
         renderTime = qsg_render_timer.nsecsElapsed();
-    Q_QUICK_SG_PROFILE_RECORD(QQuickProfiler::SceneGraphAdaptationLayerFrame);
+    Q_QUICK_SG_PROFILE_RECORD(QQuickProfiler::SceneGraphAdaptationLayerFrame,
+                              QQuickProfiler::SceneGraphAdaptationLayerGlyphRender);
 
     m_pendingGlyphs.reset();
 
     storeGlyphs(distanceFields);
 
 #if defined(QSG_DISTANCEFIELD_CACHE_DEBUG)
-    foreach (Texture texture, m_textures)
+    for (Texture texture : qAsConst(m_textures))
         saveTexture(texture.textureId, texture.size.width(), texture.size.height());
 #endif
 
@@ -206,6 +211,7 @@ void QSGDistanceFieldGlyphCache::update()
                 int((now - (renderTime / 1000000))));
     }
     Q_QUICK_SG_PROFILE_END_WITH_PAYLOAD(QQuickProfiler::SceneGraphAdaptationLayerFrame,
+                                        QQuickProfiler::SceneGraphAdaptationLayerGlyphStore,
                                         (qint64)count);
 }
 
@@ -291,7 +297,7 @@ void QSGDistanceFieldGlyphCache::markGlyphsToRender(const QVector<glyph_t> &glyp
         m_pendingGlyphs.add(glyphs.at(i));
 }
 
-void QSGDistanceFieldGlyphCache::updateTexture(GLuint oldTex, GLuint newTex, const QSize &newTexSize)
+void QSGDistanceFieldGlyphCache::updateTexture(uint oldTex, uint newTex, const QSize &newTexSize)
 {
     int count = m_textures.count();
     for (int i = 0; i < count; ++i) {
@@ -509,6 +515,13 @@ void QSGNodeVisitorEx::visitChildren(QSGNode *node)
             visitChildren(child);
             break;
         }
+        case QSGNode::RenderNodeType: {
+            QSGRenderNode *r = static_cast<QSGRenderNode*>(child);
+            if (visit(r))
+                visitChildren(r);
+            endVisit(r);
+            break;
+        }
         default:
             Q_UNREACHABLE();
             break;
@@ -516,4 +529,45 @@ void QSGNodeVisitorEx::visitChildren(QSGNode *node)
     }
 }
 
+#ifndef QT_NO_DEBUG_STREAM
+QDebug operator<<(QDebug debug, const QSGGuiThreadShaderEffectManager::ShaderInfo::InputParameter &p)
+{
+    QDebugStateSaver saver(debug);
+    debug.space();
+    debug << p.semanticName << "semindex" << p.semanticIndex;
+    return debug;
+}
+
+QDebug operator<<(QDebug debug, const QSGGuiThreadShaderEffectManager::ShaderInfo::Variable &v)
+{
+    QDebugStateSaver saver(debug);
+    debug.space();
+    debug << v.name;
+    switch (v.type) {
+    case QSGGuiThreadShaderEffectManager::ShaderInfo::Constant:
+        debug << "cvar" << "offset" << v.offset << "size" << v.size;
+        break;
+    case QSGGuiThreadShaderEffectManager::ShaderInfo::Sampler:
+        debug << "sampler" << "bindpoint" << v.bindPoint;
+        break;
+    case QSGGuiThreadShaderEffectManager::ShaderInfo::Texture:
+        debug << "texture" << "bindpoint" << v.bindPoint;
+        break;
+    default:
+        break;
+    }
+    return debug;
+}
+
+QDebug operator<<(QDebug debug, const QSGShaderEffectNode::VariableData &vd)
+{
+    QDebugStateSaver saver(debug);
+    debug.space();
+    debug << vd.specialType;
+    return debug;
+}
+#endif
+
 QT_END_NAMESPACE
+
+#include "moc_qsgadaptationlayer_p.cpp"

@@ -64,13 +64,16 @@ class QQmlProfilerTestClient : public QQmlProfilerClient
     Q_OBJECT
 
 public:
-    QQmlProfilerTestClient(QQmlDebugConnection *connection) : QQmlProfilerClient(connection) {}
+    QQmlProfilerTestClient(QQmlDebugConnection *connection) : QQmlProfilerClient(connection),
+        lastTimestamp(-1) {}
 
     QVector<QQmlProfilerData> qmlMessages;
     QVector<QQmlProfilerData> javascriptMessages;
     QVector<QQmlProfilerData> jsHeapMessages;
     QVector<QQmlProfilerData> asynchronousMessages;
     QVector<QQmlProfilerData> pixmapMessages;
+
+    qint64 lastTimestamp;
 
 signals:
     void recordingFinished();
@@ -114,6 +117,8 @@ void QQmlProfilerTestClient::traceFinished(qint64 time, int engineId)
 void QQmlProfilerTestClient::rangeStart(QQmlProfilerDefinitions::RangeType type, qint64 startTime)
 {
     QVERIFY(type >= 0 && type < QQmlProfilerDefinitions::MaximumRangeType);
+    QVERIFY(lastTimestamp <= startTime);
+    lastTimestamp = startTime;
     QQmlProfilerData data(startTime, QQmlProfilerDefinitions::RangeStart, type);
     if (type == QQmlProfilerDefinitions::Javascript)
         javascriptMessages.append(data);
@@ -125,6 +130,8 @@ void QQmlProfilerTestClient::rangeData(QQmlProfilerDefinitions::RangeType type, 
                                       const QString &string)
 {
     QVERIFY(type >= 0 && type < QQmlProfilerDefinitions::MaximumRangeType);
+    QVERIFY(lastTimestamp <= time);
+    lastTimestamp = time;
     QQmlProfilerData data(time, QQmlProfilerDefinitions::RangeData, type, string);
     if (type == QQmlProfilerDefinitions::Javascript)
         javascriptMessages.append(data);
@@ -137,6 +144,8 @@ void QQmlProfilerTestClient::rangeLocation(QQmlProfilerDefinitions::RangeType ty
 {
     QVERIFY(type >= 0 && type < QQmlProfilerDefinitions::MaximumRangeType);
     QVERIFY(location.line >= -2);
+    QVERIFY(lastTimestamp <= time);
+    lastTimestamp = time;
     QQmlProfilerData data(time, QQmlProfilerDefinitions::RangeLocation, type, location.filename);
     data.line = location.line;
     data.column = location.column;
@@ -149,6 +158,8 @@ void QQmlProfilerTestClient::rangeLocation(QQmlProfilerDefinitions::RangeType ty
 void QQmlProfilerTestClient::rangeEnd(QQmlProfilerDefinitions::RangeType type, qint64 endTime)
 {
     QVERIFY(type >= 0 && type < QQmlProfilerDefinitions::MaximumRangeType);
+    QVERIFY(lastTimestamp <= endTime);
+    lastTimestamp = endTime;
     QQmlProfilerData data(endTime, QQmlProfilerDefinitions::RangeEnd, type);
     if (type == QQmlProfilerDefinitions::Javascript)
         javascriptMessages.append(data);
@@ -161,6 +172,8 @@ void QQmlProfilerTestClient::animationFrame(qint64 time, int frameRate, int anim
     QVERIFY(threadId >= 0);
     QVERIFY(frameRate != -1);
     QVERIFY(animationCount != -1);
+    QVERIFY(lastTimestamp <= time);
+    lastTimestamp = time;
     QQmlProfilerData data(time, QQmlProfilerDefinitions::Event,
                           QQmlProfilerDefinitions::AnimationFrame);
     data.framerate = frameRate;
@@ -178,6 +191,8 @@ void QQmlProfilerTestClient::sceneGraphEvent(QQmlProfilerDefinitions::SceneGraph
     Q_UNUSED(numericData3);
     Q_UNUSED(numericData4);
     Q_UNUSED(numericData5);
+    QVERIFY(lastTimestamp <= time);
+    lastTimestamp = time;
     asynchronousMessages.append(QQmlProfilerData(time, QQmlProfilerDefinitions::SceneGraphFrame,
                                                  type));
 }
@@ -186,6 +201,8 @@ void QQmlProfilerTestClient::pixmapCacheEvent(QQmlProfilerDefinitions::PixmapEve
                                              qint64 time, const QString &url, int numericData1,
                                              int numericData2)
 {
+    QVERIFY(lastTimestamp <= time);
+    lastTimestamp = time;
     QQmlProfilerData data(time, QQmlProfilerDefinitions::PixmapCacheEvent, type, url);
     switch (type) {
     case QQmlProfilerDefinitions::PixmapSizeKnown:
@@ -205,6 +222,8 @@ void QQmlProfilerTestClient::pixmapCacheEvent(QQmlProfilerDefinitions::PixmapEve
 void QQmlProfilerTestClient::memoryAllocation(QQmlProfilerDefinitions::MemoryType type, qint64 time,
                                              qint64 amount)
 {
+    QVERIFY(lastTimestamp <= time);
+    lastTimestamp = time;
     QQmlProfilerData data(time, QQmlProfilerDefinitions::MemoryAllocation, type);
     data.amount = amount;
     jsHeapMessages.append(data);
@@ -213,6 +232,8 @@ void QQmlProfilerTestClient::memoryAllocation(QQmlProfilerDefinitions::MemoryTyp
 void QQmlProfilerTestClient::inputEvent(QQmlProfilerDefinitions::InputEventType type, qint64 time,
                                         int a, int b)
 {
+    QVERIFY(lastTimestamp <= time);
+    lastTimestamp = time;
     qmlMessages.append(QQmlProfilerData(time, QQmlProfilerDefinitions::Event, type,
                                         QString::number(a) + QLatin1Char('x') +
                                         QString::number(b)));
@@ -597,7 +618,7 @@ void tst_QQmlProfilerService::scenegraphData()
     // if the clocks are acting up.
     qint64 contextFrameTime = -1;
     qint64 renderFrameTime = -1;
-
+#if QT_CONFIG(opengl) //Software renderer doesn't have context frames
     foreach (const QQmlProfilerData &msg, m_client->asynchronousMessages) {
         if (msg.messageType == QQmlProfilerDefinitions::SceneGraphFrame) {
             if (msg.detailType == QQmlProfilerDefinitions::SceneGraphContextFrame) {
@@ -608,7 +629,7 @@ void tst_QQmlProfilerService::scenegraphData()
     }
 
     QVERIFY(contextFrameTime != -1);
-
+#endif
     foreach (const QQmlProfilerData &msg, m_client->asynchronousMessages) {
         if (msg.detailType == QQmlProfilerDefinitions::SceneGraphRendererFrame) {
             QVERIFY(msg.time >= contextFrameTime);
@@ -667,11 +688,11 @@ void tst_QQmlProfilerService::signalSourceLocation()
                               QLatin1String("signalSourceLocation.qml"));
     expected.line = 8;
     expected.column = 28;
-    VERIFY(MessageListQML, 13, expected, CheckAll);
+    VERIFY(MessageListQML, 9, expected, CheckAll);
 
     expected.line = 7;
     expected.column = 21;
-    VERIFY(MessageListQML, 15, expected, CheckAll);
+    VERIFY(MessageListQML, 11, expected, CheckAll);
 }
 
 void tst_QQmlProfilerService::javascript()

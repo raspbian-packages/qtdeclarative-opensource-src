@@ -27,8 +27,6 @@
 ****************************************************************************/
 #include "testtypes.h"
 
-#include <private/qqmlcompiler_p.h>
-
 static QObject *myTypeObjectSingleton(QQmlEngine *engine, QJSEngine *scriptEngine)
 {
     Q_UNUSED(engine)
@@ -47,6 +45,7 @@ void registerTypes()
     qmlRegisterType<MyDotPropertyObject>("Test",1,0,"MyDotPropertyObject");
     qmlRegisterType<MyNamespace::MyNamespacedType>("Test",1,0,"MyNamespacedType");
     qmlRegisterType<MyNamespace::MySecondNamespacedType>("Test",1,0,"MySecondNamespacedType");
+    qmlRegisterUncreatableMetaObject(MyNamespace::staticMetaObject, "Test", 1, 0, "MyNamespace", "Access to enums & flags only");
     qmlRegisterType<MyParserStatus>("Test",1,0,"MyParserStatus");
     qmlRegisterType<MyGroupedObject>();
     qmlRegisterType<MyRevisionedClass>("Test",1,0,"MyRevisionedClass");
@@ -88,6 +87,10 @@ void registerTypes()
     qmlRegisterUncreatableType<MyUncreateableBaseClass,1>("Test", 1, 1, "MyUncreateableBaseClass", "Cannot create MyUncreateableBaseClass");
     qmlRegisterType<MyCreateableDerivedClass,1>("Test", 1, 1, "MyCreateableDerivedClass");
 
+    qmlRegisterExtendedUncreatableType<MyExtendedUncreateableBaseClass, MyExtendedUncreateableBaseClassExtension>("Test", 1, 0, "MyExtendedUncreateableBaseClass", "Cannot create MyExtendedUncreateableBaseClass");
+    qmlRegisterExtendedUncreatableType<MyExtendedUncreateableBaseClass, MyExtendedUncreateableBaseClassExtension, 1>("Test", 1, 1, "MyExtendedUncreateableBaseClass", "Cannot create MyExtendedUncreateableBaseClass");
+    qmlRegisterType<MyExtendedCreateableDerivedClass>("Test", 1, 0, "MyExtendedCreateableDerivedClass");
+
     qmlRegisterCustomType<CustomBinding>("Test", 1, 0, "CustomBinding", new CustomBindingParser);
     qmlRegisterCustomType<SimpleObjectWithCustomParser>("Test", 1, 0, "SimpleObjectWithCustomParser", new SimpleObjectCustomParser);
 
@@ -98,6 +101,8 @@ void registerTypes()
     qmlRegisterType<MyCompositeBaseType>("Test", 1, 0, "MyCompositeBaseType");
 
     qmlRegisterSingletonType<MyTypeObjectSingleton>("Test", 1, 0, "MyTypeObjectSingleton", myTypeObjectSingleton);
+
+    qmlRegisterType<MyArrayBufferTestClass>("Test", 1, 0, "MyArrayBufferTestClass");
 }
 
 QVariant myCustomVariantTypeConverter(const QString &data)
@@ -108,11 +113,11 @@ QVariant myCustomVariantTypeConverter(const QString &data)
 }
 
 
-void CustomBindingParser::applyBindings(QObject *object, QQmlCompiledData *cdata, const QList<const QV4::CompiledData::Binding *> &bindings)
+void CustomBindingParser::applyBindings(QObject *object, QV4::CompiledData::CompilationUnit *compilationUnit, const QList<const QV4::CompiledData::Binding *> &bindings)
 {
     CustomBinding *customBinding = qobject_cast<CustomBinding*>(object);
     Q_ASSERT(customBinding);
-    customBinding->cdata = cdata;
+    customBinding->compilationUnit = compilationUnit;
     customBinding->bindings = bindings;
 }
 
@@ -121,17 +126,17 @@ void CustomBinding::componentComplete()
     Q_ASSERT(m_target);
 
     foreach (const QV4::CompiledData::Binding *binding, bindings) {
-        QString name = cdata->compilationUnit->data->stringAt(binding->propertyNameIndex);
+        QString name = compilationUnit->data->stringAt(binding->propertyNameIndex);
 
         int bindingId = binding->value.compiledScriptIndex;
 
         QQmlContextData *context = QQmlContextData::get(qmlContext(this));
 
-        QV4::Scope scope(QQmlEnginePrivate::getV4Engine(qmlEngine(this)));
-        QV4::ScopedValue function(scope, QV4::FunctionObject::createQmlFunction(context, m_target, cdata->compilationUnit->runtimeFunctions[bindingId]));
-        QQmlBinding *qmlBinding = new QQmlBinding(function, m_target, context);
-
         QQmlProperty property(m_target, name, qmlContext(this));
+        QV4::Scope scope(QQmlEnginePrivate::getV4Engine(qmlEngine(this)));
+        QV4::Scoped<QV4::QmlContext> qmlContext(scope, QV4::QmlContext::create(scope.engine->rootContext(), context, m_target));
+        QQmlBinding *qmlBinding = QQmlBinding::create(&QQmlPropertyPrivate::get(property)->core,
+                                                      compilationUnit->runtimeFunctions[bindingId], m_target, context, qmlContext);
         qmlBinding->setTarget(property);
         QQmlPropertyPrivate::setBinding(property, qmlBinding);
     }
@@ -167,7 +172,7 @@ void EnumSupportingCustomParser::verifyBindings(const QV4::CompiledData::Unit *q
     }
 }
 
-void SimpleObjectCustomParser::applyBindings(QObject *object, QQmlCompiledData *, const QList<const QV4::CompiledData::Binding *> &bindings)
+void SimpleObjectCustomParser::applyBindings(QObject *object, QV4::CompiledData::CompilationUnit *, const QList<const QV4::CompiledData::Binding *> &bindings)
 {
     SimpleObjectWithCustomParser *o = qobject_cast<SimpleObjectWithCustomParser*>(object);
     Q_ASSERT(o);

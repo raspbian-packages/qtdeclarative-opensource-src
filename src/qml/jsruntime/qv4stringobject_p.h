@@ -65,8 +65,8 @@ struct StringObject : Object {
         LengthPropertyIndex = 0
     };
 
-    StringObject();
-    StringObject(const QV4::String *string);
+    void init();
+    void init(const QV4::String *string);
     String *string;
 
     Heap::String *getIndex(uint index) const;
@@ -74,7 +74,7 @@ struct StringObject : Object {
 };
 
 struct StringCtor : FunctionObject {
-    StringCtor(QV4::ExecutionContext *scope);
+    void init(QV4::ExecutionContext *scope);
 };
 
 }
@@ -82,7 +82,7 @@ struct StringCtor : FunctionObject {
 struct StringObject: Object {
     V4_OBJECT2(StringObject, Object)
     Q_MANAGED_TYPE(StringObject)
-    V4_INTERNALCLASS(stringClass)
+    V4_INTERNALCLASS(StringObject)
     V4_PROTOTYPE(stringPrototype)
 
     Heap::String *getIndex(uint index) const {
@@ -103,34 +103,38 @@ struct StringCtor: FunctionObject
 {
     V4_OBJECT2(StringCtor, FunctionObject)
 
-    static ReturnedValue construct(const Managed *m, CallData *callData);
-    static ReturnedValue call(const Managed *that, CallData *callData);
+    static void construct(const Managed *m, Scope &scope, CallData *callData);
+    static void call(const Managed *, Scope &scope, CallData *callData);
 };
 
 struct StringPrototype: StringObject
 {
+    V4_PROTOTYPE(objectPrototype)
     void init(ExecutionEngine *engine, Object *ctor);
 
-    static ReturnedValue method_toString(CallContext *context);
-    static ReturnedValue method_charAt(CallContext *context);
-    static ReturnedValue method_charCodeAt(CallContext *context);
-    static ReturnedValue method_concat(CallContext *context);
-    static ReturnedValue method_indexOf(CallContext *context);
-    static ReturnedValue method_lastIndexOf(CallContext *context);
-    static ReturnedValue method_localeCompare(CallContext *context);
-    static ReturnedValue method_match(CallContext *context);
-    static ReturnedValue method_replace(CallContext *ctx);
-    static ReturnedValue method_search(CallContext *ctx);
-    static ReturnedValue method_slice(CallContext *ctx);
-    static ReturnedValue method_split(CallContext *ctx);
-    static ReturnedValue method_substr(CallContext *context);
-    static ReturnedValue method_substring(CallContext *context);
-    static ReturnedValue method_toLowerCase(CallContext *ctx);
-    static ReturnedValue method_toLocaleLowerCase(CallContext *ctx);
-    static ReturnedValue method_toUpperCase(CallContext *ctx);
-    static ReturnedValue method_toLocaleUpperCase(CallContext *ctx);
-    static ReturnedValue method_fromCharCode(CallContext *context);
-    static ReturnedValue method_trim(CallContext *ctx);
+    static void method_toString(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_charAt(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_charCodeAt(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_concat(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_endsWith(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_indexOf(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_includes(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_lastIndexOf(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_localeCompare(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_match(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_replace(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_search(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_slice(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_split(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_startsWith(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_substr(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_substring(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_toLowerCase(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_toLocaleLowerCase(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_toUpperCase(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_toLocaleUpperCase(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_fromCharCode(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_trim(const BuiltinFunction *, Scope &scope, CallData *callData);
 };
 
 }

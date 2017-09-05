@@ -43,7 +43,6 @@
 #include <QtQml/qqmlpropertyvaluesource.h>
 #include <QtQml/qqmlscriptstring.h>
 #include <QtQml/qqmlproperty.h>
-#include <private/qqmlcompiler_p.h>
 #include <private/qqmlcustomparser_p.h>
 
 QVariant myCustomVariantTypeConverter(const QString &data);
@@ -731,9 +730,19 @@ private:
 
 
 namespace MyNamespace {
+    Q_NAMESPACE
+    enum MyNSEnum {
+        Key1 = 1,
+        Key2,
+        Key5 = 5
+    };
+    Q_ENUM_NS(MyNSEnum);
+
     class MyNamespacedType : public QObject
     {
         Q_OBJECT
+        Q_PROPERTY(MyNamespace::MyNSEnum myEnum MEMBER m_myEnum)
+        MyNamespace::MyNSEnum m_myEnum = MyNSEnum::Key1;
     };
 
     class MySecondNamespacedType : public QObject
@@ -757,14 +766,14 @@ class MyCustomParserTypeParser : public QQmlCustomParser
 {
 public:
     virtual void verifyBindings(const QV4::CompiledData::Unit *, const QList<const QV4::CompiledData::Binding *> &) {}
-    virtual void applyBindings(QObject *, QQmlCompiledData *, const QList<const QV4::CompiledData::Binding *> &) {}
+    virtual void applyBindings(QObject *, QV4::CompiledData::CompilationUnit *, const QList<const QV4::CompiledData::Binding *> &) {}
 };
 
 class EnumSupportingCustomParser : public QQmlCustomParser
 {
 public:
     virtual void verifyBindings(const QV4::CompiledData::Unit *, const QList<const QV4::CompiledData::Binding *> &);
-    virtual void applyBindings(QObject *, QQmlCompiledData *, const QList<const QV4::CompiledData::Binding *> &) {}
+    virtual void applyBindings(QObject *, QV4::CompiledData::CompilationUnit *, const QList<const QV4::CompiledData::Binding *> &) {}
 };
 
 class MyParserStatus : public QObject, public QQmlParserStatus
@@ -1012,6 +1021,60 @@ public:
     }
 };
 
+class MyExtendedUncreateableBaseClass : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(bool prop1 READ prop1 WRITE setprop1)
+    Q_PROPERTY(bool prop2 READ prop2 WRITE setprop2 REVISION 1)
+    Q_PROPERTY(bool prop3 READ prop3 WRITE setprop3 REVISION 1)
+public:
+    explicit MyExtendedUncreateableBaseClass(QObject *parent = 0)
+        : QObject(parent), _prop1(false), _prop2(false), _prop3(false)
+    {
+    }
+
+    bool _prop1;
+    bool prop1() const { return _prop1; }
+    void setprop1(bool p) { _prop1 = p; }
+    bool _prop2;
+    bool prop2() const { return _prop2; }
+    void setprop2(bool p) { _prop2 = p; }
+    bool _prop3;
+    bool prop3() const { return _prop3; }
+    void setprop3(bool p) { _prop3 = p; }
+};
+
+class MyExtendedUncreateableBaseClassExtension : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(bool prop4 READ prop4 WRITE setprop4)
+public:
+    explicit MyExtendedUncreateableBaseClassExtension(QObject *parent = 0)
+        : QObject(parent), _prop4(false)
+    {
+    }
+
+    bool _prop4;
+    bool prop4() const { return _prop4; }
+    void setprop4(bool p) { _prop4 = p; }
+};
+
+class MyExtendedCreateableDerivedClass : public MyExtendedUncreateableBaseClass
+{
+    Q_OBJECT
+    Q_PROPERTY(bool prop5 READ prop5 WRITE setprop5)
+
+public:
+    MyExtendedCreateableDerivedClass(QObject *parent = 0)
+        : MyExtendedUncreateableBaseClass(parent), _prop5(false)
+    {
+    }
+
+    bool _prop5;
+    bool prop5() const { return _prop5; }
+    void setprop5(bool p) { _prop5 = p; }
+};
+
 class MyVersion2Class : public QObject
 {
     Q_OBJECT
@@ -1114,6 +1177,58 @@ public:
     static QObject *qmlAttachedProperties(QObject *parent) { return new QObject(parent); }
 };
 
+class MyArrayBufferTestClass : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(QByteArray byteArrayProperty READ byteArrayProperty WRITE setByteArrayProperty NOTIFY byteArrayPropertyChanged)
+
+signals:
+    void byteArrayPropertyChanged();
+    void byteArraySignal(QByteArray arg);
+
+public:
+    QByteArray byteArrayPropertyValue;
+    QByteArray byteArrayProperty() const {
+        return byteArrayPropertyValue;
+    }
+    void setByteArrayProperty(const QByteArray &v) {
+        byteArrayPropertyValue = v;
+        emit byteArrayPropertyChanged();
+    }
+    Q_INVOKABLE void emitByteArraySignal(char begin, char num) {
+        byteArraySignal(byteArrayMethod_CountUp(begin, num));
+    }
+    Q_INVOKABLE int byteArrayMethod_Sum(QByteArray arg) {
+        int sum = 0;
+        for (int i = 0; i < arg.size(); ++i) {
+            sum += arg[i];
+        }
+        return sum;
+    }
+    Q_INVOKABLE QByteArray byteArrayMethod_CountUp(char begin, int num) {
+        QByteArray ret;
+        for (int i = 0; i < num; ++i) {
+            ret.push_back(begin++);
+        }
+        return ret;
+    }
+    Q_INVOKABLE bool byteArrayMethod_Overloaded(QByteArray) {
+        return true;
+    }
+    Q_INVOKABLE bool byteArrayMethod_Overloaded(int) {
+        return false;
+    }
+    Q_INVOKABLE bool byteArrayMethod_Overloaded(QString) {
+        return false;
+    }
+    Q_INVOKABLE bool byteArrayMethod_Overloaded(QJSValue) {
+        return false;
+    }
+    Q_INVOKABLE bool byteArrayMethod_Overloaded(QVariant) {
+        return false;
+    }
+};
+
 Q_DECLARE_METATYPE(MyEnum2Class::EnumB)
 Q_DECLARE_METATYPE(MyEnum1Class::EnumA)
 Q_DECLARE_METATYPE(Qt::TextFormat)
@@ -1142,7 +1257,7 @@ public:
     void setTarget(QObject *newTarget) { m_target = newTarget; }
 
     QPointer<QObject> m_target;
-    QQmlRefPointer<QQmlCompiledData> cdata;
+    QQmlRefPointer<QV4::CompiledData::CompilationUnit> compilationUnit;
     QList<const QV4::CompiledData::Binding*> bindings;
     QByteArray m_bindingData;
 };
@@ -1150,7 +1265,7 @@ public:
 class CustomBindingParser : public QQmlCustomParser
 {
     virtual void verifyBindings(const QV4::CompiledData::Unit *, const QList<const QV4::CompiledData::Binding *> &) {}
-    virtual void applyBindings(QObject *, QQmlCompiledData *, const QList<const QV4::CompiledData::Binding *> &);
+    virtual void applyBindings(QObject *, QV4::CompiledData::CompilationUnit *, const QList<const QV4::CompiledData::Binding *> &);
 };
 
 class SimpleObjectWithCustomParser : public QObject
@@ -1196,7 +1311,7 @@ private:
 class SimpleObjectCustomParser : public QQmlCustomParser
 {
     virtual void verifyBindings(const QV4::CompiledData::Unit *, const QList<const QV4::CompiledData::Binding *> &) {}
-    virtual void applyBindings(QObject *, QQmlCompiledData *, const QList<const QV4::CompiledData::Binding *> &);
+    virtual void applyBindings(QObject *, QV4::CompiledData::CompilationUnit *, const QList<const QV4::CompiledData::Binding *> &);
 };
 
 class RootObjectInCreationTester : public QObject

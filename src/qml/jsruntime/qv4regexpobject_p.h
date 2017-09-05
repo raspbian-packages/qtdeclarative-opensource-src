@@ -74,16 +74,16 @@ namespace QV4 {
 namespace Heap {
 
 struct RegExpObject : Object {
-    RegExpObject();
-    RegExpObject(QV4::RegExp *value, bool global);
-    RegExpObject(const QRegExp &re);
+    void init();
+    void init(QV4::RegExp *value, bool global);
+    void init(const QRegExp &re);
 
     Pointer<RegExp> value;
     bool global;
 };
 
 struct RegExpCtor : FunctionObject {
-    RegExpCtor(QV4::ExecutionContext *scope);
+    void init(QV4::ExecutionContext *scope);
     Value lastMatch;
     Pointer<String> lastInput;
     int lastMatchStart;
@@ -96,7 +96,7 @@ struct RegExpCtor : FunctionObject {
 struct RegExpObject: Object {
     V4_OBJECT2(RegExpObject, Object)
     Q_MANAGED_TYPE(RegExpObject)
-    V4_INTERNALCLASS(regExpObjectClass)
+    V4_INTERNALCLASS(RegExpObject)
     V4_PROTOTYPE(regExpPrototype)
 
     // needs to be compatible with the flags in qv4jsir_p.h
@@ -140,8 +140,8 @@ struct RegExpCtor: FunctionObject
     int lastMatchStart() { return d()->lastMatchStart; }
     int lastMatchEnd() { return d()->lastMatchEnd; }
 
-    static ReturnedValue construct(const Managed *m, CallData *callData);
-    static ReturnedValue call(const Managed *that, CallData *callData);
+    static void construct(const Managed *m, Scope &scope, CallData *callData);
+    static void call(const Managed *that, Scope &scope, CallData *callData);
     static void markObjects(Heap::Base *that, ExecutionEngine *e);
 };
 
@@ -149,17 +149,17 @@ struct RegExpPrototype: RegExpObject
 {
     void init(ExecutionEngine *engine, Object *ctor);
 
-    static ReturnedValue method_exec(CallContext *ctx);
-    static ReturnedValue method_test(CallContext *ctx);
-    static ReturnedValue method_toString(CallContext *ctx);
-    static ReturnedValue method_compile(CallContext *ctx);
+    static void method_exec(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_test(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_toString(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_compile(const BuiltinFunction *, Scope &scope, CallData *callData);
 
     template <int index>
-    static ReturnedValue method_get_lastMatch_n(CallContext *ctx);
-    static ReturnedValue method_get_lastParen(CallContext *ctx);
-    static ReturnedValue method_get_input(CallContext *ctx);
-    static ReturnedValue method_get_leftContext(CallContext *ctx);
-    static ReturnedValue method_get_rightContext(CallContext *ctx);
+    static void method_get_lastMatch_n(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_get_lastParen(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_get_input(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_get_leftContext(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_get_rightContext(const BuiltinFunction *, Scope &scope, CallData *callData);
 };
 
 }

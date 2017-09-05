@@ -52,38 +52,38 @@
 //
 
 #include <private/qsgadaptationlayer_p.h>
-#include <QtQuick/qsgnode.h>
+#include <private/qsgbasicglyphnode_p.h>
 
 QT_BEGIN_NAMESPACE
 
-class QSGTextMaskMaterial;
-class QSGDefaultGlyphNode: public QSGGlyphNode
+class QSGDefaultGlyphNode : public QSGBasicGlyphNode
 {
 public:
     QSGDefaultGlyphNode();
-    virtual ~QSGDefaultGlyphNode();
+    ~QSGDefaultGlyphNode();
+    void setMaterialColor(const QColor &color) override;
+    void setGlyphs(const QPointF &position, const QGlyphRun &glyphs) override;
+    void update() override;
+    void preprocess() override;
+    void updateGeometry();
 
-    virtual QPointF baseLine() const { return m_baseLine; }
-    virtual void setGlyphs(const QPointF &position, const QGlyphRun &glyphs);
-    virtual void setColor(const QColor &color);
+private:
+    enum DefaultGlyphNodeType {
+        RootGlyphNode,
+        SubGlyphNode
+    };
 
-    virtual void setPreferredAntialiasingMode(AntialiasingMode) { }
-    virtual void setStyle(QQuickText::TextStyle);
-    virtual void setStyleColor(const QColor &);
+    void setGlyphNodeType(DefaultGlyphNodeType type) { m_glyphNodeType = type; }
 
-    virtual void update();
+    DefaultGlyphNodeType m_glyphNodeType;
+    QLinkedList<QSGNode *> m_nodesToDelete;
 
-protected:
-    QGlyphRun m_glyphs;
-    QPointF m_position;
-    QColor m_color;
-    QQuickText::TextStyle m_style;
-    QColor m_styleColor;
+    struct GlyphInfo {
+        QVector<quint32> indexes;
+        QVector<QPointF> positions;
+    };
 
-    QPointF m_baseLine;
-    QSGTextMaskMaterial *m_material;
-
-    QSGGeometry m_geometry;
+    uint m_dirtyGeometry: 1;
 };
 
 QT_END_NAMESPACE

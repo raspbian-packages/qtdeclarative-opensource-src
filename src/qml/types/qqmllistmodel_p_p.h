@@ -71,8 +71,8 @@ public:
     bool m_enabled;
 
 protected:
-    void propertyWrite(int index);
-    void propertyWritten(int index);
+    void propertyWrite(int index) override;
+    void propertyWritten(int index) override;
 
 private:
     DynamicRoleModelNode *m_owner;
@@ -88,7 +88,7 @@ public:
 
     void updateValues(const QVariantMap &object, QVector<int> &roles);
 
-    QVariant getValue(const QString &name)
+    QVariant getValue(const QString &name) const
     {
         return m_meta->value(name.toUtf8());
     }
@@ -124,7 +124,7 @@ public:
     ModelNodeMetaObject(QObject *object, QQmlListModel *model, int elementIndex);
     ~ModelNodeMetaObject();
 
-    virtual QAbstractDynamicMetaObject *toDynamicMetaObject(QObject *object);
+    QAbstractDynamicMetaObject *toDynamicMetaObject(QObject *object) override;
 
     static ModelNodeMetaObject *get(QObject *obj);
 
@@ -138,7 +138,7 @@ public:
     bool initialized() const { return m_initialized; }
 
 protected:
-    void propertyWritten(int index);
+    void propertyWritten(int index) override;
 
 private:
     using QQmlOpenMetaObject::setValue;
@@ -153,6 +153,8 @@ private:
         setValue(name, val);
     }
 
+    void emitDirectNotifies(const int *changedRoles, int roleCount);
+
     void initialize();
     bool m_initialized;
 };
@@ -162,11 +164,13 @@ namespace QV4 {
 namespace Heap {
 
 struct ModelObject : public QObjectWrapper {
-    ModelObject(QObject *object, QQmlListModel *model, int elementIndex)
-        : QObjectWrapper(object)
-        , m_model(model)
-        , m_elementIndex(elementIndex)
-    {}
+    void init(QObject *object, QQmlListModel *model, int elementIndex)
+    {
+        QObjectWrapper::init(object);
+        m_model = model;
+        m_elementIndex = elementIndex;
+    }
+    void destroy() { QObjectWrapper::destroy(); }
     QQmlListModel *m_model;
     int m_elementIndex;
 };
@@ -180,6 +184,7 @@ struct ModelObject : public QObjectWrapper
     static void advanceIterator(Managed *m, ObjectIterator *it, Value *name, uint *index, Property *p, PropertyAttributes *attributes);
 
     V4_OBJECT2(ModelObject, QObjectWrapper)
+    V4_NEEDS_DESTROY
 };
 
 } // namespace QV4
@@ -199,7 +204,7 @@ public:
         explicit Role(const Role *other);
         ~Role();
 
-        // This enum must be kept in sync with the roleTypeNames variable in qdeclarativelistmodel.cpp
+        // This enum must be kept in sync with the roleTypeNames variable in qqmllistmodel.cpp
         enum DataType
         {
             Invalid = -1,
@@ -227,9 +232,9 @@ public:
     const Role &getRoleOrCreate(QV4::String *key, Role::DataType type);
     const Role &getRoleOrCreate(const QString &key, Role::DataType type);
 
-    const Role &getExistingRole(int index) { return *roles.at(index); }
-    const Role *getExistingRole(const QString &key);
-    const Role *getExistingRole(QV4::String *key);
+    const Role &getExistingRole(int index) const { return *roles.at(index); }
+    const Role *getExistingRole(const QString &key) const;
+    const Role *getExistingRole(QV4::String *key) const;
 
     int roleCount() const { return roles.count(); }
 
@@ -335,12 +340,12 @@ public:
         return m_layout->roleCount();
     }
 
-    const ListLayout::Role &getExistingRole(int index)
+    const ListLayout::Role &getExistingRole(int index) const
     {
         return m_layout->getExistingRole(index);
     }
 
-    const ListLayout::Role *getExistingRole(QV4::String *key)
+    const ListLayout::Role *getExistingRole(QV4::String *key) const
     {
         return m_layout->getExistingRole(key);
     }

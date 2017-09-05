@@ -49,7 +49,6 @@
 #include <private/qqmldebugstatesdelegate_p.h>
 #include <private/qqmlbinding_p.h>
 #include <private/qqmlcontext_p.h>
-#include <private/qquickprofiler_p.h>
 #include <private/qquickapplication_p.h>
 #include <QtQuick/private/qquickpropertychanges_p.h>
 #include <QtQuick/private/qquickstate_p.h>
@@ -63,23 +62,29 @@ static void initResources()
 
 QT_BEGIN_NAMESPACE
 
+#ifdef QT_NO_QML_DEBUGGER
+
+class QQmlQtQuick2DebugStatesDelegate : public QQmlDebugStatesDelegate {};
+
+#else
+
 class QQmlQtQuick2DebugStatesDelegate : public QQmlDebugStatesDelegate
 {
 public:
     QQmlQtQuick2DebugStatesDelegate();
-    virtual ~QQmlQtQuick2DebugStatesDelegate();
-    virtual void buildStatesList(bool cleanList, const QList<QPointer<QObject> > &instances);
-    virtual void updateBinding(QQmlContext *context,
-                               const QQmlProperty &property,
-                               const QVariant &expression, bool isLiteralValue,
-                               const QString &fileName, int line, int column,
-                               bool *isBaseState);
-    virtual bool setBindingForInvalidProperty(QObject *object,
-                                              const QString &propertyName,
-                                              const QVariant &expression,
-                                              bool isLiteralValue);
-    virtual void resetBindingForInvalidProperty(QObject *object,
-                                                const QString &propertyName);
+    ~QQmlQtQuick2DebugStatesDelegate();
+    void buildStatesList(bool cleanList, const QList<QPointer<QObject> > &instances) override;
+    void updateBinding(QQmlContext *context,
+                       const QQmlProperty &property,
+                       const QVariant &expression, bool isLiteralValue,
+                       const QString &fileName, int line, int column,
+                       bool *isBaseState) override;
+    bool setBindingForInvalidProperty(QObject *object,
+                                      const QString &propertyName,
+                                      const QVariant &expression,
+                                      bool isLiteralValue) override;
+    void resetBindingForInvalidProperty(QObject *object,
+                                        const QString &propertyName) override;
 
 private:
     void buildStatesList(QObject *obj);
@@ -125,10 +130,11 @@ void QQmlQtQuick2DebugStatesDelegate::updateBinding(QQmlContext *context,
                                                             const QString &fileName, int line, int column,
                                                             bool *inBaseState)
 {
+    Q_UNUSED(column);
     typedef QPointer<QQuickState> QuickStatePointer;
     QObject *object = property.object();
     QString propertyName = property.name();
-    foreach (const QuickStatePointer& statePointer, m_allStates) {
+    for (const QuickStatePointer& statePointer : qAsConst(m_allStates)) {
         if (QQuickState *state = statePointer.data()) {
             // here we assume that the revert list on itself defines the base state
             if (state->isStateActive() && state->containsPropertyInRevertList(object, propertyName)) {
@@ -136,9 +142,10 @@ void QQmlQtQuick2DebugStatesDelegate::updateBinding(QQmlContext *context,
 
                 QQmlBinding *newBinding = 0;
                 if (!isLiteralValue) {
-                    newBinding = new QQmlBinding(expression.toString(), object,
-                                                 QQmlContextData::get(context), fileName,
-                                                 line, column);
+                    newBinding = QQmlBinding::create(&QQmlPropertyPrivate::get(property)->core,
+                                                     expression.toString(), object,
+                                                     QQmlContextData::get(context), fileName,
+                                                     line);
                     newBinding->setTarget(property);
                 }
 
@@ -174,6 +181,7 @@ void QQmlQtQuick2DebugStatesDelegate::resetBindingForInvalidProperty(QObject *ob
     }
 }
 
+#endif // QT_NO_QML_DEBUGGER
 
 void QQmlQtQuick2Module::defineModule()
 {
@@ -189,7 +197,7 @@ void QQmlQtQuick2Module::defineModule()
 
     QQuickValueTypes::registerValueTypes();
 
-#ifndef QT_NO_ACCESSIBILITY
+#if QT_CONFIG(accessibility)
     QAccessible::installFactory(&qQuickAccessibleFactory);
 #endif
 

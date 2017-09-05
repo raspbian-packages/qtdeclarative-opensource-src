@@ -41,6 +41,7 @@
 #define QQUICKWINDOW_H
 
 #include <QtQuick/qtquickglobal.h>
+#include <QtQuick/qsgrendererinterface.h>
 #include <QtCore/qmetatype.h>
 #include <QtGui/qopengl.h>
 #include <QtGui/qwindow.h>
@@ -55,11 +56,15 @@ class QSGTexture;
 class QInputMethodEvent;
 class QQuickWindowPrivate;
 class QQuickWindowAttached;
+class QOpenGLContext;
 class QOpenGLFramebufferObject;
 class QQmlIncubationController;
 class QInputMethodEvent;
 class QQuickCloseEvent;
 class QQuickRenderControl;
+class QSGRectangleNode;
+class QSGImageNode;
+class QSGNinePatchNode;
 
 class Q_QUICK_EXPORT QQuickWindow : public QWindow
 {
@@ -110,19 +115,19 @@ public:
     bool sendEvent(QQuickItem *, QEvent *);
 
     QImage grabWindow();
-
+#if QT_CONFIG(opengl)
     void setRenderTarget(QOpenGLFramebufferObject *fbo);
     QOpenGLFramebufferObject *renderTarget() const;
-
+#endif
     void setRenderTarget(uint fboId, const QSize &size);
     uint renderTargetId() const;
     QSize renderTargetSize() const;
-
+#if QT_CONFIG(opengl)
     void resetOpenGLState();
-
+#endif
     QQmlIncubationController *incubationController() const;
 
-#ifndef QT_NO_ACCESSIBILITY
+#if QT_CONFIG(accessibility)
     QAccessibleInterface *accessibleRoot() const Q_DECL_OVERRIDE;
 #endif
 
@@ -152,6 +157,16 @@ public:
     void scheduleRenderJob(QRunnable *job, RenderStage schedule);
 
     qreal effectiveDevicePixelRatio() const;
+
+    QSGRendererInterface *rendererInterface() const;
+
+    static void setSceneGraphBackend(QSGRendererInterface::GraphicsApi api);
+    static void setSceneGraphBackend(const QString &backend);
+    static QString sceneGraphBackend();
+
+    QSGRectangleNode *createRectangleNode() const;
+    QSGImageNode *createImageNode() const;
+    QSGNinePatchNode *createNinePatchNode() const;
 
 Q_SIGNALS:
     void frameSwapped();
@@ -195,7 +210,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent *) Q_DECL_OVERRIDE;
     void mouseDoubleClickEvent(QMouseEvent *) Q_DECL_OVERRIDE;
     void mouseMoveEvent(QMouseEvent *) Q_DECL_OVERRIDE;
-#ifndef QT_NO_WHEELEVENT
+#if QT_CONFIG(wheelevent)
     void wheelEvent(QWheelEvent *) Q_DECL_OVERRIDE;
 #endif
 

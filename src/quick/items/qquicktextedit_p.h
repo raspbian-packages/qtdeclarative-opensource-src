@@ -86,6 +86,7 @@ class Q_QUICK_PRIVATE_EXPORT QQuickTextEdit : public QQuickImplicitSizeItem
     Q_PROPERTY(int cursorPosition READ cursorPosition WRITE setCursorPosition NOTIFY cursorPositionChanged)
     Q_PROPERTY(QRectF cursorRectangle READ cursorRectangle NOTIFY cursorRectangleChanged)
     Q_PROPERTY(QQmlComponent* cursorDelegate READ cursorDelegate WRITE setCursorDelegate NOTIFY cursorDelegateChanged)
+    Q_PROPERTY(bool overwriteMode READ overwriteMode WRITE setOverwriteMode NOTIFY overwriteModeChanged)
     Q_PROPERTY(int selectionStart READ selectionStart NOTIFY selectionStartChanged)
     Q_PROPERTY(int selectionEnd READ selectionEnd NOTIFY selectionEndChanged)
     Q_PROPERTY(QString selectedText READ selectedText NOTIFY selectedTextChanged)
@@ -199,6 +200,9 @@ public:
     QQmlComponent* cursorDelegate() const;
     void setCursorDelegate(QQmlComponent*);
 
+    bool overwriteMode() const;
+    void setOverwriteMode(bool overwrite);
+
     int selectionStart() const;
     int selectionEnd() const;
 
@@ -238,7 +242,7 @@ public:
 
     QRectF cursorRectangle() const;
 
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
     QVariant inputMethodQuery(Qt::InputMethodQuery property) const Q_DECL_OVERRIDE;
     Q_REVISION(4) Q_INVOKABLE QVariant inputMethodQuery(Qt::InputMethodQuery query, QVariant argument) const;
 #endif
@@ -313,6 +317,7 @@ Q_SIGNALS:
     void readOnlyChanged(bool isReadOnly);
     void cursorVisibleChanged(bool isCursorVisible);
     void cursorDelegateChanged();
+    void overwriteModeChanged(bool overwriteMode);
     void activeFocusOnPressChanged(bool activeFocusOnPressed);
     void persistentSelectionChanged(bool isPersistentSelection);
     void textMarginChanged(qreal textMargin);
@@ -342,7 +347,7 @@ public Q_SLOTS:
     void select(int start, int end);
     void deselect();
     bool isRightToLeft(int start, int end);
-#ifndef QT_NO_CLIPBOARD
+#if QT_CONFIG(clipboard)
     void cut();
     void copy();
     void paste();
@@ -394,7 +399,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void mouseDoubleClickEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
     void mouseMoveEvent(QMouseEvent *event) Q_DECL_OVERRIDE;
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
     void inputMethodEvent(QInputMethodEvent *e) Q_DECL_OVERRIDE;
 #endif
     QSGNode *updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *updatePaintNodeData) Q_DECL_OVERRIDE;

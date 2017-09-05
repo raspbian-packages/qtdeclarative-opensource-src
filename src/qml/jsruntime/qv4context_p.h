@@ -55,22 +55,26 @@
 
 QT_BEGIN_NAMESPACE
 
-class QQmlContextData;
 class QObject;
+class QQmlContextData;
 
 namespace QV4 {
 
 namespace CompiledData {
-struct CompilationUnit;
+struct CompilationUnitBase;
 struct Function;
 }
 
-struct QmlContextWrapper;
+struct Function;
 struct Identifier;
 struct CallContext;
 struct CatchContext;
 struct WithContext;
+struct QmlContext;
+struct QmlContextWrapper;
 
+// Attention: Make sure that this structure is the same size on 32-bit and 64-bit
+// architecture or you'll have to change the JIT code.
 struct CallData
 {
     // below is to be compatible with Value. Initialize tag to 0
@@ -89,9 +93,43 @@ struct CallData
     Value args[1];
 };
 
+Q_STATIC_ASSERT(std::is_standard_layout<CallData>::value);
+Q_STATIC_ASSERT(offsetof(CallData, thisObject) == 8);
+Q_STATIC_ASSERT(offsetof(CallData, args) == 16);
+
 namespace Heap {
 
-struct ExecutionContext : Base {
+struct QmlContext;
+
+// ### Temporary arrangment until this code hits the dev branch and
+// can use the Members macro
+struct ExecutionContextData {
+    CallData *callData;
+    ExecutionContext *outer;
+    Lookup *lookups;
+    const QV4::Value *constantTable;
+    CompiledData::CompilationUnitBase *compilationUnit;
+    // as member of non-pointer size this has to come last to preserve the ability to
+    // translate offsetof of it between 64-bit and 32-bit.
+    int lineNumber;
+#if QT_POINTER_SIZE == 8
+    uint padding_;
+#endif
+};
+
+Q_STATIC_ASSERT(std::is_standard_layout<ExecutionContextData>::value);
+Q_STATIC_ASSERT(offsetof(ExecutionContextData, callData) == 0);
+Q_STATIC_ASSERT(offsetof(ExecutionContextData, outer) == offsetof(ExecutionContextData, callData) + QT_POINTER_SIZE);
+Q_STATIC_ASSERT(offsetof(ExecutionContextData, lookups) == offsetof(ExecutionContextData, outer) + QT_POINTER_SIZE);
+Q_STATIC_ASSERT(offsetof(ExecutionContextData, constantTable) == offsetof(ExecutionContextData, lookups) + QT_POINTER_SIZE);
+Q_STATIC_ASSERT(offsetof(ExecutionContextData, compilationUnit) == offsetof(ExecutionContextData, constantTable) + QT_POINTER_SIZE);
+Q_STATIC_ASSERT(offsetof(ExecutionContextData, lineNumber) == offsetof(ExecutionContextData, compilationUnit) + QT_POINTER_SIZE);
+
+struct ExecutionContextSizeStruct : public Base, public ExecutionContextData {};
+
+struct ExecutionContext : Base, public ExecutionContextData {
+    static Q_CONSTEXPR size_t baseOffset = sizeof(ExecutionContextSizeStruct) - sizeof(ExecutionContextData);
+
     enum ContextType {
         Type_GlobalContext = 0x1,
         Type_CatchContext = 0x2,
@@ -101,68 +139,79 @@ struct ExecutionContext : Base {
         Type_CallContext = 0x6
     };
 
-    inline ExecutionContext(ExecutionEngine *engine, ContextType t);
-
-    CallData *callData;
-
-    ExecutionEngine *engine;
-    Pointer<ExecutionContext> outer;
-    Lookup *lookups;
-    CompiledData::CompilationUnit *compilationUnit;
-
-    ContextType type : 8;
-    bool strictMode : 8;
-    int lineNumber;
-};
-
-inline
-ExecutionContext::ExecutionContext(ExecutionEngine *engine, ContextType t)
-    : engine(engine)
-    , outer(0)
-    , lookups(0)
-    , compilationUnit(0)
-    , type(t)
-    , strictMode(false)
-    , lineNumber(-1)
-{}
-
-
-struct CallContext : ExecutionContext {
-    CallContext(ExecutionEngine *engine, ContextType t = Type_SimpleCallContext)
-        : ExecutionContext(engine, t)
+    void init(ContextType t)
     {
-        function = 0;
-        locals = 0;
-        activation = 0;
+        Base::init();
+
+        type = t;
+        lineNumber = -1;
     }
 
-    Pointer<FunctionObject> function;
+    quint8 type;
+    bool strictMode : 8;
+#if QT_POINTER_SIZE == 8
+    quint8 padding_[6];
+#else
+    quint8 padding_[2];
+#endif
+};
+V4_ASSERT_IS_TRIVIAL(ExecutionContext)
+Q_STATIC_ASSERT(sizeof(ExecutionContext) == sizeof(Base) + sizeof(ExecutionContextData) + QT_POINTER_SIZE);
+
+struct CallContextData {
     Value *locals;
+};
+
+Q_STATIC_ASSERT(std::is_standard_layout<CallContextData>::value);
+Q_STATIC_ASSERT(offsetof(CallContextData, locals) == 0);
+
+struct CallContextSizeStruct : public ExecutionContext, public CallContextData {};
+
+struct CallContext : ExecutionContext, public CallContextData {
+    static Q_CONSTEXPR size_t baseOffset = sizeof(CallContextSizeStruct) - sizeof(CallContextData);
+
+    void init(ContextType t = Type_SimpleCallContext)
+    {
+        ExecutionContext::init(t);
+    }
+
+    inline unsigned int formalParameterCount() const;
+
+    Pointer<FunctionObject> function;
+    QV4::Function *v4Function;
     Pointer<Object> activation;
 };
+V4_ASSERT_IS_TRIVIAL(CallContext)
 
 struct GlobalContext : ExecutionContext {
-    GlobalContext(ExecutionEngine *engine);
+    void init(ExecutionEngine *engine);
     Pointer<Object> global;
 };
+V4_ASSERT_IS_TRIVIAL(GlobalContext)
 
 struct CatchContext : ExecutionContext {
-    CatchContext(ExecutionContext *outerContext, String *exceptionVarName, const Value &exceptionValue);
+    void init(ExecutionContext *outerContext, String *exceptionVarName, const Value &exceptionValue);
     Pointer<String> exceptionVarName;
     Value exceptionValue;
 };
+V4_ASSERT_IS_TRIVIAL(CatchContext)
 
 struct WithContext : ExecutionContext {
-    WithContext(ExecutionContext *outerContext, Object *with);
+    void init(ExecutionContext *outerContext, Object *with)
+    {
+        Heap::ExecutionContext::init(Heap::ExecutionContext::Type_WithContext);
+        outer = outerContext;
+        callData = outer->callData;
+        lookups = outer->lookups;
+        constantTable = outer->constantTable;
+        compilationUnit = outer->compilationUnit;
+
+        withObject = with;
+    }
+
     Pointer<Object> withObject;
 };
-
-struct QmlContextWrapper;
-
-struct QmlContext : ExecutionContext {
-    QmlContext(QV4::ExecutionContext *outerContext, QV4::QmlContextWrapper *qml);
-    Pointer<QmlContextWrapper> qml;
-};
+V4_ASSERT_IS_TRIVIAL(WithContext)
 
 }
 
@@ -174,14 +223,11 @@ struct Q_QML_EXPORT ExecutionContext : public Managed
 
     V4_MANAGED(ExecutionContext, Managed)
     Q_MANAGED_TYPE(ExecutionContext)
+    V4_INTERNALCLASS(ExecutionContext)
 
-    ExecutionEngine *engine() const { return d()->engine; }
-
-    Heap::CallContext *newCallContext(const FunctionObject *f, CallData *callData);
+    Heap::CallContext *newCallContext(Function *f, CallData *callData);
     Heap::WithContext *newWithContext(Heap::Object *with);
     Heap::CatchContext *newCatchContext(Heap::String *exceptionVarName, ReturnedValue exceptionValue);
-    Heap::QmlContext *newQmlContext(QmlContextWrapper *qml);
-    Heap::QmlContext *newQmlContext(QQmlContextData *context, QObject *scopeObject);
 
     void createMutableBinding(String *name, bool deletable);
 
@@ -195,7 +241,7 @@ struct Q_QML_EXPORT ExecutionContext : public Managed
     inline const CatchContext *asCatchContext() const;
     inline const WithContext *asWithContext() const;
 
-    Heap::FunctionObject *getFunctionObject() const;
+    Function *getFunction() const;
 
     static void markObjects(Heap::Base *m, ExecutionEngine *e);
 
@@ -211,11 +257,15 @@ struct Q_QML_EXPORT ExecutionContext : public Managed
     ReturnedValue argument(int i) const {
         return d()->callData->argument(i);
     }
+
+    void call(Scope &scope, CallData *callData, QV4::Function *function, const QV4::FunctionObject *f = 0);
+    void simpleCall(Scope &scope, CallData *callData, QV4::Function *function);
 };
 
 struct Q_QML_EXPORT CallContext : public ExecutionContext
 {
     V4_MANAGED(CallContext, ExecutionContext)
+    V4_INTERNALCLASS(CallContext)
 
     // formals are in reverse order
     Identifier * const *formals() const;
@@ -223,11 +273,12 @@ struct Q_QML_EXPORT CallContext : public ExecutionContext
     Identifier * const *variables() const;
     unsigned int variableCount() const;
 
-    inline ReturnedValue argument(int i);
+    inline ReturnedValue argument(int i) const;
     bool needsOwnArguments() const;
+
 };
 
-inline ReturnedValue CallContext::argument(int i) {
+inline ReturnedValue CallContext::argument(int i) const {
     return i < argc() ? args()[i].asReturnedValue() : Primitive::undefinedValue().asReturnedValue();
 }
 
@@ -245,16 +296,6 @@ struct CatchContext : public ExecutionContext
 struct WithContext : public ExecutionContext
 {
     V4_MANAGED(WithContext, ExecutionContext)
-};
-
-struct Q_QML_EXPORT QmlContext : public ExecutionContext
-{
-    V4_MANAGED(QmlContext, ExecutionContext)
-
-    QObject *qmlScope() const;
-    QQmlContextData *qmlContext() const;
-
-    void takeContextOwnership();
 };
 
 inline CallContext *ExecutionContext::asCallContext()
@@ -276,10 +317,6 @@ inline const WithContext *ExecutionContext::asWithContext() const
 {
     return d()->type == Heap::ExecutionContext::Type_WithContext ? static_cast<const WithContext *>(this) : 0;
 }
-
-/* Function *f, int argc */
-#define requiredMemoryForExecutionContect(f, argc) \
-    ((sizeof(CallContext::Data) + 7) & ~7) + sizeof(Value) * (f->varCount() + qMax((uint)argc, f->formalParameterCount())) + sizeof(CallData)
 
 } // namespace QV4
 

@@ -54,7 +54,9 @@
 #include "qquicktextmetrics_p.h"
 #include "qquicktransition_p.h"
 #include "qquickanimator_p.h"
+#if QT_CONFIG(shortcut)
 #include "qquickshortcut_p.h"
+#endif
 #include "qquickvalidator_p.h"
 #include <qqmlinfo.h>
 #include <private/qqmltypenotavailable_p.h>
@@ -63,11 +65,13 @@
 #include <QtGui/QInputMethod>
 #include <QtGui/QKeySequence>
 
+#if QT_CONFIG(shortcut)
 Q_DECLARE_METATYPE(QKeySequence::StandardKey)
+#endif
 
 void QQuickUtilModule::defineModule()
 {
-#ifndef QT_NO_IM
+#if QT_CONFIG(im)
     qmlRegisterUncreatableType<QInputMethod>("QtQuick",2,0,"InputMethod",
                                              QInputMethod::tr("InputMethod is an abstract class"));
 #endif
@@ -94,7 +98,7 @@ void QQuickUtilModule::defineModule()
     qmlRegisterType<QQuickTransition>("QtQuick",2,0,"Transition");
     qmlRegisterType<QQuickVector3dAnimation>("QtQuick",2,0,"Vector3dAnimation");
 
-#ifndef QT_NO_VALIDATOR
+#if QT_CONFIG(validator)
     qmlRegisterType<QValidator>();
     qmlRegisterType<QQuickIntValidator>("QtQuick",2,0,"IntValidator");
     qmlRegisterType<QQuickDoubleValidator>("QtQuick",2,0,"DoubleValidator");
@@ -107,19 +111,25 @@ void QQuickUtilModule::defineModule()
     qmlRegisterType<QQuickScaleAnimator>("QtQuick", 2, 2, "ScaleAnimator");
     qmlRegisterType<QQuickRotationAnimator>("QtQuick", 2, 2, "RotationAnimator");
     qmlRegisterType<QQuickOpacityAnimator>("QtQuick", 2, 2, "OpacityAnimator");
+#if QT_CONFIG(quick_shadereffect) && QT_CONFIG(opengl)
     qmlRegisterType<QQuickUniformAnimator>("QtQuick", 2, 2, "UniformAnimator");
-
+#endif
     qmlRegisterType<QQuickStateOperation>();
 
     qmlRegisterCustomType<QQuickPropertyChanges>("QtQuick",2,0,"PropertyChanges", new QQuickPropertyChangesParser);
 
+#if QT_CONFIG(shortcut)
     qRegisterMetaType<QKeySequence::StandardKey>();
     qmlRegisterUncreatableType<QKeySequence, 2>("QtQuick", 2, 2, "StandardKey", QStringLiteral("Cannot create an instance of StandardKey."));
+#endif
 
     qmlRegisterType<QQuickFontMetrics>("QtQuick", 2, 4, "FontMetrics");
     qmlRegisterType<QQuickTextMetrics>("QtQuick", 2, 4, "TextMetrics");
 
+#if QT_CONFIG(shortcut)
     qmlRegisterType<QQuickShortcut>("QtQuick", 2, 5, "Shortcut");
-
     qmlRegisterType<QQuickShortcut,1>("QtQuick", 2, 6, "Shortcut");
+
+    qmlRegisterType<QQuickShortcut,9>("QtQuick", 2, 9, "Shortcut");
+#endif
 }

@@ -113,18 +113,18 @@ public:
         , inDestructor(false)
         , baselineAnchorLine(QQuickAnchors::InvalidAnchor)
         , centerAligned(true)
+        , usedAnchors(QQuickAnchors::InvalidAnchor)
+        , componentComplete(true)
         , updatingFill(0)
         , updatingCenterIn(0)
         , updatingHorizontalAnchor(0)
         , updatingVerticalAnchor(0)
-        , componentComplete(true)
-        , usedAnchors(QQuickAnchors::InvalidAnchor)
     {
     }
 
     void clearItem(QQuickItem *);
 
-    int calculateDependency(QQuickItem *);
+    QQuickGeometryChange calculateDependency(QQuickItem *) const;
     void addDepend(QQuickItem *);
     void remDepend(QQuickItem *);
     bool isItemComplete() const;
@@ -141,7 +141,7 @@ public:
     void updateMe();
 
     // QQuickItemGeometryListener interface
-    void itemGeometryChanged(QQuickItem *, const QRectF &, const QRectF &) Q_DECL_OVERRIDE;
+    void itemGeometryChanged(QQuickItem *, QQuickGeometryChange, const QRectF &) Q_DECL_OVERRIDE;
     QQuickAnchorsPrivate *anchorPrivate() Q_DECL_OVERRIDE { return this; }
 
     bool checkHValid() const;
@@ -150,7 +150,7 @@ public:
     bool checkVAnchorValid(QQuickAnchorLine anchor) const;
     bool calcStretch(QQuickItem *edge1Item, QQuickAnchors::Anchor edge1Line,
                      QQuickItem *edge2Item, QQuickAnchors::Anchor edge2Line,
-                     qreal offset1, qreal offset2, QQuickAnchors::Anchor line, qreal &stretch);
+                     qreal offset1, qreal offset2, QQuickAnchors::Anchor line, qreal &stretch) const;
 
     bool isMirrored() const;
     void updateHorizontalAnchors();
@@ -198,13 +198,16 @@ public:
     uint inDestructor                        : 1;
     QQuickAnchors::Anchor baselineAnchorLine : 7;
     uint centerAligned                       : 1;
-    uint updatingFill                        : 2;
-    uint updatingCenterIn                    : 2;
-    uint updatingHorizontalAnchor            : 2;
-    uint updatingVerticalAnchor              : 2;
-
-    uint componentComplete                   : 1;
     uint usedAnchors                         : 7; // QQuickAnchors::Anchors
+    uint componentComplete                   : 1;
+
+    // Instead of using a mostly empty bit field, we can stretch the following fields up to be full
+    // bytes. The advantage is that incrementing/decrementing does not need any combining ands/ors.
+    qint8 updatingFill;
+    qint8 updatingCenterIn;
+    qint8 updatingHorizontalAnchor;
+    qint8 updatingVerticalAnchor;
+
 
     static inline QQuickAnchorsPrivate *get(QQuickAnchors *o) {
         return static_cast<QQuickAnchorsPrivate *>(QObjectPrivate::get(o));

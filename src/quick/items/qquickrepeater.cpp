@@ -314,7 +314,11 @@ void QQuickRepeater::setDelegate(QQmlComponent *delegate)
 /*!
     \qmlproperty int QtQuick::Repeater::count
 
-    This property holds the number of items in the repeater.
+    This property holds the number of items in the model.
+
+    \note The number of items in the model as reported by count may differ from
+    the number of created delegates if the Repeater is in the process of
+    instantiating delegates or is incorrectly set up.
 */
 int QQuickRepeater::count() const
 {
@@ -423,7 +427,7 @@ void QQuickRepeater::initItem(int index, QObject *object)
                 if (!d->delegateValidated) {
                     d->delegateValidated = true;
                     QObject* delegate = this->delegate();
-                    qmlInfo(delegate ? delegate : this) << QQuickRepeater::tr("Delegate must be of Item type");
+                    qmlWarning(delegate ? delegate : this) << QQuickRepeater::tr("Delegate must be of Item type");
                 }
             }
             return;
@@ -461,7 +465,7 @@ void QQuickRepeater::modelUpdated(const QQmlChangeSet &changeSet, bool reset)
 
     int difference = 0;
     QHash<int, QVector<QPointer<QQuickItem> > > moved;
-    foreach (const QQmlChangeSet::Change &remove, changeSet.removes()) {
+    for (const QQmlChangeSet::Change &remove : changeSet.removes()) {
         int index = qMin(remove.index, d->deletables.count());
         int count = qMin(remove.index + remove.count, d->deletables.count()) - index;
         if (remove.isMove()) {
@@ -483,7 +487,7 @@ void QQuickRepeater::modelUpdated(const QQmlChangeSet &changeSet, bool reset)
         difference -= remove.count;
     }
 
-    foreach (const QQmlChangeSet::Change &insert, changeSet.inserts()) {
+    for (const QQmlChangeSet::Change &insert : changeSet.inserts()) {
         int index = qMin(insert.index, d->deletables.count());
         if (insert.isMove()) {
             QVector<QPointer<QQuickItem> > items = moved.value(insert.moveId);
@@ -509,3 +513,5 @@ void QQuickRepeater::modelUpdated(const QQmlChangeSet &changeSet, bool reset)
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qquickrepeater_p.cpp"

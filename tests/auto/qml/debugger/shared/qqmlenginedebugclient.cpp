@@ -386,6 +386,7 @@ void QQmlEngineDebugClient::decode(QPacket &ds,
         {
             QmlDebugObjectReference obj;
             obj.debugId = prop.value.toInt();
+            obj.className = prop.valueTypeName;
             prop.value = qVariantFromValue(obj);
             break;
         }
@@ -489,7 +490,9 @@ void QQmlEngineDebugClient::messageReceived(const QByteArray &data)
         return;
 
     } else if (type == "OBJECT_CREATED") {
-        emit newObjects();
+        int engineId, objectId, parentId;
+        ds >> engineId >> objectId >> parentId;
+        emit newObject(objectId);
         return;
     } else if (type == "SET_BINDING_R") {
         ds >> m_valid;

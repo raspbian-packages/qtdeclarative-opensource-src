@@ -45,6 +45,7 @@
 #include <private/qquickitem_p.h>
 #include <QtQuick/private/qquickevents_p_p.h>
 #include <private/qquickitemchangelistener_p.h>
+#include <private/qquickpixmapcache_p.h>
 #include <private/qv8engine_p.h>
 #include <private/qv4scopedvalue_p.h>
 #include <QtCore/qmimedata.h>
@@ -54,7 +55,7 @@
 #include <QtGui/qstylehints.h>
 #include <QtGui/qguiapplication.h>
 
-#ifndef QT_NO_DRAGANDDROP
+#if QT_CONFIG(draganddrop)
 
 QT_BEGIN_NAMESPACE
 
@@ -81,7 +82,7 @@ public:
     {
     }
 
-    void itemGeometryChanged(QQuickItem *, const QRectF &, const QRectF &) Q_DECL_OVERRIDE;
+    void itemGeometryChanged(QQuickItem *, QQuickGeometryChange, const QRectF &) Q_DECL_OVERRIDE;
     void itemParentChanged(QQuickItem *, QQuickItem *parent) Q_DECL_OVERRIDE;
     void updatePosition();
     void restartDrag();
@@ -110,6 +111,8 @@ public:
     bool eventQueued : 1;
     bool overrideActions : 1;
     QPointF hotSpot;
+    QUrl imageSource;
+    QQuickPixmap pixmapLoader;
     QStringList keys;
     QVariantMap externalMimeData;
     QQuickDrag::DragType dragType;
@@ -145,9 +148,10 @@ public:
     \sa {Qt Quick Examples - Drag and Drop}, {Qt Quick Examples - externaldraganddrop}
 */
 
-void QQuickDragAttachedPrivate::itemGeometryChanged(QQuickItem *, const QRectF &newGeometry, const QRectF &oldGeometry)
+void QQuickDragAttachedPrivate::itemGeometryChanged(QQuickItem *, QQuickGeometryChange change,
+                                                    const QRectF &)
 {
-    if (newGeometry.topLeft() == oldGeometry.topLeft() || !active || itemMoved)
+    if (!change.positionChange() || !active || itemMoved)
         return;
     updatePosition();
 }
@@ -303,7 +307,7 @@ void QQuickDragAttached::setActive(bool active)
     Q_D(QQuickDragAttached);
     if (d->active != active) {
         if (d->inEvent)
-            qmlInfo(this) << "active cannot be changed from within a drag event handler";
+            qmlWarning(this) << "active cannot be changed from within a drag event handler";
         else if (active) {
             if (d->dragType == QQuickDrag::Internal) {
                 d->start(d->supportedActions);
@@ -405,6 +409,43 @@ void QQuickDragAttached::setHotSpot(const QPointF &hotSpot)
             d->updatePosition();
 
         emit hotSpotChanged();
+    }
+}
+
+/*!
+    \qmlattachedproperty QUrl QtQuick::Drag::imageSource
+    \since 5.8
+
+    This property holds the URL of the image which will be used to represent
+    the data during the drag and drop operation. Changing this property after
+    the drag operation has started will have no effect.
+
+    The example below uses an item's contents as a drag image:
+
+    \snippet qml/externaldrag.qml 0
+
+    \sa Item::grabToImage()
+*/
+
+QUrl QQuickDragAttached::imageSource() const
+{
+    Q_D(const QQuickDragAttached);
+    return d->imageSource;
+}
+
+void QQuickDragAttached::setImageSource(const QUrl &url)
+{
+    Q_D(QQuickDragAttached);
+    if (d->imageSource != url) {
+        d->imageSource = url;
+
+        if (url.isEmpty()) {
+            d->pixmapLoader.clear();
+        } else {
+            d->pixmapLoader.load(qmlEngine(this), url);
+        }
+
+        Q_EMIT imageSourceChanged();
     }
 }
 
@@ -588,7 +629,7 @@ void QQuickDragAttached::start(QQmlV4Function *args)
 {
     Q_D(QQuickDragAttached);
     if (d->inEvent) {
-        qmlInfo(this) << "start() cannot be called from within a drag event handler";
+        qmlWarning(this) << "start() cannot be called from within a drag event handler";
         return;
     }
 
@@ -634,7 +675,7 @@ int QQuickDragAttached::drop()
     Qt::DropAction acceptedAction = Qt::IgnoreAction;
 
     if (d->inEvent) {
-        qmlInfo(this) << "drop() cannot be called from within a drag event handler";
+        qmlWarning(this) << "drop() cannot be called from within a drag event handler";
         return acceptedAction;
     }
 
@@ -681,7 +722,7 @@ void QQuickDragAttached::cancel()
     Q_D(QQuickDragAttached);
 
     if (d->inEvent) {
-        qmlInfo(this) << "cancel() cannot be called from within a drag event handler";
+        qmlWarning(this) << "cancel() cannot be called from within a drag event handler";
         return;
     }
 
@@ -708,7 +749,7 @@ void QQuickDragAttached::cancel()
  */
 
 /*!
-    \qmlattachedsignal QtQuick::Drag::dragFinished(DropAction action)
+    \qmlattachedsignal QtQuick::Drag::dragFinished(DropAction dropAction)
 
     This signal is emitted when a drag finishes and the drag was started with the
     \l startDrag() method or started automatically using the \l dragType property.
@@ -727,9 +768,9 @@ Qt::DropAction QQuickDragAttachedPrivate::startDrag(Qt::DropActions supportedAct
         mimeData->setData(it.key(), it.value().toString().toUtf8());
 
     drag->setMimeData(mimeData);
-
-    // TODO: how to handle drag image?
-    // drag->setPixmap(iconPixmap);
+    if (pixmapLoader.isReady()) {
+        drag->setPixmap(QPixmap::fromImage(pixmapLoader.image()));
+    }
 
     emit q->dragStarted();
 
@@ -768,12 +809,12 @@ void QQuickDragAttached::startDrag(QQmlV4Function *args)
     Q_D(QQuickDragAttached);
 
     if (d->inEvent) {
-        qmlInfo(this) << "startDrag() cannot be called from within a drag event handler";
+        qmlWarning(this) << "startDrag() cannot be called from within a drag event handler";
         return;
     }
 
     if (!d->active) {
-        qmlInfo(this) << "startDrag() drag must be active";
+        qmlWarning(this) << "startDrag() drag must be active";
         return;
     }
 
@@ -954,4 +995,6 @@ QQuickDragAttached *QQuickDrag::qmlAttachedProperties(QObject *obj)
 
 QT_END_NAMESPACE
 
-#endif // QT_NO_DRAGANDDROP
+#include "moc_qquickdrag_p.cpp"
+
+#endif // draganddrop

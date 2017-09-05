@@ -87,8 +87,10 @@ class QQmlExpression;
 class QQmlContext;
 class QQmlType;
 class QUrl;
+#if QT_CONFIG(qml_network)
 class QNetworkAccessManager;
 class QQmlNetworkAccessManagerFactory;
+#endif
 class QQmlIncubationController;
 class Q_QML_EXPORT QQmlEngine : public QJSEngine
 {
@@ -115,10 +117,12 @@ public:
 
     bool importPlugin(const QString &filePath, const QString &uri, QList<QQmlError> *errors);
 
+#if QT_CONFIG(qml_network)
     void setNetworkAccessManagerFactory(QQmlNetworkAccessManagerFactory *);
     QQmlNetworkAccessManagerFactory *networkAccessManagerFactory() const;
 
     QNetworkAccessManager *networkAccessManager() const;
+#endif
 
     void setUrlInterceptor(QQmlAbstractUrlInterceptor* urlInterceptor);
     QQmlAbstractUrlInterceptor* urlInterceptor() const;
@@ -132,6 +136,7 @@ public:
 
     void setOfflineStoragePath(const QString& dir);
     QString offlineStoragePath() const;
+    QString offlineStorageDatabaseFilePath(const QString &databaseName) const;
 
     QUrl baseUrl() const;
     void setBaseUrl(const QUrl &);
@@ -147,10 +152,11 @@ public:
     static ObjectOwnership objectOwnership(QObject *);
 protected:
     QQmlEngine(QQmlEnginePrivate &dd, QObject *p);
-    virtual bool event(QEvent *);
+    bool event(QEvent *) override;
 
 Q_SIGNALS:
     void quit();
+    void exit(int retCode);
     void warnings(const QList<QQmlError> &warnings);
 
 private:

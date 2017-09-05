@@ -61,7 +61,7 @@ namespace QV4 {
 namespace Heap {
 
 struct BooleanCtor : FunctionObject {
-    BooleanCtor(QV4::ExecutionContext *scope);
+    void init(QV4::ExecutionContext *scope);
 };
 
 }
@@ -70,16 +70,17 @@ struct BooleanCtor: FunctionObject
 {
     V4_OBJECT2(BooleanCtor, FunctionObject)
 
-    static ReturnedValue construct(const Managed *, CallData *callData);
-    static ReturnedValue call(const Managed *that, CallData *callData);
+    static void construct(const Managed *, Scope &scope, CallData *callData);
+    static void call(const Managed *that, Scope &scope, CallData *callData);
 };
 
 struct BooleanPrototype: BooleanObject
 {
+    V4_PROTOTYPE(objectPrototype)
     void init(ExecutionEngine *engine, Object *ctor);
 
-    static ReturnedValue method_toString(CallContext *ctx);
-    static ReturnedValue method_valueOf(CallContext *ctx);
+    static void method_toString(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static void method_valueOf(const BuiltinFunction *, Scope &scope, CallData *callData);
 };
 
 

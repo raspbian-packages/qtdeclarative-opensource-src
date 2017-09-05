@@ -54,7 +54,7 @@ void State::componentComplete()
         static bool once = false;
         if (!once) {
             once = true;
-            qmlInfo(this) << "No top level StateMachine found.  Nothing will run without a StateMachine.";
+            qmlWarning(this) << "No top level StateMachine found.  Nothing will run without a StateMachine.";
         }
     }
 }
@@ -242,3 +242,4 @@ QQmlListProperty<QObject> State::children()
     \endlist
 */
 
+#include "moc_state.cpp"

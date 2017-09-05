@@ -66,11 +66,18 @@ namespace QV4 {
 namespace Heap {
 
 struct QmlListWrapper : Object {
-    QmlListWrapper();
-    ~QmlListWrapper();
-    QPointer<QObject> object;
-    QQmlListProperty<QObject> property;
+    void init();
+    void destroy();
+    QQmlQPointer<QObject> object;
+
+    QQmlListProperty<QObject> &property() {
+        return *reinterpret_cast<QQmlListProperty<QObject>*>(propertyData);
+    }
+
     int propertyType;
+
+private:
+    void *propertyData[sizeof(QQmlListProperty<QObject>)/sizeof(void*)];
 };
 
 }
@@ -79,6 +86,7 @@ struct Q_QML_EXPORT QmlListWrapper : Object
 {
     V4_OBJECT2(QmlListWrapper, Object)
     V4_NEEDS_DESTROY
+    V4_PROTOTYPE(propertyListPrototype)
 
     static ReturnedValue create(ExecutionEngine *engine, QObject *object, int propId, int propType);
     static ReturnedValue create(ExecutionEngine *engine, const QQmlListProperty<QObject> &prop, int propType);
@@ -89,6 +97,13 @@ struct Q_QML_EXPORT QmlListWrapper : Object
     static ReturnedValue getIndexed(const Managed *m, uint index, bool *hasProperty);
     static void put(Managed *m, String *name, const Value &value);
     static void advanceIterator(Managed *m, ObjectIterator *it, Value *name, uint *index, Property *p, PropertyAttributes *attributes);
+};
+
+struct PropertyListPrototype : Object
+{
+    void init(ExecutionEngine *engine);
+
+    static void method_push(const BuiltinFunction *, Scope &, CallData *callData);
 };
 
 }

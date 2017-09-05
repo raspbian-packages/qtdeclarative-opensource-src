@@ -44,9 +44,6 @@
 #include "qquickitem_p.h"
 #include "qquickitemchangelistener_p.h"
 
-#include <private/qqmldebugconnector_p.h>
-#include <private/qquickprofiler_p.h>
-#include <private/qqmldebugserviceinterfaces_p.h>
 #include <private/qqmlmemoryprofiler_p.h>
 
 #include <QtQml/qqmlengine.h>
@@ -64,6 +61,8 @@ void QQuickViewPrivate::init(QQmlEngine* e)
 
     if (engine.isNull())
         engine = new QQmlEngine(q);
+
+    QQmlEngine::setContextForObject(contentItem, engine.data()->rootContext());
 
     if (!engine.data()->incubationController())
         engine.data()->setIncubationController(q->incubationController());
@@ -113,14 +112,15 @@ void QQuickViewPrivate::execute()
     }
 }
 
-void QQuickViewPrivate::itemGeometryChanged(QQuickItem *resizeItem, const QRectF &newGeometry, const QRectF &oldGeometry)
+void QQuickViewPrivate::itemGeometryChanged(QQuickItem *resizeItem, QQuickGeometryChange change,
+                                            const QRectF &oldGeometry)
 {
     Q_Q(QQuickView);
     if (resizeItem == root && resizeMode == QQuickView::SizeViewToRootObject) {
         // wait for both width and height to be changed
         resizetimer.start(0,q);
     }
-    QQuickItemChangeListener::itemGeometryChanged(resizeItem, newGeometry, oldGeometry);
+    QQuickItemChangeListener::itemGeometryChanged(resizeItem, change, oldGeometry);
 }
 
 /*!
@@ -176,9 +176,8 @@ QQuickView::QQuickView(QWindow *parent)
 
 */
 QQuickView::QQuickView(const QUrl &source, QWindow *parent)
-: QQuickWindow(*(new QQuickViewPrivate), parent)
+    : QQuickView(parent)
 {
-    d_func()->init();
     setSource(source);
 }
 
@@ -249,8 +248,8 @@ void QQuickView::setContent(const QUrl& url, QQmlComponent *component, QObject* 
     d->component = component;
 
     if (d->component && d->component->isError()) {
-        QList<QQmlError> errorList = d->component->errors();
-        foreach (const QQmlError &error, errorList) {
+        const QList<QQmlError> errorList = d->component->errors();
+        for (const QQmlError &error : errorList) {
             QMessageLogger(error.url().toString().toLatin1().constData(), error.line(), 0).warning()
                     << error;
         }
@@ -415,9 +414,14 @@ void QQuickViewPrivate::updateSize()
             q->resize(newSize);
         }
     } else if (resizeMode == QQuickView::SizeRootObjectToView) {
-        if (!qFuzzyCompare(q->width(), root->width()))
+        bool needToUpdateWidth = !qFuzzyCompare(q->width(), root->width());
+        bool needToUpdateHeight = !qFuzzyCompare(q->height(), root->height());
+
+        if (needToUpdateWidth && needToUpdateHeight)
+            root->setSize(QSizeF(q->width(), q->height()));
+        else if (needToUpdateWidth)
             root->setWidth(q->width());
-        if (!qFuzzyCompare(q->height(), root->height()))
+        else if (needToUpdateHeight)
             root->setHeight(q->height());
     }
 }
@@ -455,8 +459,8 @@ void QQuickView::continueExecute()
     disconnect(d->component, SIGNAL(statusChanged(QQmlComponent::Status)), this, SLOT(continueExecute()));
 
     if (d->component->isError()) {
-        QList<QQmlError> errorList = d->component->errors();
-        foreach (const QQmlError &error, errorList) {
+        const QList<QQmlError> errorList = d->component->errors();
+        for (const QQmlError &error : errorList) {
             QMessageLogger(error.url().toString().toLatin1().constData(), error.line(), 0).warning()
                     << error;
         }
@@ -467,8 +471,8 @@ void QQuickView::continueExecute()
     QObject *obj = d->component->create();
 
     if (d->component->isError()) {
-        QList<QQmlError> errorList = d->component->errors();
-        foreach (const QQmlError &error, errorList) {
+        const QList<QQmlError> errorList = d->component->errors();
+        for (const QQmlError &error : errorList) {
             QMessageLogger(error.url().toString().toLatin1().constData(), error.line(), 0).warning()
                     << error;
         }
@@ -492,6 +496,7 @@ void QQuickViewPrivate::setRootObject(QObject *obj)
     if (QQuickItem *sgItem = qobject_cast<QQuickItem *>(obj)) {
         root = sgItem;
         sgItem->setParentItem(q->QQuickWindow::contentItem());
+        QQml_setParent_noEvent(sgItem, q->QQuickWindow::contentItem());
     } else if (qobject_cast<QWindow *>(obj)) {
         qWarning() << "QQuickView does not support using windows as a root item." << endl
                    << endl
@@ -611,3 +616,5 @@ void QQuickView::mouseReleaseEvent(QMouseEvent *e)
 
 
 QT_END_NAMESPACE
+
+#include "moc_qquickview.cpp"

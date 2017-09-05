@@ -56,8 +56,7 @@ namespace QQuickValueTypes {
 
 QString QQuickColorValueType::toString() const
 {
-    // to maintain behaviour with QtQuick 1.0, we just output normal toString() value.
-    return QVariant(v).toString();
+    return v.name(v.alpha() != 255 ? QColor::HexArgb : QColor::HexRgb);
 }
 
 qreal QQuickColorValueType::r() const
@@ -80,6 +79,36 @@ qreal QQuickColorValueType::a() const
     return v.alphaF();
 }
 
+qreal QQuickColorValueType::hsvHue() const
+{
+    return v.hsvHueF();
+}
+
+qreal QQuickColorValueType::hsvSaturation() const
+{
+    return v.hsvSaturationF();
+}
+
+qreal QQuickColorValueType::hsvValue() const
+{
+    return v.valueF();
+}
+
+qreal QQuickColorValueType::hslHue() const
+{
+    return v.hslHueF();
+}
+
+qreal QQuickColorValueType::hslSaturation() const
+{
+    return v.hslSaturationF();
+}
+
+qreal QQuickColorValueType::hslLightness() const
+{
+    return v.lightnessF();
+}
+
 void QQuickColorValueType::setR(qreal r)
 {
     v.setRedF(r);
@@ -98,6 +127,48 @@ void QQuickColorValueType::setB(qreal b)
 void QQuickColorValueType::setA(qreal a)
 {
     v.setAlphaF(a);
+}
+
+void QQuickColorValueType::setHsvHue(qreal hsvHue)
+{
+    qreal hue, saturation, value, alpha;
+    v.getHsvF(&hue, &saturation, &value, &alpha);
+    v.setHsvF(hsvHue, saturation, value, alpha);
+}
+
+void QQuickColorValueType::setHsvSaturation(qreal hsvSaturation)
+{
+    qreal hue, saturation, value, alpha;
+    v.getHsvF(&hue, &saturation, &value, &alpha);
+    v.setHsvF(hue, hsvSaturation, value, alpha);
+}
+
+void QQuickColorValueType::setHsvValue(qreal hsvValue)
+{
+    qreal hue, saturation, value, alpha;
+    v.getHsvF(&hue, &saturation, &value, &alpha);
+    v.setHsvF(hue, saturation, hsvValue, alpha);
+}
+
+void QQuickColorValueType::setHslHue(qreal hslHue)
+{
+    qreal hue, saturation, lightness, alpha;
+    v.getHslF(&hue, &saturation, &lightness, &alpha);
+    v.setHslF(hslHue, saturation, lightness, alpha);
+}
+
+void QQuickColorValueType::setHslSaturation(qreal hslSaturation)
+{
+    qreal hue, saturation, lightness, alpha;
+    v.getHslF(&hue, &saturation, &lightness, &alpha);
+    v.setHslF(hue, hslSaturation, lightness, alpha);
+}
+
+void QQuickColorValueType::setHslLightness(qreal hslLightness)
+{
+    qreal hue, saturation, lightness, alpha;
+    v.getHslF(&hue, &saturation, &lightness, &alpha);
+    v.setHslF(hue, saturation, hslLightness, alpha);
 }
 
 QString QQuickVector2DValueType::toString() const
@@ -676,4 +747,16 @@ void QQuickFontValueType::setWordSpacing(qreal size)
     v.setWordSpacing(size);
 }
 
+QQuickFontValueType::HintingPreference QQuickFontValueType::hintingPreference() const
+{
+    return QQuickFontValueType::HintingPreference(v.hintingPreference());
+}
+
+void QQuickFontValueType::setHintingPreference(QQuickFontValueType::HintingPreference hintingPreference)
+{
+    v.setHintingPreference(QFont::HintingPreference(hintingPreference));
+}
+
 QT_END_NAMESPACE
+
+#include "moc_qquickvaluetypes_p.cpp"

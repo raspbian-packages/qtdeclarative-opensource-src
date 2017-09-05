@@ -246,7 +246,7 @@ void QQuickImageBase::load()
             resolve2xLocalFile(d->url, targetDevicePixelRatio, &loadUrl, &d->devicePixelRatio);
         }
 
-        d->pix.load(qmlEngine(this), loadUrl, d->sourcesize * d->devicePixelRatio, options, d->autoTransform);
+        d->pix.load(qmlEngine(this), loadUrl, d->sourcesize * d->devicePixelRatio, options, d->providerOptions);
 
         if (d->pix.isLoading()) {
             if (d->progress != 0.0) {
@@ -281,7 +281,7 @@ void QQuickImageBase::requestFinished()
     Q_D(QQuickImageBase);
 
     if (d->pix.isError()) {
-        qmlInfo(this) << d->pix.error();
+        qmlWarning(this) << d->pix.error();
         d->pix.clear(this);
         d->status = Error;
         if (d->progress != 0.0) {
@@ -355,7 +355,7 @@ void QQuickImageBase::resolve2xLocalFile(const QUrl &url, qreal targetDevicePixe
     if (disable2xImageLoading)
         return;
 
-    QString localFile = QQmlFile::urlToLocalFileOrQrc(url);
+    const QString localFile = QQmlFile::urlToLocalFileOrQrc(url);
 
     // Non-local file path: @2x loading is not supported.
     if (localFile.isEmpty())
@@ -381,18 +381,21 @@ void QQuickImageBase::resolve2xLocalFile(const QUrl &url, qreal targetDevicePixe
 bool QQuickImageBase::autoTransform() const
 {
     Q_D(const QQuickImageBase);
-    if (d->autoTransform == UsePluginDefault)
-        return d->pix.autoTransform() == ApplyTransform;
-    return d->autoTransform == ApplyTransform;
+    if (d->providerOptions.autoTransform() == QQuickImageProviderOptions::UsePluginDefaultTransform)
+        return d->pix.autoTransform() == QQuickImageProviderOptions::ApplyTransform;
+    return d->providerOptions.autoTransform() == QQuickImageProviderOptions::ApplyTransform;
 }
 
 void QQuickImageBase::setAutoTransform(bool transform)
 {
     Q_D(QQuickImageBase);
-    if (d->autoTransform != UsePluginDefault && transform == (d->autoTransform == ApplyTransform))
+    if (d->providerOptions.autoTransform() != QQuickImageProviderOptions::UsePluginDefaultTransform &&
+        transform == (d->providerOptions.autoTransform() == QQuickImageProviderOptions::ApplyTransform))
         return;
-    d->autoTransform = transform ? ApplyTransform : DoNotApplyTransform;
+    d->providerOptions.setAutoTransform(transform ? QQuickImageProviderOptions::ApplyTransform : QQuickImageProviderOptions::DoNotApplyTransform);
     emitAutoTransformBaseChanged();
 }
 
 QT_END_NAMESPACE
+
+#include "moc_qquickimagebase_p.cpp"

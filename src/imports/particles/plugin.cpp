@@ -57,7 +57,7 @@ class QtQuick2ParticlesPlugin : public QQmlExtensionPlugin
     Q_PLUGIN_METADATA(IID QQmlExtensionInterface_iid)
 public:
     QtQuick2ParticlesPlugin(QObject *parent = 0) : QQmlExtensionPlugin(parent) { initResources(); }
-    virtual void registerTypes(const char *uri)
+    void registerTypes(const char *uri) Q_DECL_OVERRIDE
     {
         Q_ASSERT(QLatin1String(uri) == QLatin1String("QtQuick.Particles"));
         Q_UNUSED(uri);

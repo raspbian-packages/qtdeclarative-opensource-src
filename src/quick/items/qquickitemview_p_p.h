@@ -51,6 +51,10 @@
 // We mean it.
 //
 
+#include <QtQuick/private/qtquickglobal_p.h>
+
+QT_REQUIRE_CONFIG(quick_itemview);
+
 #include "qquickitemview_p.h"
 #include "qquickitemviewtransition_p.h"
 #include "qquickflickable_p_p.h"
@@ -197,16 +201,16 @@ public:
 
     void regenerate(bool orientationChanged=false);
     void layout();
-    virtual void animationFinished(QAbstractAnimationJob *) Q_DECL_OVERRIDE;
+    virtual void animationFinished(QAbstractAnimationJob *) override;
     void refill();
     void refill(qreal from, qreal to);
-    void mirrorChange() Q_DECL_OVERRIDE;
+    void mirrorChange() override;
 
     FxViewItem *createItem(int modelIndex, bool asynchronous = false);
     virtual bool releaseItem(FxViewItem *item);
 
-    QQuickItem *createHighlightItem();
-    QQuickItem *createComponentItem(QQmlComponent *component, qreal zValue, bool createDefault = false);
+    QQuickItem *createHighlightItem() const;
+    QQuickItem *createComponentItem(QQmlComponent *component, qreal zValue, bool createDefault = false) const;
 
     void updateCurrent(int modelIndex);
     void updateTrackedItem();
@@ -232,7 +236,7 @@ public:
     void prepareVisibleItemTransitions();
     void prepareRemoveTransitions(QHash<QQmlChangeSet::MoveKey, FxViewItem *> *removedItems);
     bool prepareNonVisibleItemTransition(FxViewItem *item, const QRectF &viewBounds);
-    void viewItemTransitionFinished(QQuickItemViewTransitionableItem *item) Q_DECL_OVERRIDE;
+    void viewItemTransitionFinished(QQuickItemViewTransitionableItem *item) override;
 
     int findMoveKeyIndex(QQmlChangeSet::MoveKey key, const QVector<QQmlChangeSet::Change> &changes) const;
 
@@ -263,6 +267,15 @@ public:
         Q_Q(QQuickItemView);
         forceLayout = true;
         q->polish();
+    }
+
+    void releaseVisibleItems() {
+        // make a copy and clear the visibleItems first to avoid destroyed
+        // items being accessed during the loop (QTBUG-61294)
+        const QList<FxViewItem *> oldVisible = visibleItems;
+        visibleItems.clear();
+        for (FxViewItem *item : oldVisible)
+            releaseItem(item);
     }
 
     QPointer<QQmlInstanceModel> model;
@@ -344,8 +357,8 @@ protected:
     virtual bool showFooterForIndex(int index) const = 0;
     virtual void updateHeader() = 0;
     virtual void updateFooter() = 0;
-    virtual bool hasStickyHeader() const { return false; };
-    virtual bool hasStickyFooter() const { return false; };
+    virtual bool hasStickyHeader() const { return false; }
+    virtual bool hasStickyFooter() const { return false; }
 
     virtual void createHighlight() = 0;
     virtual void updateHighlight() = 0;
@@ -378,7 +391,7 @@ protected:
     virtual void updateSectionCriteria() {}
     virtual void updateSections() {}
 
-    void itemGeometryChanged(QQuickItem *item, const QRectF &newGeometry, const QRectF &oldGeometry) Q_DECL_OVERRIDE;
+    void itemGeometryChanged(QQuickItem *item, QQuickGeometryChange change, const QRectF &) override;
 };
 
 
