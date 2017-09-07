@@ -35,11 +35,13 @@ override_dh_auto_clean:
 	#undo our symbols file hack
 	sed -i 's/optional=meh)/arch=amd64 arm64 armhf i386)/' debian/libqt5qml5.symbols
 	sed -i 's/(optional=meh2)/(arch=armhf)/' debian/libqt5qml5.symbols
+	sed -i 's/(c++|optional=meh2)/(c++|arch=armhf)/' debian/libqt5qml5.symbols
 
 override_dh_auto_configure:
 	#symbols file hack
 	sed -i 's/arch=amd64 arm64 armhf i386)/optional=meh)/' debian/libqt5qml5.symbols
 	sed -i 's/(arch=armhf)/(optional=meh2)/' debian/libqt5qml5.symbols
+	sed -i 's/(c++|arch=armhf)/(c++|optional=meh2)/' debian/libqt5qml5.symbols
 	qmake QT_BUILD_PARTS+=" tests"
 
 override_dh_auto_build-indep:
