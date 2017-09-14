@@ -1,4 +1,4 @@
-qtdeclarative-opensource-src (5.9.1-5+rpi1) buster-staging; urgency=medium
+qtdeclarative-opensource-src (5.9.1-6+rpi1) buster-staging; urgency=medium
 
   [changes brought forward from 5.3.2-4+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Fri, 03 Oct 2014 08:10:59 +0000]
   * Fix clean target.
@@ -16,7 +16,14 @@ qtdeclarative-opensource-src (5.9.1-5+rpi1) buster-staging; urgency=medium
   [Changed introduced in 5.9.1-5+rpi by Peter Michael Green]
   * Extend symbols file hack.
 
- -- Peter Michal Green <plugwash@raspbian.org>  Wed, 06 Sep 2017 20:38:41 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Thu, 14 Sep 2017 18:12:09 +0000
+
+qtdeclarative-opensource-src (5.9.1-6) unstable; urgency=medium
+
+  * Add fix_image_source_memory_leak.patch to fix QTBUG-61754 (Closes: #874581).
+  * Update symbols files with buildds' logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Thu, 07 Sep 2017 14:01:39 -0300
 
 qtdeclarative-opensource-src (5.9.1-5) unstable; urgency=medium
 
