@@ -73,7 +73,7 @@ static bool generateCache(const QString &qmlFileName, QByteArray *capturedStderr
     QProcess proc;
     if (capturedStderr == nullptr)
         proc.setProcessChannelMode(QProcess::ForwardedChannels);
-    proc.setProgram(QLibraryInfo::location(QLibraryInfo::BinariesPath) + QDir::separator() + QLatin1String("qmlcachegen"));
+    proc.setProgram(TESTBINDIR "/qmlcachegen");
     proc.setArguments(QStringList() << (QLatin1String("--target-architecture=") + QSysInfo::buildCpuArchitecture()) << (QLatin1String("--target-abi=") + QSysInfo::buildAbi()) << qmlFileName);
     proc.start();
     if (!proc.waitForFinished())

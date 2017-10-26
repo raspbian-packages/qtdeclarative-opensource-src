@@ -56,7 +56,7 @@ void tst_EcmaScriptTests::runTests()
     process.setProcessChannelMode(QProcess::ForwardedChannels);
     process.setWorkingDirectory(QLatin1String(SRCDIR));
     process.setProgram("python");
-    process.setArguments(QStringList() << "test262.py" << "--command=" + QLibraryInfo::location(QLibraryInfo::BinariesPath) + "/qmljs " + qmljsParameter << "--parallel" << "--with-test-expectations");
+    process.setArguments(QStringList() << "test262.py" << "--command=" + TESTBINDIR "/qmljs " + qmljsParameter << "--parallel" << "--with-test-expectations");
 
     qDebug() << "Going to run" << process.program() << process.arguments() << "in" << process.workingDirectory();
 

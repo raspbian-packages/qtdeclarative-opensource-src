@@ -789,8 +789,7 @@ void tst_QQmlDebugJS::init(bool qmlscene, const QString &qmlFile, bool blockMode
 {
     connection = new QQmlDebugConnection();
     if (qmlscene)
-        process = new QQmlDebugProcess(QLibraryInfo::location(QLibraryInfo::BinariesPath) +
-                                       "/qmlscene", this);
+        process = new QQmlDebugProcess(TESTBINDIR "/qmlscene", this);
     else
         process = new QQmlDebugProcess(QCoreApplication::applicationDirPath() +
                                        QLatin1String("/qqmldebugjsserver"), this);
@@ -1457,8 +1456,7 @@ void tst_QQmlDebugJS::evaluateInLocalScope()
 void tst_QQmlDebugJS::evaluateInContext()
 {
     connection = new QQmlDebugConnection();
-    process = new QQmlDebugProcess(QLibraryInfo::location(QLibraryInfo::BinariesPath)
-                                   + "/qmlscene", this);
+    process = new QQmlDebugProcess(TESTBINDIR "/qmlscene", this);
     client = new QJSDebugClient(connection);
     QScopedPointer<QQmlEngineDebugClient> engineClient(new QQmlEngineDebugClient(connection));
     process->start(QStringList() << QLatin1String(BLOCKMODE) << testFile(ONCOMPLETED_QMLFILE));

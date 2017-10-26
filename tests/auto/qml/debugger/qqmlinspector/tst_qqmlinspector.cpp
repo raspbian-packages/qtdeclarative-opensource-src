@@ -73,8 +73,7 @@ void tst_QQmlInspector::startQmlProcess(const QString &qmlFile, bool restrictSer
             .arg(STR_PORT_FROM).arg(STR_PORT_TO)
             .arg(restrictServices ? QStringLiteral(",services:QmlInspector") : QString());
 
-    m_process.reset(new QQmlDebugProcess(QLibraryInfo::location(QLibraryInfo::BinariesPath) +
-                                         "/qml"));
+    m_process.reset(new QQmlDebugProcess(TESTBINDIR "/qml"));
     // Make sure the animation timing is exact
     m_process->addEnvironment(QLatin1String("QSG_RENDER_LOOP=basic"));
     m_process->start(QStringList() << argument << testFile(qmlFile));
