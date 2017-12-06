@@ -182,6 +182,7 @@ private slots:
     void snapOneItemCurrentIndexRemoveAnimation();
 
     void QTBUG_9791();
+    void QTBUG_33568();
     void QTBUG_11105();
     void QTBUG_21742();
 
@@ -235,6 +236,7 @@ private slots:
     void QTBUG_38209();
     void programmaticFlickAtBounds();
     void programmaticFlickAtBounds2();
+    void programmaticFlickAtBounds3();
 
     void layoutChange();
 
@@ -3468,6 +3470,29 @@ void tst_QQuickListView::QTBUG_9791()
 
     // check that view is positioned correctly
     QTRY_COMPARE(listview->contentX(), 590.0);
+}
+
+void tst_QQuickListView::QTBUG_33568()
+{
+    QScopedPointer<QQuickView> window(createView());
+    window->setSource(testFileUrl("strictlyenforcerange-resize.qml"));
+    window->show();
+    QVERIFY(QTest::qWaitForWindowExposed(window.data()));
+
+    QQuickListView *listview = qobject_cast<QQuickListView*>(window->rootObject());
+    QVERIFY(listview != 0);
+
+    // we want to verify that the change animates smoothly, rather than jumping into place
+    QSignalSpy spy(listview, SIGNAL(contentYChanged()));
+
+    listview->incrementCurrentIndex();
+    QTRY_COMPARE(listview->contentY(), -100.0);
+    QVERIFY(spy.count() > 1);
+
+    spy.clear();
+    listview->incrementCurrentIndex();
+    QTRY_COMPARE(listview->contentY(), -50.0);
+    QVERIFY(spy.count() > 1);
 }
 
 void tst_QQuickListView::manualHighlight()
@@ -8043,6 +8068,35 @@ void tst_QQuickListView::programmaticFlickAtBounds2()
     listview->flick(0, velocity);
 
     QTRY_COMPARE(listview->contentY(), qreal(100.0));
+}
+
+void tst_QQuickListView::programmaticFlickAtBounds3()
+{
+    QScopedPointer<QQuickView> window(createView());
+    window->setSource(testFileUrl("programmaticFlickAtBounds3.qml"));
+    window->show();
+    QVERIFY(QTest::qWaitForWindowExposed(window.data()));
+
+    QQuickListView *listview = qobject_cast<QQuickListView *>(window->rootObject());
+    QVERIFY(listview);
+
+    // flick down
+    listview->flick(0, 2000);
+
+    // verify scope of the movement
+    QTRY_VERIFY(listview->property("minOvershoot").toReal() < qreal(-50.0));
+
+    // reset, and test a second time
+    listview->cancelFlick();
+    listview->returnToBounds();
+    QTRY_COMPARE(listview->contentY(), qreal(0.0));
+    listview->setProperty("minOvershoot", qreal(0.0));
+
+    // flick down
+    listview->flick(0, 2000);
+
+    // verify scope of the movement is the same
+    QTRY_VERIFY(listview->property("minOvershoot").toReal() < qreal(-50.0));
 }
 
 void tst_QQuickListView::layoutChange()

@@ -700,8 +700,7 @@ void QQmlDataBlob::notifyComplete(QQmlDataBlob *blob)
 {
     Q_ASSERT(m_waitingFor.contains(blob));
     Q_ASSERT(blob->status() == Error || blob->status() == Complete);
-    QQmlCompilingProfiler prof(QQmlEnginePrivate::get(typeLoader()->engine())->profiler,
-                               blob);
+    QQmlCompilingProfiler prof(typeLoader()->profiler(), blob);
 
     m_inCallback = true;
 
@@ -962,6 +961,14 @@ void QQmlTypeLoader::invalidate()
     m_networkReplies.clear();
 #endif // qml_network
 }
+
+#ifndef QT_NO_QML_DEBUGGER
+void QQmlTypeLoader::setProfiler(QQmlProfiler *profiler)
+{
+    Q_ASSERT(!m_profiler);
+    m_profiler.reset(profiler);
+}
+#endif
 
 void QQmlTypeLoader::lock()
 {
@@ -1262,7 +1269,7 @@ void QQmlTypeLoader::setData(QQmlDataBlob *blob, const QString &fileName)
 void QQmlTypeLoader::setData(QQmlDataBlob *blob, const QQmlDataBlob::SourceCodeData &d)
 {
     QML_MEMORY_SCOPE_URL(blob->url());
-    QQmlCompilingProfiler prof(QQmlEnginePrivate::get(engine())->profiler, blob);
+    QQmlCompilingProfiler prof(profiler(), blob);
 
     blob->m_inCallback = true;
 
@@ -1282,7 +1289,7 @@ void QQmlTypeLoader::setData(QQmlDataBlob *blob, const QQmlDataBlob::SourceCodeD
 void QQmlTypeLoader::setCachedUnit(QQmlDataBlob *blob, const QQmlPrivate::CachedQmlUnit *unit)
 {
     QML_MEMORY_SCOPE_URL(blob->url());
-    QQmlCompilingProfiler prof(QQmlEnginePrivate::get(engine())->profiler, blob);
+    QQmlCompilingProfiler prof(profiler(), blob);
 
     blob->m_inCallback = true;
 
@@ -1778,23 +1785,21 @@ QString QQmlTypeLoader::absoluteFilePath(const QString &path)
 #endif
 
     int lastSlash = path.lastIndexOf(QLatin1Char('/'));
-    QStringRef dirPath(&path, 0, lastSlash);
+    QString dirPath(path.left(lastSlash));
 
-    StringSet **fileSet = m_importDirCache.value(QHashedStringRef(dirPath.constData(), dirPath.length()));
-    if (!fileSet) {
-        QHashedString dirPathString(dirPath.toString());
-        bool exists = QDir(dirPathString).exists();
-        QStringHash<bool> *files = exists ? new QStringHash<bool> : 0;
-        m_importDirCache.insert(dirPathString, files);
-        fileSet = m_importDirCache.value(dirPathString);
+    if (!m_importDirCache.contains(dirPath)) {
+        bool exists = QDir(dirPath).exists();
+        QCache<QString, bool> *entry = exists ? new QCache<QString, bool> : 0;
+        m_importDirCache.insert(dirPath, entry);
     }
-    if (!(*fileSet))
+    QCache<QString, bool> *fileSet = m_importDirCache.object(dirPath);
+    if (!fileSet)
         return QString();
 
     QString absoluteFilePath;
-    QHashedStringRef fileName(path.constData()+lastSlash+1, path.length()-lastSlash-1);
+    QString fileName(path.mid(lastSlash+1, path.length()-lastSlash-1));
 
-    bool *value = (*fileSet)->value(fileName);
+    bool *value = fileSet->object(fileName);
     if (value) {
         if (*value)
             absoluteFilePath = path;
@@ -1808,7 +1813,7 @@ QString QQmlTypeLoader::absoluteFilePath(const QString &path)
 #else
         exists = QFile::exists(path);
 #endif
-        (*fileSet)->insert(fileName.toString(), exists);
+        fileSet->insert(fileName, new bool(exists));
         if (exists)
             absoluteFilePath = path;
     }
@@ -1843,18 +1848,16 @@ bool QQmlTypeLoader::directoryExists(const QString &path)
     int length = path.length();
     if (path.endsWith(QLatin1Char('/')))
         --length;
-    QStringRef dirPath(&path, 0, length);
+    QString dirPath(path.left(length));
 
-    StringSet **fileSet = m_importDirCache.value(QHashedStringRef(dirPath.constData(), dirPath.length()));
-    if (!fileSet) {
-        QHashedString dirPathString(dirPath.toString());
-        bool exists = QDir(dirPathString).exists();
-        QStringHash<bool> *files = exists ? new QStringHash<bool> : 0;
-        m_importDirCache.insert(dirPathString, files);
-        fileSet = m_importDirCache.value(dirPathString);
+    if (!m_importDirCache.contains(dirPath)) {
+        bool exists = QDir(dirPath).exists();
+        QCache<QString, bool> *files = exists ? new QCache<QString, bool> : 0;
+        m_importDirCache.insert(dirPath, files);
     }
 
-    return (*fileSet);
+    QCache<QString, bool> *fileSet = m_importDirCache.object(dirPath);
+    return fileSet != 0;
 }
 
 
@@ -1938,7 +1941,7 @@ void QQmlTypeLoader::clearCache()
         (*iter)->release();
     for (QmldirCache::Iterator iter = m_qmldirCache.begin(), end = m_qmldirCache.end(); iter != end; ++iter)
         (*iter)->release();
-    qDeleteAll(m_importDirCache);
+
     qDeleteAll(m_importQmlDirCache);
 
     m_typeCache.clear();
@@ -1947,6 +1950,7 @@ void QQmlTypeLoader::clearCache()
     m_qmldirCache.clear();
     m_importDirCache.clear();
     m_importQmlDirCache.clear();
+    QQmlMetaType::freeUnusedTypesAndCaches();
 }
 
 void QQmlTypeLoader::updateTypeCacheTrimThreshold()
@@ -1988,6 +1992,8 @@ void QQmlTypeLoader::trimCache()
 
     updateTypeCacheTrimThreshold();
 
+    QQmlMetaType::freeUnusedTypesAndCaches();
+
     // TODO: release any scripts which are no longer referenced by any types
 }
 
@@ -2013,7 +2019,7 @@ QString QQmlTypeData::TypeReference::qualifiedName() const
     if (!prefix.isEmpty()) {
         result = prefix + QLatin1Char('.');
     }
-    result.append(type->qmlTypeName());
+    result.append(type.qmlTypeName());
     return result;
 }
 
@@ -2168,8 +2174,8 @@ static bool addTypeReferenceChecksumsToHash(const QList<QQmlTypeData::TypeRefere
         if (typeRef.typeData) {
             const auto unit = typeRef.typeData->compilationUnit();
             hash->addData(unit->data->md5Checksum, sizeof(unit->data->md5Checksum));
-        } else if (typeRef.type) {
-            const auto propertyCache = QQmlEnginePrivate::get(engine)->cache(typeRef.type->metaObject());
+        } else if (typeRef.type.isValid()) {
+            const auto propertyCache = QQmlEnginePrivate::get(engine)->cache(typeRef.type.metaObject());
             bool ok = false;
             hash->addData(propertyCache->checksum(&ok));
             if (!ok)
@@ -2233,7 +2239,7 @@ void QQmlTypeData::done()
         const TypeReference &type = m_compositeSingletons.at(ii);
         Q_ASSERT(!type.typeData || type.typeData->isCompleteOrError());
         if (type.typeData && type.typeData->isError()) {
-            QString typeName = type.type->qmlTypeName();
+            QString typeName = type.type.qmlTypeName();
 
             QList<QQmlError> errors = type.typeData->errors();
             QQmlError error;
@@ -2296,28 +2302,28 @@ void QQmlTypeData::done()
             }
         }
 
-        m_compiledData->finalize(enginePrivate);
+        m_compiledData->finalizeCompositeType(enginePrivate);
     }
 
     {
-        QQmlType *type = QQmlMetaType::qmlType(finalUrl(), true);
+        QQmlType type = QQmlMetaType::qmlType(finalUrl(), true);
         if (m_compiledData && m_compiledData->data->flags & QV4::CompiledData::Unit::IsSingleton) {
-            if (!type) {
+            if (!type.isValid()) {
                 QQmlError error;
                 error.setDescription(QQmlTypeLoader::tr("No matching type found, pragma Singleton files cannot be used by QQmlComponent."));
                 setError(error);
                 return;
-            } else if (!type->isCompositeSingleton()) {
+            } else if (!type.isCompositeSingleton()) {
                 QQmlError error;
-                error.setDescription(QQmlTypeLoader::tr("pragma Singleton used with a non composite singleton type %1").arg(type->qmlTypeName()));
+                error.setDescription(QQmlTypeLoader::tr("pragma Singleton used with a non composite singleton type %1").arg(type.qmlTypeName()));
                 setError(error);
                 return;
             }
         } else {
             // If the type is CompositeSingleton but there was no pragma Singleton in the
             // QML file, lets report an error.
-            if (type && type->isCompositeSingleton()) {
-                QString typeName = type->qmlTypeName();
+            if (type.isValid() && type.isCompositeSingleton()) {
+                QString typeName = type.qmlTypeName();
                 setError(QQmlTypeLoader::tr("qmldir defines type as singleton, but no pragma Singleton found in type %1.").arg(typeName));
                 return;
             }
@@ -2609,8 +2615,8 @@ void QQmlTypeData::resolveTypes()
         if (!resolveType(typeName, majorVersion, minorVersion, ref))
             return;
 
-        if (ref.type->isCompositeSingleton()) {
-            ref.typeData = typeLoader()->getType(ref.type->sourceUrl());
+        if (ref.type.isCompositeSingleton()) {
+            ref.typeData = typeLoader()->getType(ref.type.sourceUrl());
             addDependency(ref.typeData);
             ref.prefix = csRef.prefix;
 
@@ -2637,8 +2643,8 @@ void QQmlTypeData::resolveTypes()
         if (!resolveType(name, majorVersion, minorVersion, ref, unresolvedRef->location.line, unresolvedRef->location.column, reportErrors) && reportErrors)
             return;
 
-        if (ref.type && ref.type->isComposite()) {
-            ref.typeData = typeLoader()->getType(ref.type->sourceUrl());
+        if (ref.type.isComposite()) {
+            ref.typeData = typeLoader()->getType(ref.type.sourceUrl());
             addDependency(ref.typeData);
         }
         ref.majorVersion = majorVersion;
@@ -2665,7 +2671,7 @@ QQmlCompileError QQmlTypeData::buildTypeResolutionCaches(
 
     // Add any Composite Singletons that were used to the import cache
     for (const QQmlTypeData::TypeReference &singleton: m_compositeSingletons)
-        (*typeNameCache)->add(singleton.type->qmlTypeName(), singleton.type->sourceUrl(), singleton.prefix);
+        (*typeNameCache)->add(singleton.type.qmlTypeName(), singleton.type.sourceUrl(), singleton.prefix);
 
     m_importCache.populateCache(*typeNameCache);
 
@@ -2673,24 +2679,24 @@ QQmlCompileError QQmlTypeData::buildTypeResolutionCaches(
 
     for (auto resolvedType = m_resolvedTypes.constBegin(), end = m_resolvedTypes.constEnd(); resolvedType != end; ++resolvedType) {
         QScopedPointer<QV4::CompiledData::ResolvedTypeReference> ref(new QV4::CompiledData::ResolvedTypeReference);
-        QQmlType *qmlType = resolvedType->type;
+        QQmlType qmlType = resolvedType->type;
         if (resolvedType->typeData) {
-            if (resolvedType->needsCreation && qmlType->isCompositeSingleton()) {
-                return QQmlCompileError(resolvedType->location, tr("Composite Singleton Type %1 is not creatable.").arg(qmlType->qmlTypeName()));
+            if (resolvedType->needsCreation && qmlType.isCompositeSingleton()) {
+                return QQmlCompileError(resolvedType->location, tr("Composite Singleton Type %1 is not creatable.").arg(qmlType.qmlTypeName()));
             }
             ref->compilationUnit = resolvedType->typeData->compilationUnit();
-        } else if (qmlType) {
+        } else if (qmlType.isValid()) {
             ref->type = qmlType;
-            Q_ASSERT(ref->type);
+            Q_ASSERT(ref->type.isValid());
 
-            if (resolvedType->needsCreation && !ref->type->isCreatable()) {
-                QString reason = ref->type->noCreationReason();
+            if (resolvedType->needsCreation && !ref->type.isCreatable()) {
+                QString reason = ref->type.noCreationReason();
                 if (reason.isEmpty())
                     reason = tr("Element is not creatable.");
                 return QQmlCompileError(resolvedType->location, reason);
             }
 
-            if (ref->type->containsRevisionedAttributes()) {
+            if (ref->type.containsRevisionedAttributes()) {
                 ref->typePropertyCache = engine->cache(ref->type,
                                                        resolvedType->minorVersion);
             }
@@ -2811,7 +2817,7 @@ QV4::ReturnedValue QQmlScriptData::scriptValueForContext(QQmlContextData *parent
         effectiveCtxt = 0;
 
     // Create the script context if required
-    QQmlContextData *ctxt = new QQmlContextData;
+    QQmlContextDataRef ctxt(new QQmlContextData);
     ctxt->isInternal = true;
     ctxt->isJSContext = true;
     if (shared)
@@ -2831,7 +2837,7 @@ QV4::ReturnedValue QQmlScriptData::scriptValueForContext(QQmlContextData *parent
     }
 
     if (effectiveCtxt) {
-        ctxt->setParent(effectiveCtxt, true);
+        ctxt->setParent(effectiveCtxt);
     } else {
         ctxt->engine = parentCtxt->engine; // Fix for QTBUG-21620
     }
@@ -2853,12 +2859,10 @@ QV4::ReturnedValue QQmlScriptData::scriptValueForContext(QQmlContextData *parent
     if (!m_program) {
         if (shared)
             m_loaded = true;
-        ctxt->destroy();
         return QV4::Encode::undefined();
     }
 
     QV4::Scoped<QV4::QmlContext> qmlContext(scope, QV4::QmlContext::create(v4->rootContext(), ctxt, 0));
-    qmlContext->takeContextOwnership();
 
     m_program->qmlContext.set(scope.engine, qmlContext);
     m_program->run();

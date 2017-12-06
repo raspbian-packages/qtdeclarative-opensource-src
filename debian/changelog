@@ -1,4 +1,4 @@
-qtdeclarative-opensource-src (5.9.1-6+rpi1) buster-staging; urgency=medium
+qtdeclarative-opensource-src (5.9.2-3+rpi1) buster-staging; urgency=medium
 
   [changes brought forward from 5.3.2-4+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Fri, 03 Oct 2014 08:10:59 +0000]
   * Fix clean target.
@@ -16,7 +16,39 @@ qtdeclarative-opensource-src (5.9.1-6+rpi1) buster-staging; urgency=medium
   [Changed introduced in 5.9.1-5+rpi by Peter Michael Green]
   * Extend symbols file hack.
 
- -- Raspbian forward porter <root@raspbian.org>  Thu, 14 Sep 2017 18:12:09 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Wed, 06 Dec 2017 03:17:29 +0000
+
+qtdeclarative-opensource-src (5.9.2-3) unstable; urgency=medium
+
+  * Bump qtdeclarative-abi version to 5-9-2.
+  * Update debian/libqt5qml5.symbols from buildds’ logs.
+  * Temporarily revert upstream commit that caused issues in some KDE apps.
+  * Upload to unstable.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 26 Oct 2017 16:27:02 +0300
+
+qtdeclarative-opensource-src (5.9.2-2) experimental; urgency=medium
+
+  * Update for Qt binaries location change in qtbase 5.9.2+dfsg-3.
+    - Update .install files for qtdeclarative5-dev-tools, qmlscene and qml.
+    - Provide compatibility symlinks for the old location.
+    - Bump qtbase5-private-dev and qttools5-dev-tools build-dependencies.
+  * Bump Standards-Version to 4.1.1, stop using deprecated Priority: extra.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 20 Oct 2017 15:14:10 +0300
+
+qtdeclarative-opensource-src (5.9.2-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Drop patches, applied upstream:
+    - fix_image_source_memory_leak.patch
+    - rebuild-QmlDatapropertyCache-if-deleted.patch
+  * Refresh and rebase other patches.
+  * Update symbols files from the current build log.
+  * Bump Qt build-dependencies to 5.9.2.
+  * Use dh_missing instead of deprecated dh_install --fail-missing.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 15 Oct 2017 00:17:05 +0300
 
 qtdeclarative-opensource-src (5.9.1-6) unstable; urgency=medium
 

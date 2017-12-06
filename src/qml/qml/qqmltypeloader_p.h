@@ -55,6 +55,7 @@
 #include <QtCore/qobject.h>
 #include <QtCore/qatomic.h>
 #include <QtCore/qfileinfo.h>
+#include <QtCore/qcache.h>
 #if QT_CONFIG(qml_network)
 #include <QtNetwork/qnetworkreply.h>
 #endif
@@ -83,6 +84,7 @@ class QQmlComponentPrivate;
 class QQmlTypeData;
 class QQmlTypeLoader;
 class QQmlExtensionInterface;
+class QQmlProfiler;
 struct QQmlCompileError;
 
 namespace QmlIR {
@@ -247,7 +249,7 @@ private:
     QString m_location;
 };
 
-class Q_AUTOTEST_EXPORT QQmlTypeLoader
+class Q_QML_PRIVATE_EXPORT QQmlTypeLoader
 {
     Q_DECLARE_TR_FUNCTIONS(QQmlTypeLoader)
 public:
@@ -319,6 +321,15 @@ public:
     void initializeEngine(QQmlExtensionInterface *, const char *);
     void invalidate();
 
+#ifdef QT_NO_QML_DEBUGGER
+    quintptr profiler() const { return 0; }
+    void setProfiler(quintptr) {}
+#else
+    QQmlProfiler *profiler() const { return m_profiler.data(); }
+    void setProfiler(QQmlProfiler *profiler);
+#endif // QT_NO_QML_DEBUGGER
+
+
 private:
     friend class QQmlDataBlob;
     friend class QQmlTypeLoaderThread;
@@ -362,12 +373,16 @@ private:
     typedef QHash<QUrl, QQmlTypeData *> TypeCache;
     typedef QHash<QUrl, QQmlScriptBlob *> ScriptCache;
     typedef QHash<QUrl, QQmlQmldirData *> QmldirCache;
-    typedef QStringHash<bool> StringSet;
-    typedef QStringHash<StringSet*> ImportDirCache;
+    typedef QCache<QString, QCache<QString, bool> > ImportDirCache;
     typedef QStringHash<QQmlTypeLoaderQmldirContent *> ImportQmlDirCache;
 
     QQmlEngine *m_engine;
     QQmlTypeLoaderThread *m_thread;
+
+#ifndef QT_NO_QML_DEBUGGER
+    QScopedPointer<QQmlProfiler> m_profiler;
+#endif
+
 #if QT_CONFIG(qml_network)
     NetworkReplies m_networkReplies;
 #endif
@@ -393,10 +408,10 @@ class Q_AUTOTEST_EXPORT QQmlTypeData : public QQmlTypeLoader::Blob
 public:
     struct TypeReference
     {
-        TypeReference() : type(0), majorVersion(0), minorVersion(0), typeData(0), needsCreation(true) {}
+        TypeReference() : majorVersion(0), minorVersion(0), typeData(0), needsCreation(true) {}
 
         QV4::CompiledData::Location location;
-        QQmlType *type;
+        QQmlType type;
         int majorVersion;
         int minorVersion;
         QQmlTypeData *typeData;

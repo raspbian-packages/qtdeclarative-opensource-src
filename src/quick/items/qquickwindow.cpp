@@ -1226,7 +1226,7 @@ void QQuickWindowPrivate::cleanup(QSGNode *n)
     \note All classes with QSG prefix should be used solely on the scene graph's
     rendering thread. See \l {Scene Graph and Rendering} for more information.
 
-    \section2 Context and surface formats
+    \section2 Context and Surface Formats
 
     While it is possible to specify a QSurfaceFormat for every QQuickWindow by
     calling the member function setFormat(), windows may also be created from
@@ -1494,8 +1494,7 @@ QQuickItem *QQuickWindow::mouseGrabberItem() const
     if (d->touchMouseId != -1 && d->touchMouseDevice) {
         QQuickPointerEvent *event = d->pointerEventInstance(d->touchMouseDevice);
         auto point = event->pointById(d->touchMouseId);
-        Q_ASSERT(point);
-        return point->grabber();
+        return point ? point->grabber() : nullptr;
     }
 
     QQuickPointerEvent *event = d->pointerEventInstance(QQuickPointerDevice::genericMouseDevice());
@@ -3428,7 +3427,7 @@ void QQuickWindow::setRenderTarget(QOpenGLFramebufferObject *fbo)
 {
     Q_D(QQuickWindow);
     if (d->context && QThread::currentThread() != d->context->thread()) {
-        qWarning("QQuickWindow::setRenderThread: Cannot set render target from outside the rendering thread");
+        qWarning("QQuickWindow::setRenderTarget: Cannot set render target from outside the rendering thread");
         return;
     }
 
@@ -4085,6 +4084,8 @@ void QQuickWindow::resetOpenGLState()
 
     The flags which you read from this property might differ from the ones
     that you set if the requested flags could not be fulfilled.
+
+    \sa Qt::WindowFlags
  */
 
 /*!
