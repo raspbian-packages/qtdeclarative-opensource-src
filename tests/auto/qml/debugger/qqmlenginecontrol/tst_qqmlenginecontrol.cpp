@@ -82,7 +82,7 @@ private slots:
 QQmlDebugTest::ConnectResult tst_QQmlEngineControl::connect(const QString &file,
                                                             bool restrictServices)
 {
-    return QQmlDebugTest::connect(QLibraryInfo::location(QLibraryInfo::BinariesPath) + "/qmlscene",
+    return QQmlDebugTest::connect(TESTBINDIR "/qmlscene",
                                   restrictServices ? QStringLiteral("EngineControl") : QString(),
                                   testFile(file), true);
 }

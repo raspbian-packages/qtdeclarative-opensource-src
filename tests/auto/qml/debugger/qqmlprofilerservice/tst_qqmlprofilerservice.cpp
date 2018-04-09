@@ -309,7 +309,7 @@ QQmlDebugTest::ConnectResult tst_QQmlProfilerService::connect(bool block, const 
                                                               bool restrictServices)
 {
     // ### Still using qmlscene due to QTBUG-33377
-    return QQmlDebugTest::connect(QLibraryInfo::location(QLibraryInfo::BinariesPath) + "/qmlscene",
+    return QQmlDebugTest::connect(TESTBINDIR "/qmlscene",
                                   restrictServices ? QStringLiteral("CanvasFrameRate") : QString(),
                                   testFile(file), block);
 }

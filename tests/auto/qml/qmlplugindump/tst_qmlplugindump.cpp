@@ -54,7 +54,7 @@ tst_qmlplugindump::tst_qmlplugindump()
 
 void tst_qmlplugindump::initTestCase()
 {
-    qmlplugindumpPath = QLibraryInfo::location(QLibraryInfo::BinariesPath);
+    qmlplugindumpPath = QLatin1String(TESTBINDIR);
 
 #if defined(Q_OS_WIN)
     qmlplugindumpPath += QLatin1String("/qmlplugindump.exe");
