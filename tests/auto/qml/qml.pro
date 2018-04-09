@@ -25,7 +25,6 @@ PUBLICTESTS += \
     qqmlmoduleplugin \
     qqmlnotifier \
     qqmlqt \
-    qqmlxmlhttprequest \
     qtqmlmodules \
     qquickfolderlistmodel \
     qqmlapplicationengine \
@@ -88,10 +87,6 @@ SUBDIRS += $$METATYPETESTS
 qtConfig(process):!boot2qt {
     !contains(QT_CONFIG, no-qml-debug): SUBDIRS += debugger
     SUBDIRS += qmllint qmlplugindump
-}
-
-qtConfig(library) {
-    SUBDIRS += qqmlextensionplugin
 }
 
 qtConfig(private_tests): \
