@@ -1,12 +1,22 @@
 /****************************************************************************
 **
-** Copyright (C) 2015 The Qt Company Ltd.
-** Contact: http://www.qt.io/licensing/
+** Copyright (C) 2017 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the examples of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:BSD$
-** You may use this file under the terms of the BSD license as follows:
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** BSD License Usage
+** Alternatively, you may use this file under the terms of the BSD license
+** as follows:
 **
 ** "Redistribution and use in source and binary forms, with or without
 ** modification, are permitted provided that the following conditions are
@@ -54,40 +64,30 @@ Rectangle {
     property real gridStep: gridSize ? (canvas.width - canvas.tickMargin) / gridSize : canvas.xGridStep
 
     function update() {
-        endDate = new Date();
-        if (chart.activeChart === "year") {
-            chart.startDate = new Date(chart.endDate.getFullYear() - 1,
-                                       chart.endDate.getMonth(),
-                                       chart.endDate.getDate());
-            chart.gridSize = 12;
-        }
-        else if (chart.activeChart === "month") {
-            chart.startDate = new Date(chart.endDate.getFullYear(),
-                                       chart.endDate.getMonth() - 1,
-                                       chart.endDate.getDate());
+        endDate = new Date(stockModel.newest);
+        if (chart.activeChart === "month") {
+            chart.startDate = new Date(stockModel.newest.getFullYear(),
+                                       stockModel.newest.getMonth() - 1,
+                                       stockModel.newest.getDate());
             gridSize = 4;
-        }
-        else if (chart.activeChart === "week") {
-            chart.startDate = new Date(chart.endDate.getFullYear(),
-                                       chart.endDate.getMonth(),
-                                       chart.endDate.getDate() - 7);
-            gridSize = 0;
-        }
-        else if (chart.activeChart === "halfyear") {
-            chart.startDate = new Date(chart.endDate.getFullYear(),
-                                       chart.endDate.getMonth() - 6,
-                                       chart.endDate.getDate());
-            gridSize = 6;
         }
         else if (chart.activeChart === "quarter") {
-            chart.startDate = new Date(chart.endDate.getFullYear(),
-                                       chart.endDate.getMonth() - 3,
-                                       chart.endDate.getDate());
+            chart.startDate = new Date(stockModel.newest.getFullYear(),
+                                       stockModel.newest.getMonth() - 3,
+                                       stockModel.newest.getDate());
             gridSize = 3;
         }
+        else if (chart.activeChart === "halfyear") {
+            chart.startDate = new Date(stockModel.newest.getFullYear(),
+                                       stockModel.newest.getMonth() - 6,
+                                       stockModel.newest.getDate());
+            gridSize = 6;
+        }
         else {
-            chart.startDate = new Date(2005, 3, 25);
-            gridSize = 4;
+            chart.startDate = new Date(stockModel.newest.getFullYear(),
+                                       stockModel.newest.getMonth(),
+                                       stockModel.newest.getDate() - 7);
+            gridSize = 0;
         }
 
         canvas.requestPaint();
@@ -120,7 +120,7 @@ Rectangle {
 
         Button {
             id: quarterlyButton
-            text: "3M"
+            text: "3 Months"
             buttonEnabled: chart.activeChart === "quarter"
             onClicked: {
                 chart.activeChart = "quarter";
@@ -130,28 +130,10 @@ Rectangle {
 
         Button {
             id: halfYearlyButton
-            text: "6M"
+            text: "6 Months"
             buttonEnabled: chart.activeChart === "halfyear"
             onClicked: {
                 chart.activeChart = "halfyear";
-                chart.update();
-            }
-        }
-        Button {
-            id: yearButton
-            text: "Year"
-            buttonEnabled: chart.activeChart === "year"
-            onClicked: {
-                chart.activeChart = "year";
-                chart.update();
-            }
-        }
-        Button {
-            id: maxButton
-            text: "Max"
-            buttonEnabled: chart.activeChart === "max"
-            onClicked: {
-                chart.activeChart = "max";
                 chart.update();
             }
         }
@@ -345,7 +327,6 @@ Rectangle {
 
             onPaint: {
                 numPoints = stockModel.indexOf(chart.startDate);
-
                 if (chart.gridSize == 0)
                     chart.gridSize = numPoints
 

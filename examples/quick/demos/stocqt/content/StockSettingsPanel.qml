@@ -1,12 +1,22 @@
 /****************************************************************************
 **
-** Copyright (C) 2015 The Qt Company Ltd.
-** Contact: http://www.qt.io/licensing/
+** Copyright (C) 2017 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the examples of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:BSD$
-** You may use this file under the terms of the BSD license as follows:
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** BSD License Usage
+** Alternatively, you may use this file under the terms of the BSD license
+** as follows:
 **
 ** "Redistribution and use in source and binary forms, with or without
 ** modification, are permitted provided that the following conditions are
@@ -46,10 +56,10 @@ Rectangle {
     id: root
     color: "transparent"
 
-    property bool drawOpenPrice: openButton.buttonEnabled
-    property bool drawClosePrice: closeButton.buttonEnabled
-    property bool drawHighPrice: highButton.buttonEnabled
-    property bool drawLowPrice: lowButton.buttonEnabled
+    property bool drawOpenPrice: false
+    property bool drawClosePrice: false
+    property bool drawHighPrice: true
+    property bool drawLowPrice: true
 
     property string openColor: "#face20"
     property string closeColor: "#14aaff"
@@ -85,6 +95,7 @@ Rectangle {
         CheckBox {
             id: openButton
             buttonEnabled: false
+            onButtonEnabledChanged: drawOpenPrice = buttonEnabled
             Layout.rightMargin: 10
         }
 
@@ -104,6 +115,7 @@ Rectangle {
         CheckBox {
             id: closeButton
             buttonEnabled: false
+            onButtonEnabledChanged: drawClosePrice = buttonEnabled
             Layout.rightMargin: 10
         }
 
@@ -123,6 +135,7 @@ Rectangle {
         CheckBox {
             id: highButton
             buttonEnabled: true
+            onButtonEnabledChanged: drawHighPrice = buttonEnabled
             Layout.rightMargin: 10
         }
 
@@ -143,6 +156,7 @@ Rectangle {
         CheckBox {
             id: lowButton
             buttonEnabled: true
+            onButtonEnabledChanged: drawLowPrice = buttonEnabled
             Layout.rightMargin: 10
         }
     }

@@ -69,7 +69,6 @@ struct Q_QML_EXPORT Function {
     // first nArguments names in internalClass are the actual arguments
     InternalClass *internalClass;
     uint nFormals;
-    bool activationRequired;
     bool hasQmlDependencies;
     bool canUseSimpleCall;
 
@@ -84,13 +83,11 @@ struct Q_QML_EXPORT Function {
         return compilationUnit->runtimeStrings[compiledFunction->nameIndex];
     }
     inline QString sourceFile() const { return compilationUnit->fileName(); }
+    inline QUrl finalUrl() const { return compilationUnit->finalUrl(); }
 
     inline bool usesArgumentsObject() const { return compiledFunction->flags & CompiledData::Function::UsesArgumentsObject; }
     inline bool isStrict() const { return compiledFunction->flags & CompiledData::Function::IsStrict; }
     inline bool isNamedExpression() const { return compiledFunction->flags & CompiledData::Function::IsNamedExpression; }
-
-    inline bool needsActivation() const
-    { return activationRequired; }
 
     inline bool canUseSimpleFunction() const { return canUseSimpleCall; }
 
@@ -102,7 +99,7 @@ struct Q_QML_EXPORT Function {
 };
 
 
-inline unsigned int Heap::CallContext::formalParameterCount() const
+inline unsigned int Heap::SimpleCallContext::formalParameterCount() const
 {
     return v4Function ? v4Function->nFormals : 0;
 }

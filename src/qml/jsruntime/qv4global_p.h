@@ -95,7 +95,7 @@ inline double trunc(double d) { return d > 0 ? floor(d) : ceil(d); }
     && (defined(Q_OS_WIN) || defined(Q_OS_LINUX) || defined(Q_OS_QNX) || defined(Q_OS_FREEBSD))
 #  define V4_ENABLE_JIT
 #elif defined(Q_PROCESSOR_X86_64) && (QT_POINTER_SIZE == 8) \
-    && (defined(Q_OS_WIN) || defined(Q_OS_LINUX) || defined(Q_OS_MAC) || defined(Q_OS_FREEBSD))
+    && (defined(Q_OS_WIN) || defined(Q_OS_LINUX) || defined(Q_OS_QNX) || defined(Q_OS_MAC) || defined(Q_OS_FREEBSD))
 #  define V4_ENABLE_JIT
 #elif defined(Q_PROCESSOR_ARM_32) && (QT_POINTER_SIZE == 4)
 #  if defined(thumb2) || defined(__thumb2__) || ((defined(__thumb) || defined(__thumb__)) && __TARGET_ARCH_THUMB-0 == 4)
@@ -104,7 +104,7 @@ inline double trunc(double d) { return d > 0 ? floor(d) : ceil(d); }
 #    define V4_ENABLE_JIT
 #  endif
 #elif defined(Q_PROCESSOR_ARM_64) && (QT_POINTER_SIZE == 8)
-#  if defined(Q_OS_LINUX)
+#  if defined(Q_OS_LINUX) || defined(Q_OS_QNX)
 #    define V4_ENABLE_JIT
 #  endif
 #elif defined(Q_PROCESSOR_MIPS_32) && 0
@@ -178,6 +178,7 @@ namespace Heap {
     struct DataView;
     struct TypedArray;
 
+    template <typename T, size_t> struct Pointer;
 }
 
 class MemoryManager;
@@ -192,9 +193,12 @@ struct ScriptFunction;
 struct InternalClass;
 struct Property;
 struct Value;
+template<size_t> struct HeapValue;
+template<size_t> struct ValueArray;
 struct Lookup;
 struct ArrayData;
 struct VTable;
+struct Function;
 
 struct BooleanObject;
 struct NumberObject;
@@ -252,6 +256,7 @@ enum PropertyFlag {
     Attr_NotEnumerable = 0x4,
     Attr_NotConfigurable = 0x8,
     Attr_ReadOnly = Attr_NotWritable|Attr_NotEnumerable|Attr_NotConfigurable,
+    Attr_ReadOnly_ButConfigurable = Attr_NotWritable|Attr_NotEnumerable,
     Attr_Invalid = 0xff
 };
 

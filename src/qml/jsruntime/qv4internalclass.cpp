@@ -133,48 +133,20 @@ InternalClass::InternalClass(const QV4::InternalClass &other)
 
 static void insertHoleIntoPropertyData(Object *object, int idx)
 {
-    int inlineSize = object->d()->vtable()->nInlineProperties;
-    int icSize = object->internalClass()->size;
-    int from = qMax(idx, inlineSize);
-    int to = from + 1;
-    if (from < icSize) {
-        memmove(object->propertyData(to), object->propertyData(from),
-                (icSize - from - 1) * sizeof(Value));
-    }
-    if (from == idx)
-        return;
-    if (inlineSize < icSize)
-        *object->propertyData(inlineSize) = *object->propertyData(inlineSize - 1);
-    from = idx;
-    to = from + 1;
-    if (from < inlineSize - 1) {
-        memmove(object->propertyData(to), object->propertyData(from),
-                (inlineSize - from - 1) * sizeof(Value));
-    }
+    Heap::Object *o = object->d();
+    ExecutionEngine *v4 = o->internalClass->engine;
+    int size = o->internalClass->size;
+    for (int i = size - 1; i > idx; --i)
+        o->setProperty(v4, i, *o->propertyData(i - 1));
 }
 
 static void removeFromPropertyData(Object *object, int idx, bool accessor = false)
 {
-    int inlineSize = object->d()->vtable()->nInlineProperties;
-    int delta = (accessor ? 2 : 1);
-    int oldSize = object->internalClass()->size + delta;
-    int to = idx;
-    int from = to + delta;
-    if (from < inlineSize) {
-        memmove(object->propertyData(to), object->d()->propertyData(from), (inlineSize - from)*sizeof(Value));
-        to = inlineSize - delta;
-        from = inlineSize;
-    }
-    if (to < inlineSize && from < oldSize) {
-        Q_ASSERT(from >= inlineSize);
-        memcpy(object->propertyData(to), object->d()->propertyData(from), (inlineSize - to)*sizeof(Value));
-        to = inlineSize;
-        from = inlineSize + delta;
-    }
-    if (from < oldSize) {
-        Q_ASSERT(to >= inlineSize && from > to);
-        memmove(object->propertyData(to), object->d()->propertyData(from), (oldSize - to)*sizeof(Value));
-    }
+    Heap::Object *o = object->d();
+    ExecutionEngine *v4 = o->internalClass->engine;
+    int size = o->internalClass->size;
+    for (int i = idx; i < size; ++i)
+        o->setProperty(v4, i, *o->propertyData(i + (accessor ? 2 : 1)));
 }
 
 void InternalClass::changeMember(Object *object, String *string, PropertyAttributes data, uint *index)
@@ -188,7 +160,7 @@ void InternalClass::changeMember(Object *object, String *string, PropertyAttribu
     object->setInternalClass(newClass);
     if (newClass->size > oldClass->size) {
         Q_ASSERT(newClass->size == oldClass->size + 1);
-        insertHoleIntoPropertyData(object, idx + 1);
+        insertHoleIntoPropertyData(object, idx);
     } else if (newClass->size < oldClass->size) {
         Q_ASSERT(newClass->size == oldClass->size - 1);
         removeFromPropertyData(object, idx + 1);
@@ -506,9 +478,9 @@ void InternalClass::destroy()
     }
 }
 
-void InternalClassPool::markObjects(ExecutionEngine *engine)
+void InternalClassPool::markObjects(MarkStack *markStack)
 {
-    InternalClass *ic = engine->internalClasses[EngineBase::Class_Empty];
+    InternalClass *ic = markStack->engine->internalClasses[EngineBase::Class_Empty];
     Q_ASSERT(!ic->prototype);
 
     // only need to go two levels into the IC hierarchy, as prototype changes
@@ -519,10 +491,10 @@ void InternalClassPool::markObjects(ExecutionEngine *engine)
             InternalClass *ic2 = t.lookup;
             for (auto &t2 : ic2->transitions) {
                 if (t2.flags == InternalClassTransition::PrototypeChange)
-                    t2.lookup->prototype->mark(engine);
+                    t2.lookup->prototype->mark(markStack);
             }
         } else if (t.flags == InternalClassTransition::PrototypeChange) {
-            t.lookup->prototype->mark(engine);
+            t.lookup->prototype->mark(markStack);
         }
     }
 }

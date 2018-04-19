@@ -100,6 +100,12 @@ public:
     };
     Q_ENUM(SceneGraphError)
 
+    enum TextRenderType {
+        QtTextRendering,
+        NativeTextRendering
+    };
+    Q_ENUM(TextRenderType)
+
     explicit QQuickWindow(QWindow *parent = Q_NULLPTR);
     explicit QQuickWindow(QQuickRenderControl *renderControl);
 
@@ -112,7 +118,9 @@ public:
 
     QQuickItem *mouseGrabberItem() const;
 
-    bool sendEvent(QQuickItem *, QEvent *);
+#if QT_DEPRECATED_SINCE(5, 8)
+    QT_DEPRECATED bool sendEvent(QQuickItem *, QEvent *);
+#endif
 
     QImage grabWindow();
 #if QT_CONFIG(opengl)
@@ -168,6 +176,9 @@ public:
     QSGImageNode *createImageNode() const;
     QSGNinePatchNode *createNinePatchNode() const;
 
+    static TextRenderType textRenderType();
+    static void setTextRenderType(TextRenderType renderType);
+
 Q_SIGNALS:
     void frameSwapped();
     Q_REVISION(2) void openglContextCreated(QOpenGLContext *context);
@@ -221,7 +232,7 @@ private Q_SLOTS:
     void handleScreenChanged(QScreen *screen);
     void setTransientParent_helper(QQuickWindow *window);
     void runJobsAfterSwap();
-
+    void handleApplicationStateChanged(Qt::ApplicationState state);
 private:
     friend class QQuickItem;
     friend class QQuickWidget;
@@ -229,6 +240,10 @@ private:
     friend class QQuickAnimatorController;
     Q_DISABLE_COPY(QQuickWindow)
 };
+
+#ifndef QT_NO_DEBUG_STREAM
+QDebug Q_QUICK_EXPORT operator<<(QDebug debug, const QQuickWindow *item);
+#endif
 
 QT_END_NAMESPACE
 

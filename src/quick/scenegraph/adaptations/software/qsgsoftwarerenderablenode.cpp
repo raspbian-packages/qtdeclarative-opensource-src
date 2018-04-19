@@ -134,73 +134,58 @@ void QSGSoftwareRenderableNode::update()
 {
     // Update the Node properties
     m_isDirty = true;
+    m_isOpaque = false;
 
     QRectF boundingRect;
 
     switch (m_nodeType) {
     case QSGSoftwareRenderableNode::SimpleRect:
-        if (m_handle.simpleRectNode->color().alpha() == 255 && !m_transform.isRotating())
+        if (m_handle.simpleRectNode->color().alpha() == 255)
             m_isOpaque = true;
-        else
-            m_isOpaque = false;
 
         boundingRect = m_handle.simpleRectNode->rect();
         break;
     case QSGSoftwareRenderableNode::SimpleTexture:
-        if (!m_handle.simpleTextureNode->texture()->hasAlphaChannel() && !m_transform.isRotating())
+        if (!m_handle.simpleTextureNode->texture()->hasAlphaChannel())
             m_isOpaque = true;
-        else
-            m_isOpaque = false;
 
         boundingRect = m_handle.simpleTextureNode->rect();
         break;
     case QSGSoftwareRenderableNode::Image:
-        // There isn't a way to tell, so assume it's not
-        m_isOpaque = false;
+        m_isOpaque = !m_handle.imageNode->pixmap().hasAlphaChannel();
 
         boundingRect = m_handle.imageNode->rect().toRect();
         break;
     case QSGSoftwareRenderableNode::Painter:
-        if (m_handle.painterNode->opaquePainting() && !m_transform.isRotating())
+        if (m_handle.painterNode->opaquePainting())
             m_isOpaque = true;
-        else
-            m_isOpaque = false;
 
         boundingRect = QRectF(0, 0, m_handle.painterNode->size().width(), m_handle.painterNode->size().height());
         break;
     case QSGSoftwareRenderableNode::Rectangle:
-        if (m_handle.rectangleNode->isOpaque() && !m_transform.isRotating())
+        if (m_handle.rectangleNode->isOpaque())
             m_isOpaque = true;
-        else
-            m_isOpaque = false;
 
         boundingRect = m_handle.rectangleNode->rect();
         break;
     case QSGSoftwareRenderableNode::Glyph:
         // Always has alpha
-        m_isOpaque = false;
-
         boundingRect = m_handle.glpyhNode->boundingRect();
         break;
     case QSGSoftwareRenderableNode::NinePatch:
-        // Difficult to tell, assume non-opaque
-        m_isOpaque = false;
+        m_isOpaque = m_handle.ninePatchNode->isOpaque();
 
         boundingRect = m_handle.ninePatchNode->bounds();
         break;
     case QSGSoftwareRenderableNode::SimpleRectangle:
-        if (m_handle.simpleRectangleNode->color().alpha() == 255 && !m_transform.isRotating())
+        if (m_handle.simpleRectangleNode->color().alpha() == 255)
             m_isOpaque = true;
-        else
-            m_isOpaque = false;
 
         boundingRect = m_handle.simpleRectangleNode->rect();
         break;
     case QSGSoftwareRenderableNode::SimpleImage:
-        if (!m_handle.simpleImageNode->texture()->hasAlphaChannel() && !m_transform.isRotating())
+        if (!m_handle.simpleImageNode->texture()->hasAlphaChannel())
             m_isOpaque = true;
-        else
-            m_isOpaque = false;
 
         boundingRect = m_handle.simpleImageNode->rect();
         break;
@@ -211,16 +196,17 @@ void QSGSoftwareRenderableNode::update()
         break;
 #endif
     case QSGSoftwareRenderableNode::RenderNode:
-        if (m_handle.renderNode->flags().testFlag(QSGRenderNode::OpaqueRendering) && !m_transform.isRotating())
+        if (m_handle.renderNode->flags().testFlag(QSGRenderNode::OpaqueRendering))
             m_isOpaque = true;
-        else
-            m_isOpaque = false;
 
         boundingRect = m_handle.renderNode->rect();
         break;
     default:
         break;
     }
+
+    if (m_transform.isRotating())
+        m_isOpaque = false;
 
     const QRectF transformedRect = m_transform.mapRect(boundingRect);
     m_boundingRectMin = toRectMin(transformedRect);
@@ -277,18 +263,21 @@ QRegion QSGSoftwareRenderableNode::renderNode(QPainter *painter, bool forceOpaqu
             QMatrix4x4 m = m_transform;
             rd->m_matrix = &m;
             rd->m_opacity = m_opacity;
-            RenderNodeState rs;
-            rs.cr = m_clipRegion;
 
-            const QRect br = m_handle.renderNode->flags().testFlag(QSGRenderNode::BoundedRectRendering)
-                ? m_boundingRectMax :
-                QRect(0, 0, painter->device()->width(), painter->device()->height());
+            // all the clip region below is in world coordinates, taking m_transform into account already
+            QRegion cr = m_dirtyRegion;
+            if (m_clipRegion.rectCount() > 1)
+                cr &= m_clipRegion;
 
             painter->save();
-            painter->setClipRegion(br, Qt::ReplaceClip);
+            RenderNodeState rs;
+            rs.cr = cr;
             m_handle.renderNode->render(&rs);
             painter->restore();
 
+            const QRect br = m_handle.renderNode->flags().testFlag(QSGRenderNode::BoundedRectRendering)
+                ? m_boundingRectMax // already mapped to world
+                : QRect(0, 0, painter->device()->width(), painter->device()->height());
             m_previousDirtyRegion = QRegion(br);
             m_isDirty = false;
             m_dirtyRegion = QRegion();
@@ -299,7 +288,7 @@ QRegion QSGSoftwareRenderableNode::renderNode(QPainter *painter, bool forceOpaqu
     painter->save();
     painter->setOpacity(m_opacity);
 
-    // Set clipRegion to m_dirtyRegion (in world coordinates)
+    // Set clipRegion to m_dirtyRegion (in world coordinates, so must be done before the setTransform below)
     // as m_dirtyRegion already accounts for clipRegion
     painter->setClipRegion(m_dirtyRegion, Qt::ReplaceClip);
     if (m_clipRegion.rectCount() > 1)
@@ -316,10 +305,10 @@ QRegion QSGSoftwareRenderableNode::renderNode(QPainter *painter, bool forceOpaqu
     case QSGSoftwareRenderableNode::SimpleTexture:
     {
         QSGTexture *texture = m_handle.simpleTextureNode->texture();
-        if (QSGSoftwarePixmapTexture *pt = dynamic_cast<QSGSoftwarePixmapTexture *>(texture)) {
+        if (QSGSoftwarePixmapTexture *pt = qobject_cast<QSGSoftwarePixmapTexture *>(texture)) {
             const QPixmap &pm = pt->pixmap();
             painter->drawPixmap(m_handle.simpleTextureNode->rect(), pm, m_handle.simpleTextureNode->sourceRect());
-        } else if (QSGPlainTexture *pt = dynamic_cast<QSGPlainTexture *>(texture)) {
+        } else if (QSGPlainTexture *pt = qobject_cast<QSGPlainTexture *>(texture)) {
             const QImage &im = pt->image();
             painter->drawImage(m_handle.simpleTextureNode->rect(), im, m_handle.simpleTextureNode->sourceRect());
         }

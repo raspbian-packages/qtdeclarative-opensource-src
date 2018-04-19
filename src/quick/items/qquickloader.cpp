@@ -48,6 +48,8 @@
 
 QT_BEGIN_NAMESPACE
 
+Q_DECLARE_LOGGING_CATEGORY(lcTransient)
+
 static const QQuickItemPrivate::ChangeTypes watchedChanges
     = QQuickItemPrivate::Geometry | QQuickItemPrivate::ImplicitWidth | QQuickItemPrivate::ImplicitHeight;
 
@@ -95,6 +97,12 @@ void QQuickLoaderPrivate::clear()
 
     delete itemContext;
     itemContext = 0;
+
+    // Prevent any bindings from running while waiting for deletion. Without
+    // this we may get transient errors from use of 'parent', for example.
+    QQmlContext *context = qmlContext(object);
+    if (context)
+        QQmlContextData::get(context)->invalidate();
 
     if (loadingFromSource && component) {
         // disconnect since we deleteLater
@@ -350,6 +358,12 @@ void QQuickLoader::setActive(bool newVal)
             delete d->itemContext;
             d->itemContext = 0;
         }
+
+        // Prevent any bindings from running while waiting for deletion. Without
+        // this we may get transient errors from use of 'parent', for example.
+        QQmlContext *context = qmlContext(d->object);
+        if (context)
+            QQmlContextData::get(context)->invalidate();
 
         if (d->item) {
             QQuickItemPrivate *p = QQuickItemPrivate::get(d->item);
@@ -672,6 +686,13 @@ void QQuickLoaderPrivate::incubatorStateChanged(QQmlIncubator::Status status)
     if (status == QQmlIncubator::Ready) {
         object = incubator->object();
         item = qmlobject_cast<QQuickItem*>(object);
+        if (!item) {
+            QQuickWindow *window = qmlobject_cast<QQuickWindow*>(object);
+            if (window) {
+                qCDebug(lcTransient) << window << "is transient for" << q->window();
+                window->setTransientParent(q->window());
+            }
+        }
         emit q->itemChanged();
         initResize();
         incubator->clear();
@@ -816,6 +837,18 @@ void QQuickLoader::componentComplete()
     }
 }
 
+void QQuickLoader::itemChange(QQuickItem::ItemChange change, const QQuickItem::ItemChangeData &value)
+{
+    if (change == ItemSceneChange) {
+        QQuickWindow *loadedWindow = qmlobject_cast<QQuickWindow *>(item());
+        if (loadedWindow) {
+            qCDebug(lcTransient) << loadedWindow << "is transient for" << value.window;
+            loadedWindow->setTransientParent(value.window);
+        }
+    }
+    QQuickItem::itemChange(change, value);
+}
+
 /*!
     \qmlsignal QtQuick::Loader::loaded()
 
@@ -852,6 +885,7 @@ qreal QQuickLoader::progress() const
 \qmlproperty bool QtQuick::Loader::asynchronous
 
 This property holds whether the component will be instantiated asynchronously.
+By default it is \c false.
 
 When used in conjunction with the \l source property, loading and compilation
 will also be performed in a background thread.
@@ -915,9 +949,14 @@ void QQuickLoaderPrivate::_q_updateSize(bool loaderGeometryChanged)
     if (!item)
         return;
 
-    if (loaderGeometryChanged && q->widthValid())
+    const bool needToUpdateWidth = loaderGeometryChanged && q->widthValid();
+    const bool needToUpdateHeight = loaderGeometryChanged && q->heightValid();
+
+    if (needToUpdateWidth && needToUpdateHeight)
+        item->setSize(QSizeF(q->width(), q->height()));
+    else if (needToUpdateWidth)
         item->setWidth(q->width());
-    if (loaderGeometryChanged && q->heightValid())
+    else if (needToUpdateHeight)
         item->setHeight(q->height());
 
     if (updatingSize)

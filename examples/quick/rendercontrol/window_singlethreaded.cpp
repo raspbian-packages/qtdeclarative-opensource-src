@@ -1,12 +1,22 @@
 /****************************************************************************
 **
-** Copyright (C) 2015 The Qt Company Ltd.
-** Contact: http://www.qt.io/licensing/
+** Copyright (C) 2017 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the examples of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:BSD$
-** You may use this file under the terms of the BSD license as follows:
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** BSD License Usage
+** Alternatively, you may use this file under the terms of the BSD license
+** as follows:
 **
 ** "Redistribution and use in source and binary forms, with or without
 ** modification, are permitted provided that the following conditions are
@@ -81,6 +91,10 @@ WindowSingleThreaded::WindowSingleThreaded()
       m_dpr(0)
 {
     setSurfaceType(QSurface::OpenGLSurface);
+
+    // The rendercontrol does not necessarily need an FBO. Demonstrate this
+    // when requested.
+    m_onscreen = QCoreApplication::arguments().contains(QStringLiteral("--onscreen"));
 
     QSurfaceFormat format;
     // Qt Quick may need a depth and stencil buffer. Always make sure these are available.
@@ -164,8 +178,14 @@ void WindowSingleThreaded::createFbo()
     // The scene graph has been initialized. It is now time to create an FBO and associate
     // it with the QQuickWindow.
     m_dpr = devicePixelRatio();
-    m_fbo = new QOpenGLFramebufferObject(size() * m_dpr, QOpenGLFramebufferObject::CombinedDepthStencil);
-    m_quickWindow->setRenderTarget(m_fbo);
+    if (!m_onscreen) {
+        m_fbo = new QOpenGLFramebufferObject(size() * m_dpr, QOpenGLFramebufferObject::CombinedDepthStencil);
+        m_quickWindow->setRenderTarget(m_fbo);
+    } else {
+        // Special case: No FBO. Render directly to the window's default framebuffer.
+        m_onscreenSize = size() * m_dpr;
+        m_quickWindow->setRenderTarget(0, m_onscreenSize);
+    }
 }
 
 void WindowSingleThreaded::destroyFbo()
@@ -176,7 +196,10 @@ void WindowSingleThreaded::destroyFbo()
 
 void WindowSingleThreaded::render()
 {
-    if (!m_context->makeCurrent(m_offscreenSurface))
+    QSurface *surface = m_offscreenSurface;
+    if (m_onscreen)
+        surface = this;
+    if (!m_context->makeCurrent(surface))
         return;
 
     // Polish, synchronize and render the next frame (into our fbo).  In this example
@@ -195,7 +218,10 @@ void WindowSingleThreaded::render()
     m_quickReady = true;
 
     // Get something onto the screen.
-    m_cubeRenderer->render(this, m_context, m_quickReady ? m_fbo->texture() : 0);
+    if (!m_onscreen)
+        m_cubeRenderer->render(this, m_context, m_quickReady ? m_fbo->texture() : 0);
+    else
+        m_context->swapBuffers(this);
 }
 
 void WindowSingleThreaded::requestUpdate()
@@ -237,7 +263,10 @@ void WindowSingleThreaded::run()
     updateSizes();
 
     // Initialize the render control and our OpenGL resources.
-    m_context->makeCurrent(m_offscreenSurface);
+    QSurface *surface = m_offscreenSurface;
+    if (m_onscreen)
+        surface = this;
+    m_context->makeCurrent(surface);
     m_renderControl->initialize(m_context);
     m_quickInitialized = true;
 }
@@ -266,7 +295,8 @@ void WindowSingleThreaded::exposeEvent(QExposeEvent *)
 {
     if (isExposed()) {
         if (!m_quickInitialized) {
-            m_cubeRenderer->render(this, m_context, m_quickReady ? m_fbo->texture() : 0);
+            if (!m_onscreen)
+                m_cubeRenderer->render(this, m_context, m_quickReady ? m_fbo->texture() : 0);
             startQuick(QStringLiteral("qrc:/rendercontrol/demo.qml"));
         }
     }
@@ -274,7 +304,10 @@ void WindowSingleThreaded::exposeEvent(QExposeEvent *)
 
 void WindowSingleThreaded::resizeFbo()
 {
-    if (m_rootItem && m_context->makeCurrent(m_offscreenSurface)) {
+    QSurface *surface = m_offscreenSurface;
+    if (m_onscreen)
+        surface = this;
+    if (m_rootItem && m_context->makeCurrent(surface)) {
         delete m_fbo;
         createFbo();
         m_context->doneCurrent();
@@ -287,8 +320,13 @@ void WindowSingleThreaded::resizeEvent(QResizeEvent *)
 {
     // If this is a resize after the scene is up and running, recreate the fbo and the
     // Quick item and scene.
-    if (m_fbo && m_fbo->size() != size() * devicePixelRatio())
-        resizeFbo();
+    if (!m_onscreen) {
+        if (m_fbo && m_fbo->size() != size() * devicePixelRatio())
+            resizeFbo();
+    } else {
+        if (m_onscreenSize != size() * devicePixelRatio())
+            resizeFbo();
+    }
 }
 
 void WindowSingleThreaded::handleScreenChange()

@@ -44,7 +44,8 @@ PRIVATETESTS += \
 # This test requires the xmlpatterns module
 !qtHaveModule(xmlpatterns): PRIVATETESTS -= qquickxmllistmodel
 
-QUICKTESTS =  \
+QUICKTESTS += \
+    pointerhandlers \
     qquickaccessible \
     qquickanchors \
     qquickanimatedimage \
@@ -67,6 +68,7 @@ QUICKTESTS =  \
     qquickmousearea \
     qquickmultipointtoucharea \
     qquickpainteditem \
+    qquickshape \
     qquickpathview \
     qquickpincharea \
     qquickpositioners \

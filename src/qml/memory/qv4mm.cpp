@@ -44,6 +44,7 @@
 #include "qv4qobjectwrapper_p.h"
 #include <QtCore/qalgorithms.h>
 #include <QtCore/private/qnumeric_p.h>
+#include <QtCore/qloggingcategory.h>
 #include <qqmlengine.h>
 #include "PageReservation.h"
 #include "PageAllocation.h"
@@ -60,7 +61,11 @@
 #include "qv4alloca_p.h"
 #include "qv4profiling_p.h"
 
-#define MM_DEBUG 0
+//#define MM_STATS
+
+#if !defined(MM_STATS) && !defined(QT_NO_DEBUG)
+#define MM_STATS
+#endif
 
 #if MM_DEBUG
 #define DEBUG qDebug() << "MM:"
@@ -86,6 +91,11 @@
 #endif
 
 #define MIN_UNMANAGED_HEAPSIZE_GC_LIMIT std::size_t(128 * 1024)
+
+Q_LOGGING_CATEGORY(lcGcStats, "qt.qml.gc.statistics")
+Q_DECLARE_LOGGING_CATEGORY(lcGcStats)
+Q_LOGGING_CATEGORY(lcGcAllocatorStats, "qt.qml.gc.allocatorStats")
+Q_DECLARE_LOGGING_CATEGORY(lcGcAllocatorStats)
 
 using namespace WTF;
 
@@ -275,14 +285,86 @@ QString binary(quintptr) { return QString(); }
 #define SDUMP if (1) ; else qDebug
 #endif
 
-bool Chunk::sweep()
+void Heap::Base::markChildren(MarkStack *markStack)
+{
+    if (vtable()->markObjects)
+        vtable()->markObjects(this, markStack);
+    if (quint64 m = vtable()->markTable) {
+//            qDebug() << "using mark table:" << hex << m << "for" << h;
+        void **mem = reinterpret_cast<void **>(this);
+        while (m) {
+            MarkFlags mark = static_cast<MarkFlags>(m & 3);
+            switch (mark) {
+            case Mark_NoMark:
+                break;
+            case Mark_Value:
+//                    qDebug() << "marking value at " << mem;
+                reinterpret_cast<Value *>(mem)->mark(markStack);
+                break;
+            case Mark_Pointer: {
+//                    qDebug() << "marking pointer at " << mem;
+                Heap::Base *p = *reinterpret_cast<Heap::Base **>(mem);
+                if (p)
+                    p->mark(markStack);
+                break;
+            }
+            case Mark_ValueArray: {
+                Q_ASSERT(m == Mark_ValueArray);
+//                    qDebug() << "marking Value Array at offset" << hex << (mem - reinterpret_cast<void **>(h));
+                ValueArray<0> *a = reinterpret_cast<ValueArray<0> *>(mem);
+                Value *v = a->values;
+                const Value *end = v + a->alloc;
+                if (a->alloc > 32*1024) {
+                    // drain from time to time to avoid overflows in the js stack
+                    Heap::Base **currentBase = markStack->top;
+                    while (v < end) {
+                        v->mark(markStack);
+                        ++v;
+                        if (markStack->top >= currentBase + 32*1024) {
+                            Heap::Base **oldBase = markStack->base;
+                            markStack->base = currentBase;
+                            markStack->drain();
+                            markStack->base = oldBase;
+                        }
+                    }
+                } else {
+                    while (v < end) {
+                        v->mark(markStack);
+                        ++v;
+                    }
+                }
+                break;
+            }
+            }
+
+            m >>= 2;
+            ++mem;
+        }
+    }
+}
+
+// Stores a classname -> freed count mapping.
+typedef QHash<const char*, int> MMStatsHash;
+Q_GLOBAL_STATIC(MMStatsHash, freedObjectStatsGlobal)
+
+// This indirection avoids sticking QHash code in each of the call sites, which
+// shaves off some instructions in the case that it's unused.
+static void increaseFreedCountForClass(const char *className)
+{
+    (*freedObjectStatsGlobal())[className]++;
+}
+
+//bool Chunk::sweep(ClassDestroyStatsCallback classCountPtr)
+bool Chunk::sweep(ExecutionEngine *engine)
 {
     bool hasUsedSlots = false;
     SDUMP() << "sweeping chunk" << this;
     HeapItem *o = realBase();
     bool lastSlotFree = false;
     for (uint i = 0; i < Chunk::EntriesInBitmap; ++i) {
+#if WRITEBARRIER(none)
         Q_ASSERT((grayBitmap[i] | blackBitmap[i]) == blackBitmap[i]); // check that we don't have gray only objects
+#endif
         quintptr toFree = objectBitmap[i] ^ blackBitmap[i];
         Q_ASSERT((toFree & objectBitmap[i]) == toFree); // check all black objects are marked as being used
         quintptr e = extendsBitmap[i];
@@ -311,14 +393,20 @@ bool Chunk::sweep()
 
             HeapItem *itemToFree = o + index;
             Heap::Base *b = *itemToFree;
-            if (b->vtable()->destroy) {
-                b->vtable()->destroy(b);
+            const VTable *v = b->vtable();
+//            if (Q_UNLIKELY(classCountPtr))
+//                classCountPtr(v->className);
+            if (v->destroy) {
+                v->destroy(b);
                 b->_checkIsDestroyed();
             }
         }
+        Q_V4_PROFILE_DEALLOC(engine, qPopulationCount((objectBitmap[i] | extendsBitmap[i])
+                                                      - (blackBitmap[i] | e)) * Chunk::SlotSize,
+                             Profiling::SmallItem);
         objectBitmap[i] = blackBitmap[i];
+        grayBitmap[i] = 0;
         hasUsedSlots |= (blackBitmap[i] != 0);
-        blackBitmap[i] = 0;
         extendsBitmap[i] = e;
         lastSlotFree = !((objectBitmap[i]|extendsBitmap[i]) >> (sizeof(quintptr)*8 - 1));
         SDUMP() << "        new extends =" << binary(e);
@@ -330,7 +418,7 @@ bool Chunk::sweep()
     return hasUsedSlots;
 }
 
-void Chunk::freeAll()
+void Chunk::freeAll(ExecutionEngine *engine)
 {
     //    DEBUG << "sweeping chunk" << this << (*freeList);
     HeapItem *o = realBase();
@@ -361,12 +449,57 @@ void Chunk::freeAll()
                 b->_checkIsDestroyed();
             }
         }
+        Q_V4_PROFILE_DEALLOC(engine, (qPopulationCount(objectBitmap[i]|extendsBitmap[i])
+                             - qPopulationCount(e)) * Chunk::SlotSize, Profiling::SmallItem);
         objectBitmap[i] = 0;
-        blackBitmap[i] = 0;
+        grayBitmap[i] = 0;
         extendsBitmap[i] = e;
         o += Chunk::Bits;
     }
     //    DEBUG << "swept chunk" << this << "freed" << slotsFreed << "slots.";
+}
+
+void Chunk::resetBlackBits()
+{
+    memset(blackBitmap, 0, sizeof(blackBitmap));
+}
+
+#ifdef MM_STATS
+static uint nGrayItems = 0;
+#endif
+
+void Chunk::collectGrayItems(MarkStack *markStack)
+{
+    //    DEBUG << "sweeping chunk" << this << (*freeList);
+    HeapItem *o = realBase();
+    for (uint i = 0; i < Chunk::EntriesInBitmap; ++i) {
+#if WRITEBARRIER(none)
+        Q_ASSERT((grayBitmap[i] | blackBitmap[i]) == blackBitmap[i]); // check that we don't have gray only objects
+#endif
+        quintptr toMark = blackBitmap[i] & grayBitmap[i]; // correct for a Steele type barrier
+        Q_ASSERT((toMark & objectBitmap[i]) == toMark); // check all black objects are marked as being used
+        //        DEBUG << hex << "   index=" << i << toFree;
+        while (toMark) {
+            uint index = qCountTrailingZeroBits(toMark);
+            quintptr bit = (static_cast<quintptr>(1) << index);
+
+            toMark ^= bit; // mask out marked slot
+            //            DEBUG << "       index" << hex << index << toFree;
+
+            HeapItem *itemToFree = o + index;
+            Heap::Base *b = *itemToFree;
+            Q_ASSERT(b->inUse());
+            markStack->push(b);
+#ifdef MM_STATS
+            ++nGrayItems;
+//            qDebug() << "adding gray item" << b << "to mark stack";
+#endif
+        }
+        grayBitmap[i] = 0;
+        o += Chunk::Bits;
+    }
+    //    DEBUG << "swept chunk" << this << "freed" << slotsFreed << "slots.";
+
 }
 
 void Chunk::sortIntoBins(HeapItem **bins, uint nBins)
@@ -378,7 +511,7 @@ void Chunk::sortIntoBins(HeapItem **bins, uint nBins)
 #else
     const int start = 1;
 #endif
-#ifndef QT_NO_DEBUG
+#ifdef MM_STATS
     uint freeSlots = 0;
     uint allocatedSlots = 0;
 #endif
@@ -388,7 +521,7 @@ void Chunk::sortIntoBins(HeapItem **bins, uint nBins)
         if (!i)
             usedSlots |= (static_cast<quintptr>(1) << (HeaderSize/SlotSize)) - 1;
 #endif
-#ifndef QT_NO_DEBUG
+#ifdef MM_STATS
         allocatedSlots += qPopulationCount(usedSlots);
 //        qDebug() << hex << "   i=" << i << "used=" << usedSlots;
 #endif
@@ -405,7 +538,7 @@ void Chunk::sortIntoBins(HeapItem **bins, uint nBins)
                     break;
                 }
                 usedSlots = (objectBitmap[i]|extendsBitmap[i]);
-#ifndef QT_NO_DEBUG
+#ifdef MM_STATS
                 allocatedSlots += qPopulationCount(usedSlots);
 //                qDebug() << hex << "   i=" << i << "used=" << usedSlots;
 #endif
@@ -416,7 +549,7 @@ void Chunk::sortIntoBins(HeapItem **bins, uint nBins)
             usedSlots |= (quintptr(1) << index) - 1;
             uint freeEnd = i*Bits + index;
             uint nSlots = freeEnd - freeStart;
-#ifndef QT_NO_DEBUG
+#ifdef MM_STATS
 //            qDebug() << hex << "   got free slots from" << freeStart << "to" << freeEnd << "n=" << nSlots << "usedSlots=" << usedSlots;
             freeSlots += nSlots;
 #endif
@@ -427,7 +560,7 @@ void Chunk::sortIntoBins(HeapItem **bins, uint nBins)
             bins[bin] = freeItem;
         }
     }
-#ifndef QT_NO_DEBUG
+#ifdef MM_STATS
     Q_ASSERT(freeSlots + allocatedSlots == (EntriesInBitmap - start) * 8 * sizeof(quintptr));
 #endif
 }
@@ -480,9 +613,9 @@ template struct StackAllocator<Heap::CallContext>;
 HeapItem *BlockAllocator::allocate(size_t size, bool forceAllocation) {
     Q_ASSERT((size % Chunk::SlotSize) == 0);
     size_t slotsRequired = size >> Chunk::SlotSizeShift;
-#if MM_DEBUG
-    ++allocations[bin];
-#endif
+
+    if (allocationStats)
+        ++allocationStats[binForSlots(slotsRequired)];
 
     HeapItem **last;
 
@@ -560,6 +693,7 @@ HeapItem *BlockAllocator::allocate(size_t size, bool forceAllocation) {
         if (!forceAllocation)
             return 0;
         Chunk *newChunk = chunkAllocator->allocate();
+        Q_V4_PROFILE_ALLOC(engine, Chunk::DataSize, Profiling::HeapPage);
         chunks.push_back(newChunk);
         nextFree = newChunk->first();
         nFree = Chunk::AvailableSlots;
@@ -570,6 +704,7 @@ HeapItem *BlockAllocator::allocate(size_t size, bool forceAllocation) {
 
 done:
     m->setAllocatedSlots(slotsRequired);
+    Q_V4_PROFILE_ALLOC(engine, slotsRequired * Chunk::SlotSize, Profiling::SmallItem);
     //        DEBUG << "   " << hex << m->chunk() << m->chunk()->objectBitmap[0] << m->chunk()->extendsBitmap[0] << (m - m->chunk()->realBase());
     return m;
 }
@@ -584,12 +719,13 @@ void BlockAllocator::sweep()
     usedSlotsAfterLastSweep = 0;
 
     auto isFree = [this] (Chunk *c) {
-        bool isUsed = c->sweep();
+        bool isUsed = c->sweep(engine);
 
         if (isUsed) {
             c->sortIntoBins(freeBins, NumBins);
             usedSlotsAfterLastSweep += c->nUsedSlots();
         } else {
+            Q_V4_PROFILE_DEALLOC(engine, Chunk::DataSize, Profiling::HeapPage);
             chunkAllocator->free(c);
         }
         return !isUsed;
@@ -602,66 +738,57 @@ void BlockAllocator::sweep()
 void BlockAllocator::freeAll()
 {
     for (auto c : chunks) {
-        c->freeAll();
+        c->freeAll(engine);
+        Q_V4_PROFILE_DEALLOC(engine, Chunk::DataSize, Profiling::HeapPage);
         chunkAllocator->free(c);
     }
 }
 
-#if MM_DEBUG
-void BlockAllocator::stats() {
-    DEBUG << "MM stats:";
-    QString s;
-    for (int i = 0; i < 10; ++i) {
-        uint c = 0;
-        HeapItem *item = freeBins[i];
-        while (item) {
-            ++c;
-            item = item->freeData.next;
-        }
-        s += QString::number(c) + QLatin1String(", ");
-    }
-    HeapItem *item = freeBins[NumBins - 1];
-    uint c = 0;
-    while (item) {
-        ++c;
-        item = item->freeData.next;
-    }
-    s += QLatin1String("..., ") + QString::number(c);
-    DEBUG << "bins:" << s;
-    QString a;
-    for (int i = 0; i < 10; ++i)
-        a += QString::number(allocations[i]) + QLatin1String(", ");
-    a += QLatin1String("..., ") + QString::number(allocations[NumBins - 1]);
-    DEBUG << "allocs:" << a;
-    memset(allocations, 0, sizeof(allocations));
+void BlockAllocator::resetBlackBits()
+{
+    for (auto c : chunks)
+        c->resetBlackBits();
 }
-#endif
 
+void BlockAllocator::collectGrayItems(MarkStack *markStack)
+{
+    for (auto c : chunks)
+        c->collectGrayItems(markStack);
+
+}
 
 HeapItem *HugeItemAllocator::allocate(size_t size) {
     Chunk *c = chunkAllocator->allocate(size);
     chunks.push_back(HugeChunk{c, size});
     Chunk::setBit(c->objectBitmap, c->first() - c->realBase());
+    Q_V4_PROFILE_ALLOC(engine, size, Profiling::LargeItem);
     return c->first();
 }
 
-static void freeHugeChunk(ChunkAllocator *chunkAllocator, const HugeItemAllocator::HugeChunk &c)
+static void freeHugeChunk(ChunkAllocator *chunkAllocator, const HugeItemAllocator::HugeChunk &c, ClassDestroyStatsCallback classCountPtr)
 {
     HeapItem *itemToFree = c.chunk->first();
     Heap::Base *b = *itemToFree;
-    if (b->vtable()->destroy) {
-        b->vtable()->destroy(b);
+    const VTable *v = b->vtable();
+    if (Q_UNLIKELY(classCountPtr))
+        classCountPtr(v->className);
+
+    if (v->destroy) {
+        v->destroy(b);
         b->_checkIsDestroyed();
     }
     chunkAllocator->free(c.chunk, c.size);
 }
 
-void HugeItemAllocator::sweep() {
-    auto isBlack = [this] (const HugeChunk &c) {
+void HugeItemAllocator::sweep(ClassDestroyStatsCallback classCountPtr)
+{
+    auto isBlack = [this, classCountPtr] (const HugeChunk &c) {
         bool b = c.chunk->first()->isBlack();
         Chunk::clearBit(c.chunk->blackBitmap, c.chunk->first() - c.chunk->realBase());
-        if (!b)
-            freeHugeChunk(chunkAllocator, c);
+        if (!b) {
+            Q_V4_PROFILE_DEALLOC(engine, c.size, Profiling::LargeItem);
+            freeHugeChunk(chunkAllocator, c, classCountPtr);
+        }
         return !b;
     };
 
@@ -669,10 +796,29 @@ void HugeItemAllocator::sweep() {
     chunks.erase(newEnd, chunks.end());
 }
 
+void HugeItemAllocator::resetBlackBits()
+{
+    for (auto c : chunks)
+        Chunk::clearBit(c.chunk->blackBitmap, c.chunk->first() - c.chunk->realBase());
+}
+
+void HugeItemAllocator::collectGrayItems(MarkStack *markStack)
+{
+    for (auto c : chunks)
+        // Correct for a Steele type barrier
+        if (Chunk::testBit(c.chunk->blackBitmap, c.chunk->first() - c.chunk->realBase()) &&
+            Chunk::testBit(c.chunk->grayBitmap, c.chunk->first() - c.chunk->realBase())) {
+            HeapItem *i = c.chunk->first();
+            Heap::Base *b = *i;
+            b->mark(markStack);
+        }
+}
+
 void HugeItemAllocator::freeAll()
 {
     for (auto &c : chunks) {
-        freeHugeChunk(chunkAllocator, c);
+        Q_V4_PROFILE_DEALLOC(engine, c.size, Profiling::LargeItem);
+        freeHugeChunk(chunkAllocator, c, nullptr);
     }
 }
 
@@ -681,28 +827,34 @@ MemoryManager::MemoryManager(ExecutionEngine *engine)
     : engine(engine)
     , chunkAllocator(new ChunkAllocator)
     , stackAllocator(chunkAllocator)
-    , blockAllocator(chunkAllocator)
-    , hugeItemAllocator(chunkAllocator)
+    , blockAllocator(chunkAllocator, engine)
+    , hugeItemAllocator(chunkAllocator, engine)
     , m_persistentValues(new PersistentValueStorage(engine))
     , m_weakValues(new PersistentValueStorage(engine))
     , unmanagedHeapSizeGCLimit(MIN_UNMANAGED_HEAPSIZE_GC_LIMIT)
     , aggressiveGC(!qEnvironmentVariableIsEmpty("QV4_MM_AGGRESSIVE_GC"))
-    , gcStats(!qEnvironmentVariableIsEmpty(QV4_MM_STATS))
+    , gcStats(lcGcStats().isDebugEnabled())
+    , gcCollectorStats(lcGcAllocatorStats().isDebugEnabled())
 {
 #ifdef V4_USE_VALGRIND
     VALGRIND_CREATE_MEMPOOL(this, 0, true);
 #endif
+    memset(statistics.allocations, 0, sizeof(statistics.allocations));
+    if (gcStats)
+        blockAllocator.allocationStats = statistics.allocations;
 }
 
-#ifndef QT_NO_DEBUG
+#ifdef MM_STATS
+static int allocationCount = 0;
 static size_t lastAllocRequestedSlots = 0;
 #endif
 
 Heap::Base *MemoryManager::allocString(std::size_t unmanagedSize)
 {
     const size_t stringSize = align(sizeof(Heap::String));
-#ifndef QT_NO_DEBUG
+#ifdef MM_STATS
     lastAllocRequestedSlots = stringSize >> Chunk::SlotSizeShift;
+    ++allocationCount;
 #endif
 
     bool didGCRun = false;
@@ -713,7 +865,8 @@ Heap::Base *MemoryManager::allocString(std::size_t unmanagedSize)
 
     unmanagedHeapSize += unmanagedSize;
     if (unmanagedHeapSize > unmanagedHeapSizeGCLimit) {
-        runGC();
+        if (!didGCRun)
+            runGC();
 
         if (3*unmanagedHeapSizeGCLimit <= 4*unmanagedHeapSize)
             // more than 75% full, raise limit
@@ -731,14 +884,16 @@ Heap::Base *MemoryManager::allocString(std::size_t unmanagedSize)
         m = blockAllocator.allocate(stringSize, true);
     }
 
+//    qDebug() << "allocated string" << m;
     memset(m, 0, stringSize);
     return *m;
 }
 
 Heap::Base *MemoryManager::allocData(std::size_t size)
 {
-#ifndef QT_NO_DEBUG
+#ifdef MM_STATS
     lastAllocRequestedSlots = size >> Chunk::SlotSizeShift;
+    ++allocationCount;
 #endif
 
     bool didRunGC = false;
@@ -746,17 +901,17 @@ Heap::Base *MemoryManager::allocData(std::size_t size)
         runGC();
         didRunGC = true;
     }
-#ifdef DETAILED_MM_STATS
-    willAllocate(size);
-#endif // DETAILED_MM_STATS
 
     Q_ASSERT(size >= Chunk::SlotSize);
     Q_ASSERT(size % Chunk::SlotSize == 0);
 
 //    qDebug() << "unmanagedHeapSize:" << unmanagedHeapSize << "limit:" << unmanagedHeapSizeGCLimit << "unmanagedSize:" << unmanagedSize;
 
-    if (size > Chunk::DataSize)
-        return *hugeItemAllocator.allocate(size);
+    if (size > Chunk::DataSize) {
+        HeapItem *h = hugeItemAllocator.allocate(size);
+//        qDebug() << "allocating huge item" << h;
+        return *h;
+    }
 
     HeapItem *m = blockAllocator.allocate(size);
     if (!m) {
@@ -766,6 +921,7 @@ Heap::Base *MemoryManager::allocData(std::size_t size)
     }
 
     memset(m, 0, size);
+//    qDebug() << "allocating data" << m;
     return *m;
 }
 
@@ -773,48 +929,74 @@ Heap::Object *MemoryManager::allocObjectWithMemberData(const QV4::VTable *vtable
 {
     uint size = (vtable->nInlineProperties + vtable->inlinePropertyOffset)*sizeof(Value);
     Q_ASSERT(!(size % sizeof(HeapItem)));
-    Heap::Object *o = static_cast<Heap::Object *>(allocData(size));
 
-    // ### Could optimize this and allocate both in one go through the block allocator
-    if (nMembers > vtable->nInlineProperties) {
+    Heap::Object *o;
+    if (nMembers <= vtable->nInlineProperties) {
+        o = static_cast<Heap::Object *>(allocData(size));
+    } else {
+        // Allocate both in one go through the block allocator
         nMembers -= vtable->nInlineProperties;
         std::size_t memberSize = align(sizeof(Heap::MemberData) + (nMembers - 1)*sizeof(Value));
-//        qDebug() << "allocating member data for" << o << nMembers << memberSize;
-        Heap::Base *m;
-        if (memberSize > Chunk::DataSize)
-            m = *hugeItemAllocator.allocate(memberSize);
-        else
-            m = *blockAllocator.allocate(memberSize, true);
-        memset(m, 0, memberSize);
-        o->memberData = static_cast<Heap::MemberData *>(m);
-        o->memberData->internalClass = engine->internalClasses[EngineBase::Class_MemberData];
+        size_t totalSize = size + memberSize;
+        Heap::MemberData *m;
+        if (totalSize > Chunk::DataSize) {
+            o = static_cast<Heap::Object *>(allocData(size));
+            m = hugeItemAllocator.allocate(memberSize)->as<Heap::MemberData>();
+        } else {
+            HeapItem *mh = reinterpret_cast<HeapItem *>(allocData(totalSize));
+            Heap::Base *b = *mh;
+            o = static_cast<Heap::Object *>(b);
+            mh += (size >> Chunk::SlotSizeShift);
+            m = mh->as<Heap::MemberData>();
+            Chunk *c = mh->chunk();
+            size_t index = mh - c->realBase();
+            Chunk::setBit(c->objectBitmap, index);
+            Chunk::clearBit(c->extendsBitmap, index);
+        }
+        o->memberData.set(engine, m);
+        m->internalClass = engine->internalClasses[EngineBase::Class_MemberData];
         Q_ASSERT(o->memberData->internalClass);
-        o->memberData->size = static_cast<uint>((memberSize - sizeof(Heap::MemberData) + sizeof(Value))/sizeof(Value));
-        o->memberData->init();
+        m->values.alloc = static_cast<uint>((memberSize - sizeof(Heap::MemberData) + sizeof(Value))/sizeof(Value));
+        m->values.size = o->memberData->values.alloc;
+        m->init();
 //        qDebug() << "    got" << o->memberData << o->memberData->size;
     }
+//    qDebug() << "allocating object with memberData" << o << o->memberData.operator->();
     return o;
 }
 
-static void drainMarkStack(QV4::ExecutionEngine *engine, Value *markBase)
+static uint markStackSize = 0;
+
+MarkStack::MarkStack(ExecutionEngine *engine)
+    : engine(engine)
 {
-    while (engine->jsStackTop > markBase) {
-        Heap::Base *h = engine->popForGC();
+    base = (Heap::Base **)engine->gcStack->base();
+    top = base;
+    limit = base + ExecutionEngine::GCStackLimit/sizeof(Heap::Base)*3/4;
+}
+
+void MarkStack::drain()
+{
+    while (top > base) {
+        Heap::Base *h = pop();
+        ++markStackSize;
         Q_ASSERT(h); // at this point we should only have Heap::Base objects in this area on the stack. If not, weird things might happen.
-        Q_ASSERT (h->vtable()->markObjects);
-        h->vtable()->markObjects(h, engine);
+        h->markChildren(this);
     }
 }
 
-void MemoryManager::mark()
+void MemoryManager::collectRoots(MarkStack *markStack)
 {
-    Value *markBase = engine->jsStackTop;
+    engine->markObjects(markStack);
 
-    engine->markObjects();
+//    qDebug() << "   mark stack after engine->mark" << (engine->jsStackTop - markBase);
 
-    collectFromJSStack();
+    collectFromJSStack(markStack);
 
-    m_persistentValues->mark(engine);
+//    qDebug() << "   mark stack after js stack collect" << (engine->jsStackTop - markBase);
+    m_persistentValues->mark(markStack);
+
+//    qDebug() << "   mark stack after persistants" << (engine->jsStackTop - markBase);
 
     // Preserve QObject ownership rules within JavaScript: A parent with c++ ownership
     // keeps all of its children alive in JavaScript.
@@ -841,16 +1023,24 @@ void MemoryManager::mark()
         }
 
         if (keepAlive)
-            qobjectWrapper->mark(engine);
+            qobjectWrapper->mark(markStack);
 
-        if (engine->jsStackTop >= engine->jsStackLimit)
-            drainMarkStack(engine, markBase);
+        if (markStack->top >= markStack->limit)
+            markStack->drain();
     }
-
-    drainMarkStack(engine, markBase);
 }
 
-void MemoryManager::sweep(bool lastSweep)
+void MemoryManager::mark()
+{
+    markStackSize = 0;
+
+    MarkStack markStack(engine);
+    collectRoots(&markStack);
+
+    markStack.drain();
+}
+
+void MemoryManager::sweep(bool lastSweep, ClassDestroyStatsCallback classCountPtr)
 {
     for (PersistentValueStorage::Iterator it = m_weakValues->begin(); it != m_weakValues->end(); ++it) {
         Managed *m = (*it).managed();
@@ -898,33 +1088,33 @@ void MemoryManager::sweep(bool lastSweep)
     }
 
     blockAllocator.sweep();
-    hugeItemAllocator.sweep();
+    hugeItemAllocator.sweep(classCountPtr);
 }
 
 bool MemoryManager::shouldRunGC() const
 {
     size_t total = blockAllocator.totalSlots();
-    size_t usedSlots = blockAllocator.usedSlotsAfterLastSweep;
-    if (total > MinSlotsGCLimit && usedSlots * GCOverallocation < total * 100)
+    if (total > MinSlotsGCLimit && usedSlotsAfterLastFullSweep * GCOverallocation < total * 100)
         return true;
     return false;
 }
 
 size_t dumpBins(BlockAllocator *b, bool printOutput = true)
 {
-    size_t totalFragmentedSlots = 0;
+    const QLoggingCategory &stats = lcGcAllocatorStats();
+    size_t totalSlotMem = 0;
     if (printOutput)
-        qDebug() << "Fragmentation map:";
+        qDebug(stats) << "Slot map:";
     for (uint i = 0; i < BlockAllocator::NumBins; ++i) {
         uint nEntries = 0;
         HeapItem *h = b->freeBins[i];
         while (h) {
             ++nEntries;
-            totalFragmentedSlots += h->freeData.availableSlots;
+            totalSlotMem += h->freeData.availableSlots;
             h = h->freeData.next;
         }
         if (printOutput)
-            qDebug() << "    number of entries in slot" << i << ":" << nEntries;
+            qDebug(stats) << "    number of entries in slot" << i << ":" << nEntries;
     }
     SDUMP() << "    large slot map";
     HeapItem *h = b->freeBins[BlockAllocator::NumBins - 1];
@@ -934,8 +1124,8 @@ size_t dumpBins(BlockAllocator *b, bool printOutput = true)
     }
 
     if (printOutput)
-        qDebug() << "  total mem in bins" << totalFragmentedSlots*Chunk::SlotSize;
-    return totalFragmentedSlots*Chunk::SlotSize;
+        qDebug(stats) << "  total mem in bins" << totalSlotMem*Chunk::SlotSize;
+    return totalSlotMem*Chunk::SlotSize;
 }
 
 void MemoryManager::runGC()
@@ -946,65 +1136,107 @@ void MemoryManager::runGC()
     }
 
     QScopedValueRollback<bool> gcBlocker(gcBlocked, true);
+//    qDebug() << "runGC";
 
-    if (!gcStats) {
-//        uint oldUsed = allocator.usedMem();
+    if (gcStats) {
+        statistics.maxReservedMem = qMax(statistics.maxReservedMem, getAllocatedMem());
+        statistics.maxAllocatedMem = qMax(statistics.maxAllocatedMem, getUsedMem() + getLargeItemsMem());
+    }
+
+    if (!gcCollectorStats) {
         mark();
         sweep();
-//        DEBUG << "RUN GC: allocated:" << allocator.allocatedMem() << "used before" << oldUsed << "used now" << allocator.usedMem();
     } else {
         bool triggeredByUnmanagedHeap = (unmanagedHeapSize > unmanagedHeapSizeGCLimit);
         size_t oldUnmanagedSize = unmanagedHeapSize;
+
         const size_t totalMem = getAllocatedMem();
         const size_t usedBefore = getUsedMem();
         const size_t largeItemsBefore = getLargeItemsMem();
 
-        qDebug() << "========== GC ==========";
-#ifndef QT_NO_DEBUG
-        qDebug() << "    Triggered by alloc request of" << lastAllocRequestedSlots << "slots.";
+        const QLoggingCategory &stats = lcGcAllocatorStats();
+        qDebug(stats) << "========== GC ==========";
+#ifdef MM_STATS
+        qDebug(stats) << "    Triggered by alloc request of" << lastAllocRequestedSlots << "slots.";
+        qDebug(stats) << "    Allocations since last GC" << allocationCount;
+        allocationCount = 0;
 #endif
         size_t oldChunks = blockAllocator.chunks.size();
-        qDebug() << "Allocated" << totalMem << "bytes in" << oldChunks << "chunks";
-        qDebug() << "Fragmented memory before GC" << (totalMem - usedBefore);
+        qDebug(stats) << "Allocated" << totalMem << "bytes in" << oldChunks << "chunks";
+        qDebug(stats) << "Fragmented memory before GC" << (totalMem - usedBefore);
         dumpBins(&blockAllocator);
+
+#ifdef MM_STATS
+        nGrayItems = 0;
+#endif
 
         QElapsedTimer t;
         t.start();
         mark();
-        qint64 markTime = t.restart();
-        sweep();
+        qint64 markTime = t.nsecsElapsed()/1000;
+        t.restart();
+        sweep(false, increaseFreedCountForClass);
         const size_t usedAfter = getUsedMem();
         const size_t largeItemsAfter = getLargeItemsMem();
-        qint64 sweepTime = t.elapsed();
+        qint64 sweepTime = t.nsecsElapsed()/1000;
 
         if (triggeredByUnmanagedHeap) {
-            qDebug() << "triggered by unmanaged heap:";
-            qDebug() << "   old unmanaged heap size:" << oldUnmanagedSize;
-            qDebug() << "   new unmanaged heap:" << unmanagedHeapSize;
-            qDebug() << "   unmanaged heap limit:" << unmanagedHeapSizeGCLimit;
+            qDebug(stats) << "triggered by unmanaged heap:";
+            qDebug(stats) << "   old unmanaged heap size:" << oldUnmanagedSize;
+            qDebug(stats) << "   new unmanaged heap:" << unmanagedHeapSize;
+            qDebug(stats) << "   unmanaged heap limit:" << unmanagedHeapSizeGCLimit;
         }
         size_t memInBins = dumpBins(&blockAllocator);
-        qDebug() << "Marked object in" << markTime << "ms.";
-        qDebug() << "Sweeped object in" << sweepTime << "ms.";
-        qDebug() << "Used memory before GC:" << usedBefore;
-        qDebug() << "Used memory after GC:" << usedAfter;
-        qDebug() << "Freed up bytes:" << (usedBefore - usedAfter);
-        qDebug() << "Freed up chunks:" << (oldChunks - blockAllocator.chunks.size());
+        qDebug(stats) << "Marked object in" << markTime << "us.";
+        qDebug(stats) << "   " << markStackSize << "objects marked";
+        qDebug(stats) << "Sweeped object in" << sweepTime << "us.";
+
+        // sort our object types by number of freed instances
+        MMStatsHash freedObjectStats;
+        std::swap(freedObjectStats, *freedObjectStatsGlobal());
+        typedef std::pair<const char*, int> ObjectStatInfo;
+        std::vector<ObjectStatInfo> freedObjectsSorted;
+        freedObjectsSorted.reserve(freedObjectStats.count());
+        for (auto it = freedObjectStats.constBegin(); it != freedObjectStats.constEnd(); ++it) {
+            freedObjectsSorted.push_back(std::make_pair(it.key(), it.value()));
+        }
+        std::sort(freedObjectsSorted.begin(), freedObjectsSorted.end(), [](const ObjectStatInfo &a, const ObjectStatInfo &b) {
+            return a.second > b.second && strcmp(a.first, b.first) < 0;
+        });
+
+        qDebug(stats) << "Used memory before GC:" << usedBefore;
+        qDebug(stats) << "Used memory after GC:" << usedAfter;
+        qDebug(stats) << "Freed up bytes      :" << (usedBefore - usedAfter);
+        qDebug(stats) << "Freed up chunks     :" << (oldChunks - blockAllocator.chunks.size());
         size_t lost = blockAllocator.allocatedMem() - memInBins - usedAfter;
         if (lost)
-            qDebug() << "!!!!!!!!!!!!!!!!!!!!! LOST MEM:" << lost << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
+            qDebug(stats) << "!!!!!!!!!!!!!!!!!!!!! LOST MEM:" << lost << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
         if (largeItemsBefore || largeItemsAfter) {
-            qDebug() << "Large item memory before GC:" << largeItemsBefore;
-            qDebug() << "Large item memory after GC:" << largeItemsAfter;
-            qDebug() << "Large item memory freed up:" << (largeItemsBefore - largeItemsAfter);
+            qDebug(stats) << "Large item memory before GC:" << largeItemsBefore;
+            qDebug(stats) << "Large item memory after GC:" << largeItemsAfter;
+            qDebug(stats) << "Large item memory freed up:" << (largeItemsBefore - largeItemsAfter);
         }
-        qDebug() << "======== End GC ========";
+
+        for (auto it = freedObjectsSorted.cbegin(); it != freedObjectsSorted.cend(); ++it) {
+            qDebug(stats).noquote() << QString::fromLatin1("Freed JS type: %1 (%2 instances)").arg(QString::fromLatin1(it->first), QString::number(it->second));
+        }
+
+        qDebug(stats) << "======== End GC ========";
     }
+
+    if (gcStats)
+        statistics.maxUsedMem = qMax(statistics.maxUsedMem, getUsedMem() + getLargeItemsMem());
 
     if (aggressiveGC) {
         // ensure we don't 'loose' any memory
         Q_ASSERT(blockAllocator.allocatedMem() == getUsedMem() + dumpBins(&blockAllocator, false));
     }
+
+    usedSlotsAfterLastFullSweep = blockAllocator.usedSlotsAfterLastSweep;
+
+    // reset all black bits
+    blockAllocator.resetBlackBits();
+    hugeItemAllocator.resetBlackBits();
 }
 
 size_t MemoryManager::getUsedMem() const
@@ -1026,6 +1258,8 @@ MemoryManager::~MemoryManager()
 {
     delete m_persistentValues;
 
+    dumpStats();
+
     sweep(/*lastSweep*/true);
     blockAllocator.freeAll();
     hugeItemAllocator.freeAll();
@@ -1041,31 +1275,21 @@ MemoryManager::~MemoryManager()
 
 void MemoryManager::dumpStats() const
 {
-#ifdef DETAILED_MM_STATS
-    std::cerr << "=================" << std::endl;
-    std::cerr << "Allocation stats:" << std::endl;
-    std::cerr << "Requests for each chunk size:" << std::endl;
-    for (int i = 0; i < allocSizeCounters.size(); ++i) {
-        if (unsigned count = allocSizeCounters[i]) {
-            std::cerr << "\t" << (i << 4) << " bytes chunks: " << count << std::endl;
-        }
-    }
-#endif // DETAILED_MM_STATS
+    if (!gcStats)
+        return;
+
+    const QLoggingCategory &stats = lcGcStats();
+    qDebug(stats) << "Qml GC memory allocation statistics:";
+    qDebug(stats) << "Total memory allocated:" << statistics.maxReservedMem;
+    qDebug(stats) << "Max memory used before a GC run:" << statistics.maxAllocatedMem;
+    qDebug(stats) << "Max memory used after a GC run:" << statistics.maxUsedMem;
+    qDebug(stats) << "Requests for different item sizes:";
+    for (int i = 1; i < BlockAllocator::NumBins - 1; ++i)
+        qDebug(stats) << "     <" << (i << Chunk::SlotSizeShift) << " bytes: " << statistics.allocations[i];
+    qDebug(stats) << "     >=" << ((BlockAllocator::NumBins - 1) << Chunk::SlotSizeShift) << " bytes: " << statistics.allocations[BlockAllocator::NumBins - 1];
 }
 
-#ifdef DETAILED_MM_STATS
-void MemoryManager::willAllocate(std::size_t size)
-{
-    unsigned alignedSize = (size + 15) >> 4;
-    QVector<unsigned> &counters = allocSizeCounters;
-    if ((unsigned) counters.size() < alignedSize + 1)
-        counters.resize(alignedSize + 1);
-    counters[alignedSize]++;
-}
-
-#endif // DETAILED_MM_STATS
-
-void MemoryManager::collectFromJSStack() const
+void MemoryManager::collectFromJSStack(MarkStack *markStack) const
 {
     Value *v = engine->jsStackBase;
     Value *top = engine->jsStackTop;
@@ -1073,7 +1297,7 @@ void MemoryManager::collectFromJSStack() const
         Managed *m = v->managed();
         if (m && m->inUse())
             // Skip pointers to already freed objects, they are bogus as well
-            m->mark(engine);
+            m->mark(markStack);
         ++v;
     }
 }

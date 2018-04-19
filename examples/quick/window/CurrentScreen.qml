@@ -1,12 +1,22 @@
 /****************************************************************************
 **
-** Copyright (C) 2016 The Qt Company Ltd.
-** Contact: http://www.qt.io/licensing/
+** Copyright (C) 2017 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the examples of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:BSD$
-** You may use this file under the terms of the BSD license as follows:
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** BSD License Usage
+** Alternatively, you may use this file under the terms of the BSD license
+** as follows:
 **
 ** "Redistribution and use in source and binary forms, with or without
 ** modification, are permitted provided that the following conditions are
@@ -39,7 +49,7 @@
 ****************************************************************************/
 
 import QtQuick 2.3
-import QtQuick.Window 2.1
+import QtQuick.Window 2.10
 import "../shared" as Shared
 
 Item {
@@ -76,6 +86,15 @@ Item {
             font.bold: true
         }
         Item { width: 1; height: 1 } // spacer
+
+        Shared.Label { text: "manufacturer" }
+        Shared.Label { text: Screen.manufacturer ? Screen.manufacturer : "unknown" }
+
+        Shared.Label { text: "model" }
+        Shared.Label { text: Screen.model ? Screen.model : "unknown" }
+
+        Shared.Label { text: "serial number" }
+        Shared.Label { text: Screen.serialNumber ? Screen.serialNumber : "unknown" }
 
         Shared.Label { text: "dimensions" }
         Shared.Label { text: Screen.width + "x" + Screen.height }

@@ -111,6 +111,10 @@
 #include <private/qqmlmetatype_p.h>
 #include <QtQuick/private/qquickaccessibleattached_p.h>
 
+QT_BEGIN_NAMESPACE
+Q_DECLARE_LOGGING_CATEGORY(lcTransient)
+QT_END_NAMESPACE
+
 static QQmlPrivate::AutoParentResult qquickitem_autoParent(QObject *obj, QObject *parent)
 {
     // When setting a parent (especially during dynamic object creation) in QML,
@@ -125,6 +129,7 @@ static QQmlPrivate::AutoParentResult qquickitem_autoParent(QObject *obj, QObject
             QQuickWindow *win = qmlobject_cast<QQuickWindow *>(obj);
             if (win) {
                 // A Window inside an Item should be transient for that item's window
+                qCDebug(lcTransient) << win << "is transient for" << parentItem->window();
                 win->setTransientParent(parentItem->window());
                 return QQmlPrivate::Parented;
             }
@@ -134,6 +139,7 @@ static QQmlPrivate::AutoParentResult qquickitem_autoParent(QObject *obj, QObject
         QQuickWindow *win = qmlobject_cast<QQuickWindow *>(obj);
         if (win) {
             // A Window inside a Window should be transient for it
+            qCDebug(lcTransient) << win << "is transient for" << parentWindow;
             win->setTransientParent(parentWindow);
             return QQmlPrivate::Parented;
         } else {
@@ -287,7 +293,8 @@ static void qt_quickitems_defineModule(const char *uri, int major, int minor)
 
     qmlRegisterType<QQuickMultiPointTouchArea>("QtQuick", 2, 0, "MultiPointTouchArea");
     qmlRegisterType<QQuickTouchPoint>("QtQuick", 2, 0, "TouchPoint");
-    qmlRegisterType<QQuickGrabGestureEvent>();
+    qmlRegisterUncreatableType<QQuickGrabGestureEvent>(uri,major,minor, "GestureEvent",
+        QQuickMouseEvent::tr("GestureEvent is only available in the context of handling the gestureStarted signal from MultiPointTouchArea"));
 
 #if QT_CONFIG(accessibility)
     qmlRegisterUncreatableType<QQuickAccessibleAttached>("QtQuick", 2, 0, "Accessible",QQuickAccessibleAttached::tr("Accessible is only available via attached properties"));
@@ -376,6 +383,12 @@ static void qt_quickitems_defineModule(const char *uri, int major, int minor)
 
     qmlRegisterType<QQuickFlickable, 9>(uri, 2, 9, "Flickable");
     qmlRegisterType<QQuickMouseArea, 9>(uri, 2, 9, "MouseArea");
+
+#if QT_CONFIG(quick_path)
+    qmlRegisterType<QQuickPathArc, 2>(uri, 2, 9, "PathArc");
+    qmlRegisterType<QQuickPathMove>(uri, 2, 9, "PathMove");
+#endif
+
     qmlRegisterType<QQuickText, 9>(uri, 2, 9, "Text");
     qmlRegisterType<QQuickTextInput, 9>(uri, 2, 9, "TextInput");
     qmlRegisterType<QQuickTouchPoint>(uri, 2, 9, "TouchPoint");
@@ -385,6 +398,14 @@ static void qt_quickitems_defineModule(const char *uri, int major, int minor)
     qmlRegisterUncreatableType<QQuickBasePositioner, 9>(uri, 2, 9, "Positioner",
                                                   QStringLiteral("Positioner is an abstract type that is only available as an attached property."));
 #endif
+
+#if QT_CONFIG(quick_shadereffect)
+    qmlRegisterType<QQuickShaderEffectSource, 2>(uri, 2, 9, "ShaderEffectSource");
+#endif
+
+    qmlRegisterType<QQuickFlickable, 10>(uri, 2, 10, "Flickable");
+    qmlRegisterType<QQuickTextEdit, 10>(uri, 2, 10, "TextEdit");
+    qmlRegisterType<QQuickText, 10>(uri, 2, 10, "Text");
 }
 
 static void initResources()

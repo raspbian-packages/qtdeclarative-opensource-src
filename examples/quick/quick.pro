@@ -24,6 +24,7 @@ SUBDIRS =   quick-accessibility \
             imageresponseprovider \
             window \
             particles \
+            shapes \
             demos
 
 #OpenGL Support Required
@@ -36,7 +37,7 @@ qtConfig(opengl(es1|es2)?) {
 # Widget dependent examples
 qtHaveModule(widgets) {
     SUBDIRS += embeddedinwidgets
-    qtHaveModule(quickwidgets): SUBDIRS += quickwidgets
+    qtHaveModule(quickwidgets):qtConfig(opengl(es1|es2)?): SUBDIRS += quickwidgets
 }
 
 EXAMPLE_FILES = \

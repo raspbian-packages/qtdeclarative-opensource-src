@@ -58,8 +58,6 @@
 #include <private/qv4mmdefs_p.h>
 #include <QVector>
 
-//#define DETAILED_MM_STATS
-
 #define QV4_MM_MAXBLOCK_SHIFT "QV4_MM_MAXBLOCK_SHIFT"
 #define QV4_MM_MAX_CHUNK_SIZE "QV4_MM_MAX_CHUNK_SIZE"
 #define QV4_MM_STATS "QV4_MM_STATS"
@@ -80,27 +78,28 @@ struct StackAllocator {
     StackAllocator(ChunkAllocator *chunkAlloc);
 
     T *allocate() {
-        T *m = nextFree->as<T>();
+        HeapItem *m = nextFree;
         if (Q_UNLIKELY(nextFree == lastInChunk)) {
             nextChunk();
         } else {
             nextFree += requiredSlots;
         }
-#if MM_DEBUG
+#if MM_DEBUG || !defined(QT_NO_DEBUG) || defined(QT_FORCE_ASSERTS)
         Chunk *c = m->chunk();
         Chunk::setBit(c->objectBitmap, m - c->realBase());
 #endif
-        return m;
+        return m->as<T>();
     }
     void free() {
-#if MM_DEBUG
-        Chunk::clearBit(item->chunk()->objectBitmap, item - item->chunk()->realBase());
-#endif
         if (Q_UNLIKELY(nextFree == firstInChunk)) {
             prevChunk();
         } else {
             nextFree -= requiredSlots;
         }
+#if MM_DEBUG || !defined(QT_NO_DEBUG) || defined(QT_FORCE_ASSERTS)
+        Chunk *c = nextFree->chunk();
+        Chunk::clearBit(c->objectBitmap, nextFree - c->realBase());
+#endif
     }
 
     void nextChunk();
@@ -117,13 +116,10 @@ struct StackAllocator {
 };
 
 struct BlockAllocator {
-    BlockAllocator(ChunkAllocator *chunkAllocator)
-        : chunkAllocator(chunkAllocator)
+    BlockAllocator(ChunkAllocator *chunkAllocator, ExecutionEngine *engine)
+        : chunkAllocator(chunkAllocator), engine(engine)
     {
         memset(freeBins, 0, sizeof(freeBins));
-#if MM_DEBUG
-        memset(allocations, 0, sizeof(allocations));
-#endif
     }
 
     enum { NumBins = 8 };
@@ -131,10 +127,6 @@ struct BlockAllocator {
     static inline size_t binForSlots(size_t nSlots) {
         return nSlots >= NumBins ? NumBins - 1 : nSlots;
     }
-
-#if MM_DEBUG
-    void stats();
-#endif
 
     HeapItem *allocate(size_t size, bool forceAllocation = false);
 
@@ -154,6 +146,8 @@ struct BlockAllocator {
 
     void sweep();
     void freeAll();
+    void resetBlackBits();
+    void collectGrayItems(MarkStack *markStack);
 
     // bump allocations
     HeapItem *nextFree = 0;
@@ -161,20 +155,21 @@ struct BlockAllocator {
     size_t usedSlotsAfterLastSweep = 0;
     HeapItem *freeBins[NumBins];
     ChunkAllocator *chunkAllocator;
+    ExecutionEngine *engine;
     std::vector<Chunk *> chunks;
-#if MM_DEBUG
-    uint allocations[NumBins];
-#endif
+    uint *allocationStats = nullptr;
 };
 
 struct HugeItemAllocator {
-    HugeItemAllocator(ChunkAllocator *chunkAllocator)
-        : chunkAllocator(chunkAllocator)
+    HugeItemAllocator(ChunkAllocator *chunkAllocator, ExecutionEngine *engine)
+        : chunkAllocator(chunkAllocator), engine(engine)
     {}
 
     HeapItem *allocate(size_t size);
-    void sweep();
+    void sweep(ClassDestroyStatsCallback classCountPtr);
     void freeAll();
+    void resetBlackBits();
+    void collectGrayItems(MarkStack *markStack);
 
     size_t usedMem() const {
         size_t used = 0;
@@ -184,6 +179,7 @@ struct HugeItemAllocator {
     }
 
     ChunkAllocator *chunkAllocator;
+    ExecutionEngine *engine;
     struct HugeChunk {
         Chunk *chunk;
         size_t size;
@@ -209,8 +205,8 @@ public:
     QV4::Heap::CallContext *allocSimpleCallContext()
     {
         Heap::CallContext *ctxt = stackAllocator.allocate();
-        memset(ctxt, 0, sizeof(Heap::CallContext));
-        ctxt->internalClass = CallContext::defaultInternalClass(engine);
+        memset(ctxt, 0, sizeof(Heap::SimpleCallContext));
+        ctxt->internalClass = SimpleCallContext::defaultInternalClass(engine);
         Q_ASSERT(ctxt->internalClass && ctxt->internalClass->vtable);
         ctxt->init();
         return ctxt;
@@ -440,22 +436,18 @@ public:
     // called when a JS object grows itself. Specifically: Heap::String::append
     void changeUnmanagedHeapSizeUsage(qptrdiff delta) { unmanagedHeapSize += delta; }
 
-
 protected:
     /// expects size to be aligned
     Heap::Base *allocString(std::size_t unmanagedSize);
     Heap::Base *allocData(std::size_t size);
     Heap::Object *allocObjectWithMemberData(const QV4::VTable *vtable, uint nMembers);
 
-#ifdef DETAILED_MM_STATS
-    void willAllocate(std::size_t size);
-#endif // DETAILED_MM_STATS
-
 private:
-    void collectFromJSStack() const;
+    void collectFromJSStack(MarkStack *markStack) const;
     void mark();
-    void sweep(bool lastSweep = false);
+    void sweep(bool lastSweep = false, ClassDestroyStatsCallback classCountPtr = nullptr);
     bool shouldRunGC() const;
+    void collectRoots(MarkStack *markStack);
 
 public:
     QV4::ExecutionEngine *engine;
@@ -469,10 +461,19 @@ public:
 
     std::size_t unmanagedHeapSize = 0; // the amount of bytes of heap that is not managed by the memory manager, but which is held onto by managed items.
     std::size_t unmanagedHeapSizeGCLimit;
+    std::size_t usedSlotsAfterLastFullSweep = 0;
 
     bool gcBlocked = false;
     bool aggressiveGC = false;
     bool gcStats = false;
+    bool gcCollectorStats = false;
+
+    struct {
+        size_t maxReservedMem = 0;
+        size_t maxAllocatedMem = 0;
+        size_t maxUsedMem = 0;
+        uint allocations[BlockAllocator::NumBins];
+    } statistics;
 };
 
 }

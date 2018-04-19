@@ -75,6 +75,8 @@ class QQmlCompiledData;
 
 namespace QV4 { struct String; }
 
+void Q_QML_PRIVATE_EXPORT qmlUnregisterType(int type);
+
 class Q_QML_PRIVATE_EXPORT QQmlMetaType
 {
 public:
@@ -147,6 +149,7 @@ public:
 
 struct QQmlMetaTypeData;
 class QHashedCStringRef;
+class QQmlPropertyCache;
 class Q_QML_PRIVATE_EXPORT QQmlType
 {
 public:
@@ -242,6 +245,13 @@ public:
     int enumValue(QQmlEnginePrivate *engine, const QHashedCStringRef &, bool *ok) const;
     int enumValue(QQmlEnginePrivate *engine, const QV4::String *, bool *ok) const;
 
+    int scopedEnumIndex(QQmlEnginePrivate *engine, const QV4::String *, bool *ok) const;
+    int scopedEnumIndex(QQmlEnginePrivate *engine, const QString &, bool *ok) const;
+    int scopedEnumValue(QQmlEnginePrivate *engine, int index, const QV4::String *, bool *ok) const;
+    int scopedEnumValue(QQmlEnginePrivate *engine, int index, const QString &, bool *ok) const;
+    int scopedEnumValue(QQmlEnginePrivate *engine, const QByteArray &, const QByteArray &, bool *ok) const;
+    int scopedEnumValue(QQmlEnginePrivate *engine, const QStringRef &, const QStringRef &, bool *ok) const;
+
     QQmlTypePrivate *priv() const { return d; }
     static void refHandle(QQmlTypePrivate *priv);
     static void derefHandle(QQmlTypePrivate *priv);
@@ -252,13 +262,15 @@ public:
         SingletonType = 1,
         InterfaceType = 2,
         CompositeType = 3,
-        CompositeSingletonType = 4
+        CompositeSingletonType = 4,
+        AnyRegistrationType = 255
     };
 
 private:
     QQmlType superType() const;
     QQmlType resolveCompositeBaseType(QQmlEnginePrivate *engine) const;
     int resolveCompositeEnumValue(QQmlEnginePrivate *engine, const QString &name, bool *ok) const;
+    QQmlPropertyCache *compositePropertyCache(QQmlEnginePrivate *engine) const;
     friend class QQmlTypePrivate;
 
     friend QString registrationTypeString(RegistrationType);
@@ -298,6 +310,8 @@ public:
 
     QQmlType type(const QHashedStringRef &, int) const;
     QQmlType type(const QV4::String *, int) const;
+
+    void walkCompositeSingletons(const std::function<void(const QQmlType &)> &callback) const;
 
     QQmlTypeModulePrivate *priv() { return d; }
 private:

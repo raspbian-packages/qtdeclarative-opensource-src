@@ -44,6 +44,7 @@
 #include "qquickwindow_p.h"
 #include "qquickevents_p_p.h"
 
+#include <QtQuick/private/qquickpointerhandler_p.h>
 #include <QtQuick/private/qquicktransition_p.h>
 #include <private/qqmlglobal_p.h>
 
@@ -255,6 +256,7 @@ QQuickFlickablePrivate::QQuickFlickablePrivate()
     , flickBoost(1.0), fixupMode(Normal), vTime(0), visibleArea(0)
     , flickableDirection(QQuickFlickable::AutoFlickDirection)
     , boundsBehavior(QQuickFlickable::DragAndOvershootBounds)
+    , boundsMovement(QQuickFlickable::FollowBoundsBehavior)
     , rebound(0)
 {
 }
@@ -269,6 +271,7 @@ void QQuickFlickablePrivate::init()
     qmlobject_connect(&velocityTimeline, QQuickTimeLine, SIGNAL(completed()),
                       q, QQuickFlickable, SLOT(velocityTimelineCompleted()))
     q->setAcceptedMouseButtons(Qt::LeftButton);
+    q->setAcceptTouchEvents(false); // rely on mouse events synthesized from touch
     q->setFiltersChildMouseEvents(true);
     QQuickItemPrivate *viewportPrivate = QQuickItemPrivate::get(contentItem);
     viewportPrivate->addItemChangeListener(this, QQuickItemPrivate::Geometry);
@@ -564,18 +567,6 @@ void QQuickFlickablePrivate::updateBeginningEnd()
         visibleArea->updateVisible();
 }
 
-/*
-XXXTODO add docs describing moving, dragging, flicking properties, e.g.
-
-When the user starts dragging the Flickable, the dragging and moving properties
-will be true.
-
-If the velocity is sufficient when the drag is ended, flicking may begin.
-
-The moving properties will remain true until all dragging and flicking
-is finished.
-*/
-
 /*!
     \qmlsignal QtQuick::Flickable::dragStarted()
 
@@ -734,7 +725,19 @@ QQuickFlickable::~QQuickFlickable()
 
     These properties hold the surface coordinate currently at the top-left
     corner of the Flickable. For example, if you flick an image up 100 pixels,
-    \c contentY will be 100.
+    \c contentY will increase by 100.
+
+    \note If you flick back to the origin (the top-left corner), after the
+    rebound animation, \c contentX will settle to the same value as \c originX,
+    and \c contentY to \c originY. These are usually (0,0), however ListView
+    and GridView may have an arbitrary origin due to delegate size variation,
+    or item insertion/removal outside the visible region. So if you want to
+    implement something like a vertical scrollbar, one way is to use
+    \c {y: (contentY - originY) * (height / contentHeight)}
+    for the position; another way is to use the normalized values in
+    \l {QtQuick::Flickable::visibleArea}{visibleArea}.
+
+    \sa originX, originY
 */
 qreal QQuickFlickable::contentX() const
 {
@@ -748,7 +751,8 @@ void QQuickFlickable::setContentX(qreal pos)
     d->hData.explicitValue = true;
     d->resetTimeline(d->hData);
     d->hData.vTime = d->timeline.time();
-    movementEnding(true, false);
+    if (isMoving() || isFlicking())
+        movementEnding(true, false);
     if (-pos != d->hData.move.value())
         d->hData.move.setValue(-pos);
 }
@@ -765,7 +769,8 @@ void QQuickFlickable::setContentY(qreal pos)
     d->vData.explicitValue = true;
     d->resetTimeline(d->vData);
     d->vData.vTime = d->timeline.time();
-    movementEnding(false, true);
+    if (isMoving() || isFlicking())
+        movementEnding(false, true);
     if (-pos != d->vData.move.value())
         d->vData.move.setValue(-pos);
 }
@@ -1430,17 +1435,23 @@ void QQuickFlickable::wheelEvent(QWheelEvent *event)
     case Qt::ScrollUpdate:
         if (d->scrollingPhase)
             d->pressed = true;
-#ifdef Q_OS_OSX
+#ifdef Q_OS_MACOS
+        // TODO eliminate this timer when ScrollMomentum has been added
         d->movementEndingTimer.start(MovementEndingTimerInterval, this);
 #endif
         break;
     case Qt::ScrollEnd:
+        // TODO most of this should be done at transition to ScrollMomentum phase,
+        // then do what the movementEndingTimer triggers at transition to ScrollEnd phase
         d->pressed = false;
         d->scrollingPhase = false;
         d->draggingEnding();
         event->accept();
         returnToBounds();
         d->lastPosTime = -1;
+#ifdef Q_OS_MACOS
+        d->movementEndingTimer.start(MovementEndingTimerInterval, this);
+#endif
         return;
     }
 
@@ -1559,6 +1570,8 @@ void QQuickFlickablePrivate::replayDelayedPress()
 
         // If we have the grab, release before delivering the event
         if (QQuickWindow *w = q->window()) {
+            QQuickWindowPrivate *wpriv = QQuickWindowPrivate::get(w);
+            wpriv->allowChildEventFiltering = false; // don't allow re-filtering during replay
             replayingPressEvent = true;
             if (w->mouseGrabberItem() == q)
                 q->ungrabMouse();
@@ -1566,6 +1579,7 @@ void QQuickFlickablePrivate::replayDelayedPress()
             // Use the event handler that will take care of finding the proper item to propagate the event
             QCoreApplication::sendEvent(w, mouseEvent.data());
             replayingPressEvent = false;
+            wpriv->allowChildEventFiltering = true;
         }
     }
 }
@@ -1574,15 +1588,17 @@ void QQuickFlickablePrivate::replayDelayedPress()
 void QQuickFlickablePrivate::setViewportX(qreal x)
 {
     Q_Q(QQuickFlickable);
-    if (pixelAligned)
-        x = -Round(-x);
-
-    contentItem->setX(x);
-    if (contentItem->x() != x)
-        return; // reentered
+    qreal effectiveX = pixelAligned ? -Round(-x) : x;
 
     const qreal maxX = q->maxXExtent();
     const qreal minX = q->minXExtent();
+
+    if (boundsMovement == int(QQuickFlickable::StopAtBounds))
+        effectiveX = qBound(maxX, effectiveX, minX);
+
+    contentItem->setX(effectiveX);
+    if (contentItem->x() != effectiveX)
+        return; // reentered
 
     qreal overshoot = 0.0;
     if (x <= maxX)
@@ -1599,15 +1615,17 @@ void QQuickFlickablePrivate::setViewportX(qreal x)
 void QQuickFlickablePrivate::setViewportY(qreal y)
 {
     Q_Q(QQuickFlickable);
-    if (pixelAligned)
-        y = -Round(-y);
-
-    contentItem->setY(y);
-    if (contentItem->y() != y)
-        return; // reentered
+    qreal effectiveY = pixelAligned ? -Round(-y) : y;
 
     const qreal maxY = q->maxYExtent();
     const qreal minY = q->minYExtent();
+
+    if (boundsMovement == int(QQuickFlickable::StopAtBounds))
+        effectiveY = qBound(maxY, effectiveY, minY);
+
+    contentItem->setY(effectiveY);
+    if (contentItem->y() != effectiveY)
+        return; // reentered
 
     qreal overshoot = 0.0;
     if (y <= maxY)
@@ -1869,8 +1887,9 @@ QQmlListProperty<QQuickItem> QQuickFlickable::flickableChildren()
     beyond the Flickable's boundaries, or overshoot the
     Flickable's boundaries when flicked.
 
-    This enables the feeling that the edges of the view are soft,
-    rather than a hard physical boundary.
+    When the \l boundsMovement is \c Flickable.FollowBoundsBehavior, a value
+    other than \c Flickable.StopAtBounds will give a feeling that the edges of
+    the view are soft, rather than a hard physical boundary.
 
     The \c boundsBehavior can be one of:
 
@@ -1886,7 +1905,7 @@ QQmlListProperty<QQuickItem> QQuickFlickable::flickableChildren()
     boundary when flicked.
     \endlist
 
-    \sa horizontalOvershoot, verticalOvershoot
+    \sa horizontalOvershoot, verticalOvershoot, boundsMovement
 */
 QQuickFlickable::BoundsBehavior QQuickFlickable::boundsBehavior() const
 {
@@ -2151,6 +2170,8 @@ void QQuickFlickable::setRightMargin(qreal m)
     This is usually (0,0), however ListView and GridView may have an arbitrary
     origin due to delegate size variation, or item insertion/removal outside
     the visible region.
+
+    \sa contentX, contentY
 */
 
 qreal QQuickFlickable::originY() const
@@ -2181,25 +2202,25 @@ qreal QQuickFlickable::originX() const
 void QQuickFlickable::resizeContent(qreal w, qreal h, QPointF center)
 {
     Q_D(QQuickFlickable);
-    if (w != d->hData.viewSize) {
-        qreal oldSize = d->hData.viewSize;
-        d->hData.viewSize = w;
-        d->contentItem->setWidth(w);
+    const qreal oldHSize = d->hData.viewSize;
+    const qreal oldVSize = d->vData.viewSize;
+    const bool needToUpdateWidth = w != oldHSize;
+    const bool needToUpdateHeight = h != oldVSize;
+    d->hData.viewSize = w;
+    d->vData.viewSize = h;
+    d->contentItem->setSize(QSizeF(w, h));
+    if (needToUpdateWidth)
         emit contentWidthChanged();
-        if (center.x() != 0) {
-            qreal pos = center.x() * w / oldSize;
-            setContentX(contentX() + pos - center.x());
-        }
-    }
-    if (h != d->vData.viewSize) {
-        qreal oldSize = d->vData.viewSize;
-        d->vData.viewSize = h;
-        d->contentItem->setHeight(h);
+    if (needToUpdateHeight)
         emit contentHeightChanged();
-        if (center.y() != 0) {
-            qreal pos = center.y() * h / oldSize;
-            setContentY(contentY() + pos - center.y());
-        }
+
+    if (center.x() != 0) {
+        qreal pos = center.x() * w / oldHSize;
+        setContentX(contentX() + pos - center.x());
+    }
+    if (center.y() != 0) {
+        qreal pos = center.y() * h / oldVSize;
+        setContentY(contentY() + pos - center.y());
     }
     d->updateBeginningEnd();
 }
@@ -2655,13 +2676,15 @@ void QQuickFlickable::movementEnding(bool hMovementEnding, bool vMovementEnding)
     if (hMovementEnding && d->hData.moving
             && (!d->pressed && !d->stealMouse)) {
         d->hData.moving = false;
-        d->hMoved = false;
+        if (!d->scrollingPhase)
+            d->hMoved = false;
         emit movingHorizontallyChanged();
     }
     if (vMovementEnding && d->vData.moving
             && (!d->pressed && !d->stealMouse)) {
         d->vData.moving = false;
-        d->vMoved = false;
+        if (!d->scrollingPhase)
+            d->vMoved = false;
         emit movingVerticallyChanged();
     }
     if (wasMoving && !isMoving()) {
@@ -2697,7 +2720,11 @@ void QQuickFlickablePrivate::updateVelocity()
     The value is negative when the content is dragged or flicked beyond the beginning,
     and positive when beyond the end; \c 0.0 otherwise.
 
-    \sa verticalOvershoot, boundsBehavior
+    Whether the values are reported for dragging and/or flicking is determined by
+    \l boundsBehavior. The overshoot distance is reported even when \l boundsMovement
+    is \c Flickable.StopAtBounds.
+
+    \sa verticalOvershoot, boundsBehavior, boundsMovement
 */
 qreal QQuickFlickable::horizontalOvershoot() const
 {
@@ -2714,12 +2741,78 @@ qreal QQuickFlickable::horizontalOvershoot() const
     The value is negative when the content is dragged or flicked beyond the beginning,
     and positive when beyond the end; \c 0.0 otherwise.
 
-    \sa horizontalOvershoot, boundsBehavior
+    Whether the values are reported for dragging and/or flicking is determined by
+    \l boundsBehavior. The overshoot distance is reported even when \l boundsMovement
+    is \c Flickable.StopAtBounds.
+
+    \sa horizontalOvershoot, boundsBehavior, boundsMovement
 */
 qreal QQuickFlickable::verticalOvershoot() const
 {
     Q_D(const QQuickFlickable);
     return d->vData.overshoot;
+}
+
+/*!
+    \qmlproperty enumeration QtQuick::Flickable::boundsMovement
+    \since 5.10
+
+    This property holds whether the flickable will give a feeling that the edges of the
+    view are soft, rather than a hard physical boundary.
+
+    The \c boundsMovement can be one of:
+
+    \list
+    \li Flickable.StopAtBounds - this allows implementing custom edge effects where the
+    contents do not follow drags or flicks beyond the bounds of the flickable. The values
+    of \l horizontalOvershoot and \l verticalOvershoot can be utilized to implement custom
+    edge effects.
+    \li Flickable.FollowBoundsBehavior (default) - whether the contents follow drags or
+    flicks beyond the bounds of the flickable is determined by \l boundsBehavior.
+    \endlist
+
+    The following example keeps the contents within bounds and instead applies a flip
+    effect when flicked over horizontal bounds:
+    \code
+    Flickable {
+        id: flickable
+        boundsMovement: Flickable.StopAtBounds
+        boundsBehavior: Flickable.DragAndOvershootBounds
+        transform: Rotation {
+            axis { x: 0; y: 1; z: 0 }
+            origin.x: flickable.width / 2
+            origin.y: flickable.height / 2
+            angle: Math.min(30, Math.max(-30, flickable.horizontalOvershoot))
+        }
+    }
+    \endcode
+
+    The following example keeps the contents within bounds and instead applies an opacity
+    effect when dragged over vertical bounds:
+    \code
+    Flickable {
+        boundsMovement: Flickable.StopAtBounds
+        boundsBehavior: Flickable.DragOverBounds
+        opacity: Math.max(0.5, 1.0 - Math.abs(verticalOvershoot) / height)
+    }
+    \endcode
+
+    \sa boundsBehavior, verticalOvershoot, horizontalOvershoot
+*/
+QQuickFlickable::BoundsMovement QQuickFlickable::boundsMovement() const
+{
+    Q_D(const QQuickFlickable);
+    return d->boundsMovement;
+}
+
+void QQuickFlickable::setBoundsMovement(BoundsMovement movement)
+{
+    Q_D(QQuickFlickable);
+    if (d->boundsMovement == movement)
+        return;
+
+    d->boundsMovement = movement;
+    emit boundsMovementChanged();
 }
 
 QT_END_NAMESPACE

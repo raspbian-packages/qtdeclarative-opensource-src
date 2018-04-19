@@ -33,6 +33,7 @@
 #include <QProcess>
 #include <QLibraryInfo>
 #include <QSysInfo>
+#include <private/qqmlcomponent_p.h>
 
 class tst_qmlcachegen: public QObject
 {
@@ -43,6 +44,7 @@ private slots:
 
     void loadGeneratedFile();
     void translationExpressionSupport();
+    void signalHandlerParameters();
     void errorOnArgumentsInSignalHandler();
 };
 
@@ -114,6 +116,16 @@ void tst_qmlcachegen::loadGeneratedFile()
 
     const QString cacheFilePath = testFilePath + QLatin1Char('c');
     QVERIFY(QFile::exists(cacheFilePath));
+
+    {
+        QFile cache(cacheFilePath);
+        QVERIFY(cache.open(QIODevice::ReadOnly));
+        const QV4::CompiledData::Unit *cacheUnit = reinterpret_cast<const QV4::CompiledData::Unit *>(cache.map(/*offset*/0, sizeof(QV4::CompiledData::Unit)));
+        QVERIFY(cacheUnit);
+        QVERIFY(cacheUnit->flags & QV4::CompiledData::Unit::StaticData);
+        QVERIFY(cacheUnit->flags & QV4::CompiledData::Unit::PendingTypeCompilation);
+    }
+
     QVERIFY(QFile::remove(testFilePath));
 
     QQmlEngine engine;
@@ -121,6 +133,13 @@ void tst_qmlcachegen::loadGeneratedFile()
     QScopedPointer<QObject> obj(component.create());
     QVERIFY(!obj.isNull());
     QCOMPARE(obj->property("value").toInt(), 42);
+
+    auto componentPrivate = QQmlComponentPrivate::get(&component);
+    QVERIFY(componentPrivate);
+    auto compilationUnit = componentPrivate->compilationUnit;
+    QVERIFY(compilationUnit);
+    QVERIFY(compilationUnit->data);
+    QVERIFY(!(compilationUnit->data->flags & QV4::CompiledData::Unit::StaticData));
 }
 
 void tst_qmlcachegen::translationExpressionSupport()
@@ -162,6 +181,41 @@ void tst_qmlcachegen::translationExpressionSupport()
     QScopedPointer<QObject> obj(component.create());
     QVERIFY(!obj.isNull());
     QCOMPARE(obj->property("text").toString(), QString("All Ok"));
+}
+
+void tst_qmlcachegen::signalHandlerParameters()
+{
+    QTemporaryDir tempDir;
+    QVERIFY(tempDir.isValid());
+
+    const auto writeTempFile = [&tempDir](const QString &fileName, const char *contents) {
+        QFile f(tempDir.path() + '/' + fileName);
+        const bool ok = f.open(QIODevice::WriteOnly | QIODevice::Truncate);
+        Q_ASSERT(ok);
+        f.write(contents);
+        return f.fileName();
+    };
+
+    const QString testFilePath = writeTempFile("test.qml", "import QtQml 2.0\n"
+                                                           "QtObject {\n"
+                                                           "    property real result: 0\n"
+                                                           "    signal testMe(real value);\n"
+                                                           "    onTestMe: result = value;\n"
+                                                           "    function runTest() { testMe(42); }\n"
+                                                           "}");
+
+    QVERIFY(generateCache(testFilePath));
+
+    const QString cacheFilePath = testFilePath + QLatin1Char('c');
+    QVERIFY(QFile::exists(cacheFilePath));
+    QVERIFY(QFile::remove(testFilePath));
+
+    QQmlEngine engine;
+    CleanlyLoadingComponent component(&engine, QUrl::fromLocalFile(testFilePath));
+    QScopedPointer<QObject> obj(component.create());
+    QVERIFY(!obj.isNull());
+    QMetaObject::invokeMethod(obj.data(), "runTest");
+    QCOMPARE(obj->property("result").toInt(), 42);
 }
 
 void tst_qmlcachegen::errorOnArgumentsInSignalHandler()

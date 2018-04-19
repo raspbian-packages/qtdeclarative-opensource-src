@@ -1,9 +1,9 @@
-Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: qtdeclarative-opensource-src
 Source: https://download.qt.io/official_releases/qt/*/submodules/
 
 Files: *
-Copyright: 2016 The Qt Company Ltd.
+Copyright: 2016-2018 The Qt Company Ltd.
 License: LGPL-3 or GPL-2+
 
 Files: debian/*
@@ -13,11 +13,11 @@ Copyright: 2007-2012 Fathi Boudra <fabo@debian.org>
            2007-2009 Ana Beatriz Guerrero Lopez <ana@debian.org>
            2005-2007 Brian Nelson <pyro@debian.org>
            2012-2013 Timo Jyrinki <timo.jyrinki@canonical.com>
-           2013-2016 Dmitry Shachnev <mitya57@debian.org>
+           2013-2018 Dmitry Shachnev <mitya57@debian.org>
 License: LGPL-3 or GPL-2+
 
 Files: *.qdoc
-Copyright: 2016 The Qt Company Ltd.
+Copyright: 2016-2018 The Qt Company Ltd.
 License: GFDL-NIV-1.3
 
 Files: tests/*
@@ -28,56 +28,64 @@ License: GPL-3 with Qt-1.0 exception
 Files: examples/*
        src/qml/doc/snippets/*
        src/quick/doc/snippets/*
-       tests/auto/qml/ecmascripttests/test262.py
+       tests/auto/qml/qqmlecmascript/data/*
+       tests/auto/qml/qqmllanguage/data/*
        tests/auto/qmltest/animatedimage/tst_animatedimage.qml
        tests/auto/qmltest/animations/tst_abstractanimationjobcrash.qml
        tests/auto/qmltest/fontloader/tst_fontloader.qml
        tests/auto/qmltest/gradient/tst_gradient.qml
        tests/auto/qmltest/image/tst_image.qml
+       tests/auto/qmltest/layout/Container.qml
+       tests/auto/qmltest/layout/ContainerUser.qml
+       tests/auto/qmltest/layout/tst_layout.qml
        tests/auto/qmltest/listmodel/tst_listmodel.qml
-       tests/auto/qmltest/listview/data/asynclistviewloader.qml
-       tests/auto/qmltest/listview/data/asyncloadercurrentindex.qml
-       tests/auto/qmltest/listview/tst_listview.qml
+       tests/auto/qmltest/listview/*
        tests/auto/qmltest/objectmodel/tst_objectmodel.qml
+       tests/auto/qmltest/positioners/tst_positioners.qml
        tests/auto/qmltest/qtbug46798/tst_qtbug46798.qml
        tests/auto/qmltest/rectangle/tst_rectangle.qml
        tests/auto/qmltest/text/tst_text.qml
        tests/auto/qmltest/textedit/tst_textedit.qml
        tests/auto/qmltest/textedit/tst_textedit_editingfinished.qml
        tests/auto/qmltest/textinput/tst_textinput.qml
+       tests/auto/qmltest/url/tst_url.qml
        tests/auto/qmltest/window/tst_clickwindow.qml
        tests/auto/quick/qquickbehaviors/data/qtbug21549-2.qml
        tests/auto/quick/qquickgridview/data/attachedProperties.qml
-       tests/auto/quick/qquicklayouts/data/tst_gridlayout.qml
-       tests/auto/quick/qquicklayouts/data/tst_rowlayout.qml
+       tests/auto/quick/qquickgridview/data/qtbug49218.qml
+       tests/auto/quick/qquicklayouts/data/*
+       tests/auto/quick/qquicklistview/data/addoncompleted.qml
        tests/auto/quick/qquicklistview/data/attachedProperties.qml
+       tests/auto/quick/qquicklistview/data/flickBothDirections.qml
        tests/auto/quick/qquicklistview/data/outsideViewportChangeNotAffectingView.qml
+       tests/auto/quick/qquicklistview/data/qtbug61537_modelChangesAsync.qml
        tests/auto/quick/qquicklistview/data/roundingErrors.qml
        tests/auto/quick/qquicklistview/data/sizeTransitions.qml
        tests/auto/quick/qquicklistview/data/stickyPositioning-both.qml
        tests/auto/quick/qquicklistview/data/stickyPositioning-footer.qml
        tests/auto/quick/qquicklistview/data/stickyPositioning-header.qml
-       tests/auto/quick/qquickpathview/data/flickableDelegate.qml
-       tests/auto/quick/qquickpathview/data/nestedInFlickable.qml
-       tests/benchmarks/qml/holistic/data/largeTargets/gridview-example.qml
-       tests/benchmarks/qml/holistic/data/largeTargets/layoutdirection.qml
-       tests/benchmarks/qml/holistic/data/largeTargets/mousearea-example.qml
+       tests/auto/quick/qquickpathview/data/*
+       tests/auto/quick/qquickshadereffect/data/MyIcon.qml
+       tests/auto/quick/qquickshadereffect/data/twoImagesOneShaderEffect.qml
+       tests/benchmarks/qml/holistic/data/largeTargets/*
        tests/manual/highdpi/imageprovider.cpp
-       tests/manual/touch/flicktext.qml
-       tests/manual/touch/main.cpp
-       tests/manual/touch/main.qml
-       tests/manual/touch/mpta-crosshairs.qml
-       tests/testapplications/animatedsprite/animatedsprite.qml
-       tests/testapplications/animatedsprite/animatedspriteadvance.qml
-       tests/testapplications/listview/alteredViews.qml
-       tests/testapplications/listview/onRemove.qml
-       tests/testapplications/listview/sections.qml
-       tests/testapplications/listview/sticky.qml
-       tests/testapplications/listview/viewTransitions.qml
+       tests/manual/nodetypes/*
+       tests/manual/pointer/content/MouseFeedbackSprite.qml
+       tests/manual/pointer/content/TouchpointFeedbackSprite.qml
+       tests/manual/qmltypememory/TestPlugin/plugin.cpp
+       tests/manual/shapestest/shapestest.qml
+       tests/manual/text/*
+       tests/manual/touch/*
+       tests/testapplications/animatedsprite/*
+       tests/testapplications/listview/*
        tools/qml/conf/configuration.qml
        tools/qml/conf/qtquick.qml
-Copyright: 2015-2016 The Qt Company Ltd.
+Copyright: 2016-2018 The Qt Company Ltd.
 License: BSD-3-clause
+
+Files: tests/auto/qml/ecmascripttests/test262/*
+Copyright: 2012 Ecma International
+License: BSD-3-clause-Ecma
 
 Files: examples/quick/demos/samegame/content/SamegameText.qml
        examples/quick/demos/samegame/content/Settings.qml
@@ -333,8 +341,36 @@ Files: src/3rdparty/masm/disassembler/*
 Copyright: 2012-2013 Apple Inc.
 License: BSD-2-clause
 
+Files: src/3rdparty/masm/disassembler/udis86/*
+Copyright: 2002-2009 Vivek Thampi
+           2012 Apple Inc.
+License: BSD-2-clause
+
+Files: src/3rdparty/masm/disassembler/mips32/Mips32Opcode.h
+       src/3rdparty/masm/disassembler/mips32/Mips32Opcode.cpp
+       src/3rdparty/masm/disassembler/Mips32Disassembler.cpp
+Copyright: 2015 Cisco Systems, Inc.
+License: BSD-2-clause
+
+Files: src/3rdparty/masm/assembler/*
+Copyright: 2008-2013 Apple Inc.
+           2009-2010 University of Szeged
+License: BSD-2-clause
+
+Files: src/3rdparty/masm/assembler/MacroAssemblerMIPS.h
+       src/3rdparty/masm/assembler/MIPSAssembler.h
+Copyright: 2008-2009 Apple Inc.
+           2010 MIPS Technologies, Inc.
+License: BSD-2-clause
+
+Files: src/3rdparty/masm/assembler/MacroAssemblerSH4.cpp
+       src/3rdparty/masm/assembler/MacroAssemblerSH4.h
+       src/3rdparty/masm/assembler/SH4Assembler.h
+Copyright: 2009-2011 STMicroelectronics
+           2008 Apple Inc.
+License: BSD-2-clause
+
 Files: src/3rdparty/masm/wtf/ASCIICType.h
-       src/3rdparty/masm/wtf/Atomics.h
        src/3rdparty/masm/wtf/SegmentedVector.h
        src/3rdparty/masm/wtf/Locker.h
 Copyright: 2007-2011 Apple Inc.
@@ -345,35 +381,75 @@ Copyright: 2016 Rolland Dudemaine
            2016 The Qt Company Ltd.
 License: LGPL-3 or GPL-2+
 
-Files: src/qml/qml/qqmlimport.cpp
-Copyright: 2017 Crimson AS <info@crimson.no>
+Files: src/3rdparty/masm/wtf/CryptographicallyRandomNumber.h
+Copyright: 2008 Torch Mobile Inc. (http://www.torchmobile.com/)
+License: BSD-2-clause
+
+Files: src/3rdparty/masm/wtf/FeatureDefines.h
+       src/3rdparty/masm/wtf/Platform.h
+Copyright: 2006-2013 Apple Inc.
+           2007-2009 Torch Mobile, Inc.
+           2010-2011 Research In Motion Limited.
+           2013 Samsung Electronics.
+License: BSD-2-clause
+
+Files: src/3rdparty/masm/wtf/Atomics.h
+Copyright: 2007-2012 Apple Inc.
+           2007 Justin Haygood <jhaygood@reaktix.com>
+License: BSD-3-clause
+
+Files: src/3rdparty/masm/wtf/DynamicAnnotations.h
+Copyright: 2011 Google Inc.
+License: BSD-2-clause
+
+Files: src/3rdparty/masm/stubs/*
+       src/3rdparty/masm/WeakRandom.h
+Copyright: 2016 The Qt Company Ltd.
 License: LGPL-3 or GPL-2+
+
+Files: src/qml/jsruntime/qv4objectproto.cpp
+       src/qml/qml/qqmlimport.cpp
+       src/qmltest/quicktestresult.cpp
+Copyright: 2017 Crimson AS <info@crimson.no>
+           2016 The Qt Company Ltd.
+License: LGPL-3 or GPL-2+
+
+Files: examples/quick/shared/LauncherList.qml
+Copyright: 2017 Crimson AS <info@crimson.no>
+           2017 The Qt Company Ltd.
+License: BSD-3-clause
+
+Files: tests/auto/qml/qqmlecmascript/tst_qqmlecmascript.cpp
+       tests/auto/qmltest/selftests/tst_grabImage.qml
+Copyright: 2017 Crimson AS <info@crimson.no>
+           2016 The Qt Company Ltd.
+License: GPL-3 with Qt-1.0 exception
 
 Files: src/3rdparty/masm/yarr/*
 Copyright: 2009-2013 Apple Inc.
            2010 Peter Varga <pvarga@inf.u-szeged.hu>, University of Szeged
 License: BSD-2-clause
 
-Files: src/3rdparty/masm/assembler/*
-Copyright: 2008-2013 Apple Inc.
-           2009-2010 University of Szeged
-License: BSD-2-clause
-
 Files: tests/auto/qml/parserstress/tests/ecma*
 Copyright: 1998 Netscape Communications Corporation
 License: MPL-1.1 and GPL-2+ and LGPL-2.1
 
+Files: examples/quick/demos/photosurface/resources/icon.png
+Copyright: 2006 Tony Hewison
+License: CC0
+
+Files: src/quick/doc/images/touchpoint-metrics.png
+Copyright: 2016 The Qt Company Ltd.
+License: CC0
+
 License: GFDL-NIV-1.3
- GNU Free Documentation License Usage
- Alternatively, this file may be used under the terms of the GNU Free
- Documentation License version 1.3 as published by the Free Software
- Foundation and appearing in the file included in the packaging of
- this file.  Please review the following information to ensure
- the GNU Free Documentation License version 1.3 requirements
- will be met: http://www.gnu.org/copyleft/fdl.html.
+ Permission is granted to copy, distribute and/or modify this document
+ under the terms of the GNU Free Documentation License, Version 1.3
+ or any later version published by the Free Software Foundation;
+ with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
  .
- On Debian systems, the complete text of the GFDL-1.3 license can be found in
- `/usr/share/common-licenses/GFDL-1.3`,
+ On Debian systems, the complete text of the GNU Free Documentation
+ License version 1.3 can be found in /usr/share/common-licenses/GFDL-1.3.
 
 License: BSD-2-clause
  Redistribution and use in source and binary forms, with or without
@@ -424,6 +500,45 @@ License: BSD-3-clause
  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
+
+License: BSD-3-clause-Ecma
+ The <<Software identified by reference to the Ecma Standard* ("Software)">>
+ is protected by copyright and is being made available under the "BSD License",
+ included below. This Software may be subject to third party rights (rights
+ from parties other than Ecma International), including patent rights, and no
+ licenses under such third party rights are granted under this license even if
+ the third party concerned is a member of Ecma International.
+ .
+ SEE THE ECMA CODE OF CONDUCT IN PATENT MATTERS AVAILABLE AT
+ http://www.ecma-international.org/memento/codeofconduct.htm FOR INFORMATION
+ REGARDING THE LICENSING OF PATENT CLAIMS THAT ARE REQUIRED TO IMPLEMENT ECMA
+ INTERNATIONAL STANDARDS*.
+ .
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are met:
+ .
+  1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+  2. Redistributions in binary form must reproduce the above copyright notice,
+     this list of conditions and the following disclaimer in the documentation
+     and/or other materials provided with the distribution.
+  3. Neither the name of the authors nor Ecma International may be used to
+     endorse or promote products derived from this software without specific
+     prior written permission.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE ECMA INTERNATIONAL "AS IS" AND ANY EXPRESS OR
+ IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+ EVENT SHALL ECMA INTERNATIONAL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ POSSIBILITY OF SUCH DAMAGE.
+ .
+ * Ecma International Standards hereafter means Ecma International Standards as
+ well as Ecma Technical Reports
 
 License: LGPL-2.1
  GNU Lesser General Public License version 2.1:
@@ -969,3 +1084,111 @@ License: GPL-3 with Qt-1.0 exception
  source code to this application, excluding the source code of the
  independent modules, but including any changes you have made to this
  application, under the terms of this license.
+
+License: CC0
+ Creative Commons Zero 1.0 Universal
+ Statement of Purpose
+ .
+ The laws of most jurisdictions throughout the world automatically confer
+ exclusive Copyright and Related Rights (defined below) upon the creator and
+ subsequent owner(s) (each and all, an "owner") of an original work of
+ authorship and/or a database (each, a "Work").
+ .
+ Certain owners wish to permanently relinquish those rights to a Work for the
+ purpose of contributing to a commons of creative, cultural and scientific
+ works ("Commons") that the public can reliably and without fear of later
+ claims of infringement build upon, modify, incorporate in other works, reuse
+ and redistribute as freely as possible in any form whatsoever and for any
+ purposes, including without limitation commercial purposes. These owners may
+ contribute to the Commons to promote the ideal of a free culture and the
+ further production of creative, cultural and scientific works, or to gain
+ reputation or greater distribution for their Work in part through the use and
+ efforts of others.
+ .
+ For these and/or other purposes and motivations, and without any expectation
+ of additional consideration or compensation, the person associating CC0 with
+ a Work (the "Affirmer"), to the extent that he or she is an owner of
+ Copyright and Related Rights in the Work, voluntarily elects to apply CC0 to
+ the Work and publicly distribute the Work under its terms, with knowledge of
+ his or her Copyright and Related Rights in the Work and the meaning and
+ intended legal effect of CC0 on those rights.
+ .
+ 1. Copyright and Related Rights. A Work made available under CC0 may be
+ protected by copyright and related or neighboring rights ("Copyright and
+ Related Rights"). Copyright and Related Rights include, but are not limited
+ to, the following:
+ .
+    i. the right to reproduce, adapt, distribute, perform, display,
+       communicate, and translate a Work;
+   ii. moral rights retained by the original author(s) and/or performer(s);
+  iii. publicity and privacy rights pertaining to a person's image or likeness
+       depicted in a Work;
+   iv. rights protecting against unfair competition in regards to a Work,
+       subject to the limitations in paragraph 4(a), below;
+    v. rights protecting the extraction, dissemination, use and reuse of data
+       in a Work;
+   vi. database rights (such as those arising under Directive 96/9/EC of the
+       European Parliament and of the Council of 11 March 1996 on the legal
+       protection of databases, and under any national implementation thereof,
+       including any amended or successor version of such directive); and
+  vii. other similar, equivalent or corresponding rights throughout the world
+       based on applicable law or treaty, and any national implementations
+       thereof.
+ .
+ 2. Waiver. To the greatest extent permitted by, but not in contravention of,
+ applicable law, Affirmer hereby overtly, fully, permanently, irrevocably and
+ unconditionally waives, abandons, and surrenders all of Affirmer's Copyright
+ and Related Rights and associated claims and causes of action, whether now
+ known or unknown (including existing as well as future claims and causes of
+ action), in the Work (i) in all territories worldwide, (ii) for the maximum
+ duration provided by applicable law or treaty (including future time
+ extensions), (iii) in any current or future medium and for any number of
+ copies, and (iv) for any purpose whatsoever, including without limitation
+ commercial, advertising or promotional purposes (the "Waiver"). Affirmer
+ makes the Waiver for the benefit of each member of the public at large and to
+ the detriment of Affirmer's heirs and successors, fully intending that such
+ Waiver shall not be subject to revocation, rescission, cancellation,
+ termination, or any other legal or equitable action to disrupt the quiet
+ enjoyment of the Work by the public as contemplated by Affirmer's express
+ Statement of Purpose.
+ .
+ 3. Public License Fallback. Should any part of the Waiver for any reason be
+ judged legally invalid or ineffective under applicable law, then the Waiver
+ shall be preserved to the maximum extent permitted taking into account
+ Affirmer's express Statement of Purpose. In addition, to the extent the
+ Waiver is so judged Affirmer hereby grants to each affected person a
+ royalty-free, non transferable, non sublicensable, non exclusive, irrevocable
+ and unconditional license to exercise Affirmer's Copyright and Related Rights
+ in the Work (i) in all territories worldwide, (ii) for the maximum duration
+ provided by applicable law or treaty (including future time extensions),
+ (iii) in any current or future medium and for any number of copies, and (iv)
+ for any purpose whatsoever, including without limitation commercial,
+ advertising or promotional purposes (the "License"). The License shall be
+ deemed effective as of the date CC0 was applied by Affirmer to the Work.
+ Should any part of the License for any reason be judged legally invalid or
+ ineffective under applicable law, such partial invalidity or ineffectiveness
+ shall not invalidate the remainder of the License, and in such case Affirmer
+ hereby affirms that he or she will not (i) exercise any of his or her
+ remaining Copyright and Related Rights in the Work or (ii) assert any
+ associated claims and causes of action with respect to the Work, in either
+ case contrary to Affirmer's express Statement of Purpose.
+ .
+ 4. Limitations and Disclaimers.
+ .
+  a. No trademark or patent rights held by Affirmer are waived, abandoned,
+     surrendered, licensed or otherwise affected by this document.
+  b. Affirmer offers the Work as-is and makes no representations or warranties
+     of any kind concerning the Work, express, implied, statutory or
+     otherwise, including without limitation warranties of title,
+     merchantability, fitness for a particular purpose, non infringement, or
+     the absence of latent or other defects, accuracy, or the present or
+     absence of errors, whether or not discoverable, all to the greatest
+     extent permissible under applicable law.
+  c. Affirmer disclaims responsibility for clearing rights of other persons
+     that may apply to the Work or any use thereof, including without
+     limitation any person's Copyright and Related Rights in the Work.
+     Further, Affirmer disclaims responsibility for obtaining any necessary
+     consents, permissions or other rights required for any use of the Work.
+  d. Affirmer understands and acknowledges that Creative Commons is not a
+     party to this document and has no duty or obligation with respect to this
+     CC0 or use of the Work.

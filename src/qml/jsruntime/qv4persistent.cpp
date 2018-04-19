@@ -68,6 +68,22 @@ Page *getPage(Value *val) {
    return reinterpret_cast<Page *>(reinterpret_cast<quintptr>(val) & ~((quintptr)(WTF::pageSize() - 1)));
 }
 
+QML_NEARLY_ALWAYS_INLINE void insertInFront(PersistentValueStorage *storage, Page *p)
+{
+    p->header.next = reinterpret_cast<Page *>(storage->firstPage);
+    p->header.prev = reinterpret_cast<Page **>(&storage->firstPage);
+    if (p->header.next)
+        p->header.next->header.prev = &p->header.next;
+    storage->firstPage = p;
+}
+
+QML_NEARLY_ALWAYS_INLINE void unlink(Page *p)
+{
+    if (p->header.prev)
+        *p->header.prev = p->header.next;
+    if (p->header.next)
+        p->header.next->header.prev = p->header.prev;
+}
 
 Page *allocatePage(PersistentValueStorage *storage)
 {
@@ -78,18 +94,13 @@ Page *allocatePage(PersistentValueStorage *storage)
 
     p->header.engine = storage->engine;
     p->header.alloc = page;
-    p->header.next = reinterpret_cast<Page *>(storage->firstPage);
-    p->header.prev = reinterpret_cast<Page **>(&storage->firstPage);
     p->header.refCount = 0;
     p->header.freeList = 0;
-    if (p->header.next)
-        p->header.next->header.prev = &p->header.next;
+    insertInFront(storage, p);
     for (int i = 0; i < kEntriesPerPage - 1; ++i) {
         p->values[i].setEmpty(i + 1);
     }
     p->values[kEntriesPerPage - 1].setEmpty(-1);
-
-    storage->firstPage = p;
 
     return p;
 }
@@ -195,6 +206,12 @@ Value *PersistentValueStorage::allocate()
 
     Value *v = p->values + p->header.freeList;
     p->header.freeList = v->int_32();
+
+    if (p->header.freeList != -1 && p != firstPage) {
+        unlink(p);
+        insertInFront(this, p);
+    }
+
     ++p->header.refCount;
 
     v->setRawValue(Encode::undefined());
@@ -215,26 +232,15 @@ void PersistentValueStorage::free(Value *v)
         freePage(p);
 }
 
-static void drainMarkStack(QV4::ExecutionEngine *engine, Value *markBase)
+void PersistentValueStorage::mark(MarkStack *markStack)
 {
-    while (engine->jsStackTop > markBase) {
-        Heap::Base *h = engine->popForGC();
-        Q_ASSERT (h->vtable()->markObjects);
-        h->vtable()->markObjects(h, engine);
-    }
-}
-
-void PersistentValueStorage::mark(ExecutionEngine *e)
-{
-    Value *markBase = e->jsStackTop;
-
     Page *p = static_cast<Page *>(firstPage);
     while (p) {
         for (int i = 0; i < kEntriesPerPage; ++i) {
             if (Managed *m = p->values[i].as<Managed>())
-                m->mark(e);
+                m->mark(markStack);
         }
-        drainMarkStack(e, markBase);
+        markStack->drain();
 
         p = p->header.next;
     }
@@ -248,10 +254,7 @@ ExecutionEngine *PersistentValueStorage::getEngine(Value *v)
 void PersistentValueStorage::freePage(void *page)
 {
     Page *p = static_cast<Page *>(page);
-    if (p->header.prev)
-        *p->header.prev = p->header.next;
-    if (p->header.next)
-        p->header.next->header.prev = p->header.prev;
+    unlink(p);
     p->header.alloc.deallocate();
 }
 
@@ -393,11 +396,11 @@ void WeakValue::allocVal(ExecutionEngine *engine)
     val = engine->memoryManager->m_weakValues->allocate();
 }
 
-void WeakValue::markOnce(ExecutionEngine *e)
+void WeakValue::markOnce(MarkStack *markStack)
 {
     if (!val)
         return;
-    val->mark(e);
+    val->mark(markStack);
 }
 
 void WeakValue::free()

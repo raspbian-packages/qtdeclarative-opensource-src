@@ -150,7 +150,7 @@ public:
     QImage grab(QQuickWindow *window) override;
 
     void maybeUpdate(QQuickWindow *window) override;
-    void update(QQuickWindow *window) override{ maybeUpdate(window); } // identical for this implementation.
+    void update(QQuickWindow *window) override { maybeUpdate(window); } // identical for this implementation.
     void handleUpdateRequest(QQuickWindow *) override;
 
     void releaseResources(QQuickWindow *) override;
@@ -305,6 +305,8 @@ void QSGGuiThreadRenderLoop::hide(QQuickWindow *window)
 {
     QQuickWindowPrivate *cd = QQuickWindowPrivate::get(window);
     cd->fireAboutToStop();
+    if (m_windows.contains(window))
+        m_windows[window].updatePending = false;
 }
 
 void QSGGuiThreadRenderLoop::windowDestroyed(QQuickWindow *window)
@@ -494,7 +496,8 @@ QImage QSGGuiThreadRenderLoop::grab(QQuickWindow *window)
 
 void QSGGuiThreadRenderLoop::maybeUpdate(QQuickWindow *window)
 {
-    if (!m_windows.contains(window))
+    QQuickWindowPrivate *cd = QQuickWindowPrivate::get(window);
+    if (!cd->isRenderable() || !m_windows.contains(window))
         return;
 
     m_windows[window].updatePending = true;

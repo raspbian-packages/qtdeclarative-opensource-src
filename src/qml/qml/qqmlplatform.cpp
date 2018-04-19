@@ -38,6 +38,7 @@
 ****************************************************************************/
 
 #include "qqmlplatform_p.h"
+#include "qqmlglobal_p.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -71,11 +72,18 @@ QString QQmlPlatform::os()
     return QStringLiteral("windows");
 #elif defined(Q_OS_LINUX)
     return QStringLiteral("linux");
+#elif defined(Q_OS_QNX)
+    return QStringLiteral("qnx");
 #elif defined(Q_OS_UNIX)
     return QStringLiteral("unix");
 #else
     return QStringLiteral("unknown");
 #endif
+}
+
+QString QQmlPlatform::pluginName() const
+{
+    return QQml_guiProvider()->pluginName();
 }
 
 QT_END_NAMESPACE

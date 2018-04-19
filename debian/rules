@@ -5,10 +5,9 @@
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 
-export CFLAGS := $(shell dpkg-buildflags --get CFLAGS) $(shell dpkg-buildflags --get CPPFLAGS)
-export CXXFLAGS := $(shell dpkg-buildflags --get CXXFLAGS) $(shell dpkg-buildflags --get CPPFLAGS)
-export LDFLAGS := $(shell dpkg-buildflags --get LDFLAGS) -Wl,--as-needed
 export QT_SELECT := qt5
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 %:
 	dh $@ --with pkgkde_symbolshelper
@@ -42,7 +41,7 @@ override_dh_auto_configure:
 	sed -i 's/arch=amd64 arm64 armhf i386)/optional=meh)/' debian/libqt5qml5.symbols
 	sed -i 's/(arch=armhf)/(optional=meh2)/' debian/libqt5qml5.symbols
 	sed -i 's/(c++|arch=armhf)/(c++|optional=meh2)/' debian/libqt5qml5.symbols
-	qmake QT_BUILD_PARTS+=" tests"
+	dh_auto_configure -- QT_BUILD_PARTS+=tests
 
 override_dh_auto_build-indep:
 	dh_auto_build -- docs
