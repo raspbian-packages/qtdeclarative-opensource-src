@@ -37,17 +37,17 @@
 **
 ****************************************************************************/
 
-#include "qqmldebugserver.h"
 #include "qqmldebugserverfactory.h"
-#include "qqmldebugserverconnection.h"
-#include "qqmldebugpacket.h"
 
+#include <private/qqmldebugserver_p.h>
+#include <private/qqmldebugserverconnection_p.h>
 #include <private/qqmldebugservice_p.h>
 #include <private/qjsengine_p.h>
 #include <private/qqmlglobal_p.h>
 #include <private/qqmldebugpluginmanager_p.h>
 #include <private/qqmldebugserviceinterfaces_p.h>
 #include <private/qpacketprotocol_p.h>
+#include <private/qversionedpacket_p.h>
 
 #include <QtCore/QAtomicInt>
 #include <QtCore/QDir>
@@ -83,12 +83,13 @@ QT_BEGIN_NAMESPACE
 Q_QML_DEBUG_PLUGIN_LOADER(QQmlDebugServerConnection)
 
 const int protocolVersion = 1;
+using QQmlDebugPacket = QVersionedPacket<QQmlDebugConnector>;
 
 class QQmlDebugServerImpl;
 class QQmlDebugServerThread : public QThread
 {
 public:
-    QQmlDebugServerThread() : m_server(0), m_portFrom(-1), m_portTo(-1) {}
+    QQmlDebugServerThread() : m_server(nullptr), m_portFrom(-1), m_portTo(-1) {}
 
     void setServer(QQmlDebugServerImpl *server)
     {
@@ -131,19 +132,19 @@ class QQmlDebugServerImpl : public QQmlDebugServer
 public:
     QQmlDebugServerImpl();
 
-    bool blockingMode() const Q_DECL_OVERRIDE;
+    bool blockingMode() const override;
 
-    QQmlDebugService *service(const QString &name) const Q_DECL_OVERRIDE;
+    QQmlDebugService *service(const QString &name) const override;
 
-    void addEngine(QJSEngine *engine) Q_DECL_OVERRIDE;
-    void removeEngine(QJSEngine *engine) Q_DECL_OVERRIDE;
-    bool hasEngine(QJSEngine *engine) const Q_DECL_OVERRIDE;
+    void addEngine(QJSEngine *engine) override;
+    void removeEngine(QJSEngine *engine) override;
+    bool hasEngine(QJSEngine *engine) const override;
 
-    bool addService(const QString &name, QQmlDebugService *service) Q_DECL_OVERRIDE;
-    bool removeService(const QString &name) Q_DECL_OVERRIDE;
+    bool addService(const QString &name, QQmlDebugService *service) override;
+    bool removeService(const QString &name) override;
 
-    bool open(const QVariantHash &configuration) Q_DECL_OVERRIDE;
-    void setDevice(QIODevice *socket) Q_DECL_OVERRIDE;
+    bool open(const QVariantHash &configuration) override;
+    void setDevice(QIODevice *socket) override;
 
     void parseArguments();
 
@@ -228,7 +229,7 @@ void QQmlDebugServerImpl::cleanup()
 
 void QQmlDebugServerThread::run()
 {
-    Q_ASSERT_X(m_server != 0, Q_FUNC_INFO, "There should always be a debug server available here.");
+    Q_ASSERT_X(m_server != nullptr, Q_FUNC_INFO, "There should always be a debug server available here.");
     QQmlDebugServerConnection *connection = loadQQmlDebugServerConnection(m_pluginName);
     if (connection) {
         {
@@ -274,7 +275,7 @@ static void cleanupOnShutdown()
 }
 
 QQmlDebugServerImpl::QQmlDebugServerImpl() :
-    m_connection(0),
+    m_connection(nullptr),
     m_gotHello(false),
     m_blockingMode(false),
     m_clientSupportsMultiPackets(false)
@@ -570,7 +571,7 @@ void QQmlDebugServerImpl::removeThread()
     QThread *parentThread = m_thread.thread();
 
     delete m_connection;
-    m_connection = 0;
+    m_connection = nullptr;
 
     // Move it back to the parent thread so that we can potentially restart it on a new thread.
     moveToThread(parentThread);
@@ -755,16 +756,15 @@ void QQmlDebugServerImpl::invalidPacket()
     m_connection->disconnect();
     // protocol might still be processing packages at this point
     m_protocol->deleteLater();
-    m_protocol = 0;
+    m_protocol = nullptr;
 }
 
 QQmlDebugConnector *QQmlDebugServerFactory::create(const QString &key)
 {
     // Cannot parent it to this because it gets moved to another thread
-    return (key == QLatin1String("QQmlDebugServer") ? new QQmlDebugServerImpl : 0);
+    return (key == QLatin1String("QQmlDebugServer") ? new QQmlDebugServerImpl : nullptr);
 }
 
 QT_END_NAMESPACE
 
 #include "qqmldebugserver.moc"
-#include "moc_qqmldebugserver.cpp"

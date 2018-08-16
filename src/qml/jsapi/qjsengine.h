@@ -47,10 +47,10 @@
 #include <QtCore/qobject.h>
 #include <QtQml/qjsvalue.h>
 
+#include <QtQml/qqmldebug.h>
+
 QT_BEGIN_NAMESPACE
 
-
-class QV8Engine;
 
 template <typename T>
 inline T qjsvalue_cast(const QJSValue &);
@@ -63,7 +63,7 @@ class Q_QML_EXPORT QJSEngine
 public:
     QJSEngine();
     explicit QJSEngine(QObject *parent);
-    virtual ~QJSEngine();
+    ~QJSEngine() override;
 
     QJSValue globalObject() const;
 
@@ -109,7 +109,7 @@ public:
 
     void installExtensions(Extensions extensions, const QJSValue &object = QJSValue());
 
-    QV8Engine *handle() const { return d; }
+    QV4::ExecutionEngine *handle() const { return m_v4Engine; }
 
 private:
     QJSValue create(int type, const void *ptr);
@@ -119,13 +119,12 @@ private:
     friend inline bool qjsvalue_cast_helper(const QJSValue &, int, void *);
 
 protected:
-    QJSEngine(QJSEnginePrivate &dd, QObject *parent = Q_NULLPTR);
+    QJSEngine(QJSEnginePrivate &dd, QObject *parent = nullptr);
 
 private:
-    QV8Engine *d;
+    QV4::ExecutionEngine *m_v4Engine;
     Q_DISABLE_COPY(QJSEngine)
     Q_DECLARE_PRIVATE(QJSEngine)
-    friend class QV8Engine;
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(QJSEngine::Extensions)

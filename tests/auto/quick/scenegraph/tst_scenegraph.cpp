@@ -47,6 +47,9 @@
 #include "../../shared/util.h"
 #include "../shared/visualtestutil.h"
 
+#include <QtGui/private/qguiapplication_p.h>
+#include <QtGui/qpa/qplatformintegration.h>
+
 using namespace QQuickVisualTestUtil;
 
 class PerPixelRect : public QQuickItem
@@ -113,7 +116,8 @@ private slots:
 
 private:
     bool m_brokenMipmapSupport;
-    QQuickView *createView(const QString &file, QWindow *parent = 0, int x = -1, int y = -1, int w = -1, int h = -1);
+    QQuickView *createView(const QString &file, QWindow *parent = nullptr, int x = -1, int y = -1, int w = -1, int h = -1);
+    bool isRunningOnOpenGL();
 };
 
 template <typename T> class ScopedList : public QList<T> {
@@ -131,38 +135,40 @@ void tst_SceneGraph::initTestCase()
     qDebug() << "RenderLoop:        " << loop;
 
 #if QT_CONFIG(opengl)
-    QOpenGLContext context;
-    context.setFormat(loop->sceneGraphContext()->defaultSurfaceFormat());
-    context.create();
-    QSurfaceFormat format = context.format();
+    if (QGuiApplicationPrivate::platformIntegration()->hasCapability(QPlatformIntegration::OpenGL)) {
+        QOpenGLContext context;
+        context.setFormat(loop->sceneGraphContext()->defaultSurfaceFormat());
+        context.create();
+        QSurfaceFormat format = context.format();
 
-    QOffscreenSurface surface;
-    surface.setFormat(format);
-    surface.create();
-    if (!context.makeCurrent(&surface))
-        qFatal("Failed to create a GL context...");
+        QOffscreenSurface surface;
+        surface.setFormat(format);
+        surface.create();
+        if (!context.makeCurrent(&surface))
+            qFatal("Failed to create a GL context...");
 
-    QOpenGLFunctions *funcs = QOpenGLContext::currentContext()->functions();
-    qDebug() << "R/G/B/A Buffers:   " << format.redBufferSize() << format.greenBufferSize() << format.blueBufferSize() << format.alphaBufferSize();
-    qDebug() << "Depth Buffer:      " << format.depthBufferSize();
-    qDebug() << "Stencil Buffer:    " << format.stencilBufferSize();
-    qDebug() << "Samples:           " << format.samples();
-    int textureSize;
-    funcs->glGetIntegerv(GL_MAX_TEXTURE_SIZE, &textureSize);
-    qDebug() << "Max Texture Size:  " << textureSize;
-    qDebug() << "GL_VENDOR:         " << (const char *) funcs->glGetString(GL_VENDOR);
-    qDebug() << "GL_RENDERER:       " << (const char *) funcs->glGetString(GL_RENDERER);
-    QByteArray version = (const char *) funcs->glGetString(GL_VERSION);
-    qDebug() << "GL_VERSION:        " << version.constData();
-    QSet<QByteArray> exts = context.extensions();
-    QByteArray all;
-    foreach (const QByteArray &e, exts) all += ' ' + e;
-    qDebug() << "GL_EXTENSIONS:    " << all.constData();
+        QOpenGLFunctions *funcs = QOpenGLContext::currentContext()->functions();
+        qDebug() << "R/G/B/A Buffers:   " << format.redBufferSize() << format.greenBufferSize() << format.blueBufferSize() << format.alphaBufferSize();
+        qDebug() << "Depth Buffer:      " << format.depthBufferSize();
+        qDebug() << "Stencil Buffer:    " << format.stencilBufferSize();
+        qDebug() << "Samples:           " << format.samples();
+        int textureSize;
+        funcs->glGetIntegerv(GL_MAX_TEXTURE_SIZE, &textureSize);
+        qDebug() << "Max Texture Size:  " << textureSize;
+        qDebug() << "GL_VENDOR:         " << (const char *) funcs->glGetString(GL_VENDOR);
+        qDebug() << "GL_RENDERER:       " << (const char *) funcs->glGetString(GL_RENDERER);
+        QByteArray version = (const char *) funcs->glGetString(GL_VERSION);
+        qDebug() << "GL_VERSION:        " << version.constData();
+        QSet<QByteArray> exts = context.extensions();
+        QByteArray all;
+        foreach (const QByteArray &e, exts) all += ' ' + e;
+        qDebug() << "GL_EXTENSIONS:    " << all.constData();
 
-    m_brokenMipmapSupport = version.contains("Mesa 10.1") || version.contains("Mesa 9.");
-    qDebug() << "Broken Mipmap:    " << m_brokenMipmapSupport;
+        m_brokenMipmapSupport = version.contains("Mesa 10.1") || version.contains("Mesa 9.");
+        qDebug() << "Broken Mipmap:    " << m_brokenMipmapSupport;
 
-    context.doneCurrent();
+        context.doneCurrent();
+    }
 #endif
 }
 
@@ -225,12 +231,16 @@ void tst_SceneGraph::manyWindows_data()
 #if QT_CONFIG(opengl)
 struct ShareContextResetter {
 public:
-    ~ShareContextResetter() { qt_gl_set_global_share_context(0); }
+    ~ShareContextResetter() { qt_gl_set_global_share_context(nullptr); }
 };
 #endif
 
 void tst_SceneGraph::manyWindows()
 {
+    if ((QGuiApplication::platformName() == QLatin1String("offscreen"))
+        || (QGuiApplication::platformName() == QLatin1String("minimal")))
+        QSKIP("Skipping due to grabWindow not functional on offscreen/minimimal platforms");
+
     QFETCH(QString, file);
     QFETCH(bool, toplevel);
     QFETCH(bool, shared);
@@ -259,7 +269,7 @@ void tst_SceneGraph::manyWindows()
     }
     for (int i=0; i<COUNT; ++i) {
         QQuickView *view = views.at(i);
-        QTest::qWaitForWindowExposed(view);
+        QVERIFY(QTest::qWaitForWindowExposed(view));
         QImage content = view->grabWindow();
         if (i == 0) {
             baseLine = content;
@@ -272,7 +282,7 @@ void tst_SceneGraph::manyWindows()
     // Wipe and recreate one (scope pointer delets it...)
     delete views.takeLast();
     QQuickView *last = createView(file, parent.data(), 100, 100, 100, 100);
-    QTest::qWaitForWindowExposed(last);
+    QVERIFY(QTest::qWaitForWindowExposed(last));
     views << last;
     QVERIFY(compareImages(baseLine, last->grabWindow()));
 
@@ -285,7 +295,7 @@ void tst_SceneGraph::manyWindows()
     }
     for (int i=0; i<COUNT; ++i) {
         QQuickView *view = views.at(i);
-        QTest::qWaitForWindowExposed(view);
+        QVERIFY(QTest::qWaitForWindowExposed(view));
         QImage content = view->grabWindow();
         QVERIFY(compareImages(content, baseLine));
     }
@@ -430,12 +440,8 @@ void tst_SceneGraph::render_data()
 
 void tst_SceneGraph::render()
 {
-    QQuickView dummy;
-    dummy.show();
-    QTest::qWaitForWindowExposed(&dummy);
-    if (dummy.rendererInterface()->graphicsApi() != QSGRendererInterface::OpenGL)
+    if (!isRunningOnOpenGL())
         QSKIP("Skipping complex rendering tests due to not running with OpenGL");
-    dummy.hide();
 
     QFETCH(QString, file);
     QFETCH(QList<Sample>, baseStage);
@@ -485,6 +491,9 @@ void tst_SceneGraph::render()
 // current on the other window.
 void tst_SceneGraph::hideWithOtherContext()
 {
+    if (!isRunningOnOpenGL())
+        QSKIP("Skipping OpenGL context test due to not running with OpenGL");
+
     QWindow window;
     window.setSurfaceType(QWindow::OpenGLSurface);
     window.resize(100, 100);
@@ -499,9 +508,6 @@ void tst_SceneGraph::hideWithOtherContext()
         view.setResizeMode(QQuickView::SizeViewToRootObject);
         view.show();
         QVERIFY(QTest::qWaitForWindowExposed(&view));
-
-        if (view.rendererInterface()->graphicsApi() != QSGRendererInterface::OpenGL)
-            QSKIP("Skipping OpenGL context test due to not running with OpenGL");
 
         renderingOnMainThread = view.openglContext()->thread() == QGuiApplication::instance()->thread();
 
@@ -542,13 +548,24 @@ void tst_SceneGraph::createTextureFromImage()
 
     QQuickView view;
     view.show();
-    QTest::qWaitForWindowExposed(&view);
+    QVERIFY(QTest::qWaitForWindowExposed(&view));
     QTRY_VERIFY(view.isSceneGraphInitialized());
 
     QScopedPointer<QSGTexture> texture(view.createTextureFromImage(image, (QQuickWindow::CreateTextureOptions) flags));
     QCOMPARE(texture->hasAlphaChannel(), expectedAlpha);
 }
 
+bool tst_SceneGraph::isRunningOnOpenGL()
+{
+    bool retval = false;
+    QQuickView dummy;
+    dummy.show();
+    QTest::qWaitForWindowExposed(&dummy);
+    if (dummy.rendererInterface()->graphicsApi() == QSGRendererInterface::OpenGL)
+        retval = true;
+    dummy.hide();
+    return retval;
+}
 
 #include "tst_scenegraph.moc"
 

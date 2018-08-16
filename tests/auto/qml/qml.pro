@@ -1,4 +1,5 @@
 TEMPLATE = subdirs
+QT_FOR_CONFIG += qml
 
 METATYPETESTS += \
     qqmlmetatype
@@ -10,7 +11,6 @@ PUBLICTESTS += \
     qqmlfile \
     qqmlfileselector
 
-!boot2qt {
 PUBLICTESTS += \
     qmlmin \
     qqmlcomponent \
@@ -31,15 +31,12 @@ PUBLICTESTS += \
     qqmlsettings \
     qqmlstatemachine \
     qmldiskcache
-}
 
 PRIVATETESTS += \
     qqmlcpputils \
     qqmldirparser \
-    v4misc \
     qmlcachegen
 
-!boot2qt {
 PRIVATETESTS += \
     animation \
     qqmlecmascript \
@@ -71,22 +68,25 @@ PRIVATETESTS += \
     qqmltranslation \
     qqmlimport \
     qqmlobjectmodel \
+    qv4assembler \
     qv4mm \
     ecmascripttests \
     bindingdependencyapi
-}
 
 qtHaveModule(widgets) {
     PUBLICTESTS += \
         qjsengine \
-        qjsvalue
+        qjsvalue \
+#        qwidgetsinqml
 }
 
 SUBDIRS += $$PUBLICTESTS
 SUBDIRS += $$METATYPETESTS
-qtConfig(process):!boot2qt {
-    !contains(QT_CONFIG, no-qml-debug): SUBDIRS += debugger
-    SUBDIRS += qmllint qmlplugindump
+qtConfig(process) {
+    qtConfig(qml-debug): SUBDIRS += debugger
+    !boot2qt {
+        SUBDIRS += qmllint qmlplugindump
+    }
 }
 
 qtConfig(private_tests): \

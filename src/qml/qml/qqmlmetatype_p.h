@@ -96,7 +96,7 @@ public:
     static QQmlType qmlType(const QMetaObject *);
     static QQmlType qmlType(const QMetaObject *metaObject, const QHashedStringRef &module, int version_major, int version_minor);
     static QQmlType qmlType(int);
-    static QQmlType qmlType(const QUrl &url, bool includeNonFileImports = false);
+    static QQmlType qmlType(const QUrl &unNormalizedUrl, bool includeNonFileImports = false);
 
     static QQmlPropertyCache *propertyCache(const QMetaObject *metaObject);
     static QQmlPropertyCache *propertyCache(const QQmlType &type, int minorVersion);
@@ -109,7 +109,7 @@ public:
     static QMetaMethod defaultMethod(QObject *);
 
     static bool isQObject(int);
-    static QObject *toQObject(const QVariant &, bool *ok = 0);
+    static QObject *toQObject(const QVariant &, bool *ok = nullptr);
 
     static int listType(int);
     static int attachedPropertiesFuncId(QQmlEnginePrivate *engine, const QMetaObject *);
@@ -133,7 +133,17 @@ public:
 
     static QList<QQmlPrivate::AutoParentFunction> parentFunctions();
 
-    static const QQmlPrivate::CachedQmlUnit *findCachedCompilationUnit(const QUrl &uri);
+    enum class CachedUnitLookupError {
+        NoError,
+        NoUnitFound,
+        VersionMismatch
+    };
+
+    static const QV4::CompiledData::Unit *findCachedCompilationUnit(const QUrl &uri, CachedUnitLookupError *status);
+
+    // used by tst_qqmlcachegen.cpp
+    static void prependCachedUnitLookupFunction(QQmlPrivate::QmlUnitCacheLookupFunction handler);
+    static void removeCachedUnitLookupFunction(QQmlPrivate::QmlUnitCacheLookupFunction handler);
 
     static bool namespaceContainsRegistrations(const QString &, int majorVersion);
 
@@ -163,7 +173,7 @@ public:
         return d == other.d;
     }
 
-    bool isValid() const { return d != 0; }
+    bool isValid() const { return d != nullptr; }
     const QQmlTypePrivate *key() const { return d; }
 
     QByteArray typeName() const;
@@ -218,7 +228,7 @@ public:
     {
     public:
         SingletonInstanceInfo()
-            : scriptCallback(0), qobjectCallback(0), instanceMetaObject(0) {}
+            : scriptCallback(nullptr), qobjectCallback(nullptr), instanceMetaObject(nullptr) {}
 
         QJSValue (*scriptCallback)(QQmlEngine *, QJSEngine *);
         QObject *(*qobjectCallback)(QQmlEngine *, QJSEngine *);

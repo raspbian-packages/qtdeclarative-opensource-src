@@ -62,7 +62,7 @@ static void initResources()
 
 QT_BEGIN_NAMESPACE
 
-#ifdef QT_NO_QML_DEBUGGER
+#if !QT_CONFIG(qml_debug)
 
 class QQmlQtQuick2DebugStatesDelegate : public QQmlDebugStatesDelegate {};
 
@@ -140,7 +140,7 @@ void QQmlQtQuick2DebugStatesDelegate::updateBinding(QQmlContext *context,
             if (state->isStateActive() && state->containsPropertyInRevertList(object, propertyName)) {
                 *inBaseState = false;
 
-                QQmlBinding *newBinding = 0;
+                QQmlBinding *newBinding = nullptr;
                 if (!isLiteralValue) {
                     newBinding = QQmlBinding::create(&QQmlPropertyPrivate::get(property)->core,
                                                      expression.toString(), object,
@@ -181,7 +181,7 @@ void QQmlQtQuick2DebugStatesDelegate::resetBindingForInvalidProperty(QObject *ob
     }
 }
 
-#endif // QT_NO_QML_DEBUGGER
+#endif // QT_CONFIG(qml_debug)
 
 void QQmlQtQuick2Module::defineModule()
 {

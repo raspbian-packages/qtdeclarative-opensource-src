@@ -47,8 +47,8 @@ using namespace QV4;
 
 void ObjectIterator::init(const Object *o)
 {
-    object->setM(o ? o->m() : 0);
-    current->setM(o ? o->m() : 0);
+    object->setM(o ? o->m() : nullptr);
+    current->setM(o ? o->m() : nullptr);
 
     if (object->as<ArgumentsObject>()) {
         Scope scope(engine);
@@ -58,7 +58,7 @@ void ObjectIterator::init(const Object *o)
 
 void ObjectIterator::next(Value *name, uint *index, Property *pd, PropertyAttributes *attrs)
 {
-    name->setM(0);
+    name->setM(nullptr);
     *index = UINT_MAX;
 
     if (!object->as<Object>()) {
@@ -100,7 +100,7 @@ void ObjectIterator::next(Value *name, uint *index, Property *pd, PropertyAttrib
         if (flags & WithProtoChain)
             current->setM(co->prototype());
         else
-            current->setM(0);
+            current->setM(nullptr);
 
         arrayIndex = 0;
         memberIndex = 0;
@@ -177,9 +177,9 @@ ReturnedValue ObjectIterator::nextPropertyNameAsString()
 
 DEFINE_OBJECT_VTABLE(ForEachIteratorObject);
 
-void ForEachIteratorObject::markObjects(Heap::Base *that, MarkStack *markStack)
+void Heap::ForEachIteratorObject::markObjects(Heap::Base *that, MarkStack *markStack)
 {
-    ForEachIteratorObject::Data *o = static_cast<ForEachIteratorObject::Data *>(that);
+    ForEachIteratorObject *o = static_cast<ForEachIteratorObject *>(that);
     o->workArea[0].mark(markStack);
     o->workArea[1].mark(markStack);
     Object::markObjects(that, markStack);

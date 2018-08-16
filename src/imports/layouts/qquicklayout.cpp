@@ -95,6 +95,8 @@ QQuickLayoutAttached::QQuickLayoutAttached(QObject *parent)
       m_maximumWidth(std::numeric_limits<qreal>::infinity()),
       m_maximumHeight(std::numeric_limits<qreal>::infinity()),
       m_defaultMargins(0),
+      m_fallbackWidth(-1),
+      m_fallbackHeight(-1),
       m_row(-1),
       m_column(-1),
       m_rowSpan(1),
@@ -112,7 +114,7 @@ QQuickLayoutAttached::QQuickLayoutAttached(QObject *parent)
       m_isTopMarginSet(false),
       m_isRightMarginSet(false),
       m_isBottomMarginSet(false),
-      m_alignment(0)
+      m_alignment(nullptr)
 {
 
 }
@@ -681,7 +683,7 @@ QQuickLayout *QQuickLayoutAttached::parentLayout() const
     } else {
         qmlWarning(parent()) << "Layout must be attached to Item elements";
     }
-    return 0;
+    return nullptr;
 }
 
 QQuickItem *QQuickLayoutAttached::item() const
@@ -765,6 +767,13 @@ bool QQuickLayout::shouldIgnoreItem(QQuickItem *child, QQuickLayoutAttached *&in
     if (ignoreItem)
         d->m_ignoredItems << child;
     return ignoreItem;
+}
+
+void QQuickLayout::checkAnchors(QQuickItem *item) const
+{
+    QQuickAnchors *anchors = QQuickItemPrivate::get(item)->_anchors;
+    if (anchors && anchors->activeDirections())
+        qmlWarning(item) << "Detected anchors on an item that is managed by a layout. This is undefined behavior; use Layout.alignment instead.";
 }
 
 void QQuickLayout::itemChange(ItemChange change, const ItemChangeData &value)
@@ -1049,39 +1058,32 @@ void QQuickLayout::effectiveSizeHints_helper(QQuickItem *item, QSizeF *cachedSiz
         prefHeight = qCeil(item->implicitHeight());
 
     // If that fails, make an ultimate fallback to width/height
-
-    if (!info && (prefWidth < 0 || prefHeight < 0))
-        info = attachedLayoutObject(item);
-
-    if (useFallbackToWidthOrHeight && info) {
-        /* This block is a bit hacky, but if we want to support using width/height
-           as preferred size hints in layouts, (which we think most people expect),
-           we only want to use the initial width.
-           This is because the width will change due to layout rearrangement, and the preferred
-           width should return the same value, regardless of the current width.
-           We therefore store the width in the implicitWidth attached property.
-           Since the layout listens to changes of implicitWidth, (it will
-           basically cause an invalidation of the layout), we have to disable that
-           notification while we set the implicit width (and height).
-
-           Only use this fallback the first time the size hint is queried. Otherwise, we might
-           end up picking a width that is different than what was specified in the QML.
+    if (useFallbackToWidthOrHeight && !prefS.isValid()) {
+        /* If we want to support using width/height as preferred size hints in
+           layouts, (which we think most people expect), we only want to use the
+           initial width.
+           This is because the width will change due to layout rearrangement,
+           and the preferred width should return the same value, regardless of
+           the current width.
+           We therefore store this initial width in the attached layout object
+           and reuse it if needed rather than querying the width another time.
+           That means we need to ensure that an Layout attached object is available
+           by creating one if necessary.
         */
-        if (prefWidth < 0 || prefHeight < 0) {
-            item->blockSignals(true);
-            if (prefWidth < 0) {
-                prefWidth = item->width();
-                item->setImplicitWidth(prefWidth);
+        if (!info)
+            info = attachedLayoutObject(item);
+
+        auto updatePreferredSizes = [](qreal &cachedSize, qreal &attachedSize, qreal size) {
+            if (cachedSize < 0) {
+                if (attachedSize < 0)
+                    attachedSize = size;
+
+                cachedSize = attachedSize;
             }
-            if (prefHeight < 0) {
-                prefHeight = item->height();
-                item->setImplicitHeight(prefHeight);
-            }
-            item->blockSignals(false);
-        }
+        };
+        updatePreferredSizes(prefWidth, info->m_fallbackWidth, item->width());
+        updatePreferredSizes(prefHeight, info->m_fallbackHeight, item->height());
     }
-
-
 
     // Normalize again after the implicit hints have been gathered
     expandSize(prefS, minS);

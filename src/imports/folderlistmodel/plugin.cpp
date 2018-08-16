@@ -58,14 +58,20 @@ class QmlFolderListModelPlugin : public QQmlExtensionPlugin
     Q_PLUGIN_METADATA(IID QQmlExtensionInterface_iid)
 
 public:
-    QmlFolderListModelPlugin(QObject *parent = 0) : QQmlExtensionPlugin(parent) { initResources(); }
-    void registerTypes(const char *uri) Q_DECL_OVERRIDE
+    QmlFolderListModelPlugin(QObject *parent = nullptr) : QQmlExtensionPlugin(parent) { initResources(); }
+    void registerTypes(const char *uri) override
     {
         Q_ASSERT(QLatin1String(uri) == QLatin1String("Qt.labs.folderlistmodel"));
         qmlRegisterType<QQuickFolderListModel>(uri,1,0,"FolderListModel");
         qmlRegisterType<QQuickFolderListModel>(uri,2,0,"FolderListModel");
         qmlRegisterType<QQuickFolderListModel,1>(uri,2,1,"FolderListModel");
         qmlRegisterType<QQuickFolderListModel,2>(uri,2,2,"FolderListModel");
+
+        // Auto-increment the import to stay in sync with ALL future QtQuick minor versions from 5.11 onward
+        qmlRegisterModule(uri, 2, QT_VERSION_MINOR);
+
+        // revision in Qt 5.11: added status property
+        qmlRegisterType<QQuickFolderListModel,11>(uri, 2, 11, "FolderListModel");
     }
 };
 //![class decl]

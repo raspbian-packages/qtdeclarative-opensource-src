@@ -108,7 +108,7 @@ public:
         return m_uid;
     }
 
-    static void sync(DynamicRoleModelNode *src, DynamicRoleModelNode *target, QHash<int, QQmlListModel *> *targetModelHash);
+    static QVector<int> sync(DynamicRoleModelNode *src, DynamicRoleModelNode *target);
 
 private:
     QQmlListModel *m_owner;
@@ -164,15 +164,17 @@ namespace QV4 {
 namespace Heap {
 
 struct ModelObject : public QObjectWrapper {
-    void init(QObject *object, QQmlListModel *model, int elementIndex)
+    void init(QObject *object, QQmlListModel *model)
     {
         QObjectWrapper::init(object);
         m_model = model;
-        m_elementIndex = elementIndex;
+        QObjectPrivate *op = QObjectPrivate::get(object);
+        m_nodeModelMetaObject = static_cast<ModelNodeMetaObject *>(op->metaObject);
     }
     void destroy() { QObjectWrapper::destroy(); }
+    int elementIndex() const { return m_nodeModelMetaObject->m_elementIndex; }
     QQmlListModel *m_model;
-    int m_elementIndex;
+    ModelNodeMetaObject *m_nodeModelMetaObject;
 };
 
 }
@@ -216,6 +218,7 @@ public:
             QObject,
             VariantMap,
             DateTime,
+            Function,
 
             MaxDataType
         };
@@ -260,7 +263,7 @@ public:
     ListElement(int existingUid);
     ~ListElement();
 
-    static void sync(ListElement *src, ListLayout *srcLayout, ListElement *target, ListLayout *targetLayout, QHash<int, ListModel *> *targetModelHash);
+    static QVector<int> sync(ListElement *src, ListLayout *srcLayout, ListElement *target, ListLayout *targetLayout);
 
     enum
     {
@@ -283,6 +286,7 @@ private:
     int setVariantMapProperty(const ListLayout::Role &role, QV4::Object *o);
     int setVariantMapProperty(const ListLayout::Role &role, QVariantMap *m);
     int setDateTimeProperty(const ListLayout::Role &role, const QDateTime &dt);
+    int setFunctionProperty(const ListLayout::Role &role, const QJSValue &f);
 
     void setStringPropertyFast(const ListLayout::Role &role, const QString &s);
     void setDoublePropertyFast(const ListLayout::Role &role, double n);
@@ -291,6 +295,7 @@ private:
     void setListPropertyFast(const ListLayout::Role &role, ListModel *m);
     void setVariantMapFast(const ListLayout::Role &role, QV4::Object *o);
     void setDateTimePropertyFast(const ListLayout::Role &role, const QDateTime &dt);
+    void setFunctionPropertyFast(const ListLayout::Role &role, const QJSValue &f);
 
     void clearProperty(const ListLayout::Role &role);
 
@@ -301,6 +306,7 @@ private:
     QPointer<QObject> *getGuardProperty(const ListLayout::Role &role);
     QVariantMap *getVariantMapProperty(const ListLayout::Role &role);
     QDateTime *getDateTimeProperty(const ListLayout::Role &role);
+    QJSValue *getFunctionProperty(const ListLayout::Role &role);
 
     inline char *getPropertyMemory(const ListLayout::Role &role);
 
@@ -324,7 +330,7 @@ class ListModel
 {
 public:
 
-    ListModel(ListLayout *layout, QQmlListModel *modelCache, int uid);
+    ListModel(ListLayout *layout, QQmlListModel *modelCache);
     ~ListModel() {}
 
     void destroy();
@@ -373,25 +379,23 @@ public:
 
     void move(int from, int to, int n);
 
-    int getUid() const { return m_uid; }
-
-    static void sync(ListModel *src, ListModel *target, QHash<int, ListModel *> *srcModelHash);
+    static bool sync(ListModel *src, ListModel *target);
 
     QObject *getOrCreateModelObject(QQmlListModel *model, int elementIndex);
 
 private:
     QPODVector<ListElement *, 4> elements;
     ListLayout *m_layout;
-    int m_uid;
 
     QQmlListModel *m_modelCache;
 
     struct ElementSync
     {
-        ElementSync() : src(0), target(0) {}
-
-        ListElement *src;
-        ListElement *target;
+        ListElement *src = nullptr;
+        ListElement *target = nullptr;
+        int srcIndex = -1;
+        int targetIndex = -1;
+        QVector<int> changedRoles;
     };
 
     void newElement(int index);
@@ -400,6 +404,7 @@ private:
 
     friend class ListElement;
     friend class QQmlListModelWorkerAgent;
+    friend class QQmlListModelParser;
 };
 
 QT_END_NAMESPACE

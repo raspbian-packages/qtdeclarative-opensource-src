@@ -94,7 +94,7 @@ class Q_AUTOTEST_EXPORT QQuickAnimatedSprite : public QQuickItem
     Q_PROPERTY(int currentFrame READ currentFrame WRITE setCurrentFrame NOTIFY currentFrameChanged)
 
 public:
-    explicit QQuickAnimatedSprite(QQuickItem *parent = 0);
+    explicit QQuickAnimatedSprite(QQuickItem *parent = nullptr);
     enum LoopParameters {
         Infinite = -1
     };
@@ -169,8 +169,8 @@ protected Q_SLOTS:
     void reset();
 
 protected:
-    void componentComplete() Q_DECL_OVERRIDE;
-    QSGNode *updatePaintNode(QSGNode *, UpdatePaintNodeData *) Q_DECL_OVERRIDE;
+    void componentComplete() override;
+    QSGNode *updatePaintNode(QSGNode *, UpdatePaintNodeData *) override;
 private:
     void maybeUpdate();
     bool isCurrentFrameChangedConnected();

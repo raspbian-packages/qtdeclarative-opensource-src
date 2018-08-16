@@ -81,14 +81,6 @@
 #include <QtCore/QTextStream>
 #include <QDateTime>
 
-#ifdef V4_ENABLE_JIT
-#include "qv4isel_masm_p.h"
-#endif // V4_ENABLE_JIT
-
-#if QT_CONFIG(qml_interpreter)
-#include "qv4isel_moth_p.h"
-#endif
-
 #if USE(PTHREADS)
 #  include <pthread.h>
 #if !defined(Q_OS_INTEGRITY)
@@ -109,9 +101,9 @@ using namespace QV4;
 
 static QBasicAtomicInt engineSerial = Q_BASIC_ATOMIC_INITIALIZER(1);
 
-void throwTypeError(const BuiltinFunction *, Scope &scope, CallData *)
+ReturnedValue throwTypeError(const FunctionObject *b, const QV4::Value *, const QV4::Value *, int)
 {
-    scope.result = scope.engine->throwTypeError();
+    return b->engine()->throwTypeError();
 }
 
 
@@ -129,19 +121,22 @@ QQmlEngine *ExecutionEngine::qmlEngine() const
 
 qint32 ExecutionEngine::maxCallDepth = -1;
 
-ExecutionEngine::ExecutionEngine(EvalISelFactory *factory)
+ExecutionEngine::ExecutionEngine()
     : executableAllocator(new QV4::ExecutableAllocator)
     , regExpAllocator(new QV4::ExecutableAllocator)
     , bumperPointerAllocator(new WTF::BumpPointerAllocator)
     , jsStack(new WTF::PageAllocation)
     , gcStack(new WTF::PageAllocation)
-    , globalCode(0)
-    , v8Engine(0)
-    , argumentsAccessors(0)
+    , globalCode(nullptr)
+    , v8Engine(nullptr)
+    , argumentsAccessors(nullptr)
     , nArgumentsAccessors(0)
     , m_engineId(engineSerial.fetchAndAddOrdered(1))
-    , regExpCache(0)
-    , m_multiplyWrappedQObjects(0)
+    , regExpCache(nullptr)
+    , m_multiplyWrappedQObjects(nullptr)
+#if defined(V4_ENABLE_JIT) && !defined(V4_BOOTSTRAP)
+    , m_canAllocateExecutableMemory(OSAllocator::canAllocateExecutableMemory())
+#endif
 {
     memoryManager = new QV4::MemoryManager(this);
 
@@ -149,39 +144,15 @@ ExecutionEngine::ExecutionEngine(EvalISelFactory *factory)
         bool ok = false;
         maxCallDepth = qEnvironmentVariableIntValue("QV4_MAX_CALL_DEPTH", &ok);
         if (!ok || maxCallDepth <= 0) {
+#ifdef QT_NO_DEBUG
             maxCallDepth = 1234;
+#else
+            // no (tail call) optimization is done, so there'll be a lot mare stack frames active
+            maxCallDepth = 200;
+#endif
         }
     }
     Q_ASSERT(maxCallDepth > 0);
-
-    if (!factory) {
-#if QT_CONFIG(qml_interpreter)
-        bool jitDisabled = true;
-
-#ifdef V4_ENABLE_JIT
-        static const bool forceMoth = !qEnvironmentVariableIsEmpty("QV4_FORCE_INTERPRETER") ||
-                                      !JIT::hasRequiredCpuSupport() ||
-                                      !OSAllocator::canAllocateExecutableMemory();
-        if (forceMoth) {
-            factory = new Moth::ISelFactory;
-        } else {
-            factory = new JIT::ISelFactory<>;
-            jitDisabled = false;
-        }
-#else // !V4_ENABLE_JIT
-        factory = new Moth::ISelFactory;
-#endif // V4_ENABLE_JIT
-
-        if (jitDisabled) {
-            qWarning("JIT is disabled for QML. Property bindings and animations will be "
-                     "very slow. Visit https://wiki.qt.io/V4 to learn about possible "
-                     "solutions for your platform.");
-        }
-#else
-        factory = new JIT::ISelFactory<>;
-#endif
-    }
-    iselFactory.reset(factory);
 
     // reserve space for the JS stack
     // we allow it to grow to a bit more than JSStackLimit, as we can overshoot due to ScopedValues
@@ -199,6 +170,15 @@ ExecutionEngine::ExecutionEngine(EvalISelFactory *factory)
     *gcStack = WTF::PageAllocation::allocate(GCStackLimit, WTF::OSAllocator::JSVMStackPages,
                                              /* writable */ true, /* executable */ false,
                                              /* includesGuardPages */ true);
+
+    {
+        bool ok = false;
+        jitCallCountThreshold = qEnvironmentVariableIntValue("QV4_JIT_CALL_THRESHOLD", &ok);
+        if (!ok)
+            jitCallCountThreshold = 3;
+        if (qEnvironmentVariableIsSet("QV4_FORCE_INTERPRETER"))
+            jitCallCountThreshold = std::numeric_limits<int>::max();
+    }
 
     exceptionValue = jsAlloca(1);
     globalObject = static_cast<Object *>(jsAlloca(1));
@@ -220,8 +200,8 @@ ExecutionEngine::ExecutionEngine(EvalISelFactory *factory)
     internalClasses[Class_SimpleArrayData] = internalClasses[EngineBase::Class_Empty]->changeVTable(QV4::SimpleArrayData::staticVTable());
     internalClasses[Class_SparseArrayData] = internalClasses[EngineBase::Class_Empty]->changeVTable(QV4::SparseArrayData::staticVTable());
     internalClasses[Class_ExecutionContext] = internalClasses[EngineBase::Class_Empty]->changeVTable(QV4::ExecutionContext::staticVTable());
-    internalClasses[EngineBase::Class_QmlContext] = internalClasses[EngineBase::Class_ExecutionContext]->changeVTable(QV4::QmlContext::staticVTable());
-    internalClasses[Class_SimpleCallContext] = internalClasses[EngineBase::Class_Empty]->changeVTable(QV4::CallContext::staticVTable());
+    internalClasses[Class_QmlContext] = internalClasses[EngineBase::Class_ExecutionContext]->changeVTable(QV4::QmlContext::staticVTable());
+    internalClasses[Class_CallContext] = internalClasses[EngineBase::Class_Empty]->changeVTable(QV4::CallContext::staticVTable());
 
     jsStrings[String_Empty] = newIdentifier(QString());
     jsStrings[String_undefined] = newIdentifier(QStringLiteral("undefined"));
@@ -276,6 +256,8 @@ ExecutionEngine::ExecutionEngine(EvalISelFactory *factory)
     InternalClass *argsClass = newInternalClass(ArgumentsObject::staticVTable(), objectPrototype());
     argsClass = argsClass->addMember(id_length(), Attr_NotEnumerable);
     internalClasses[EngineBase::Class_ArgumentsObject] = argsClass->addMember(id_callee(), Attr_Data|Attr_NotEnumerable);
+    argsClass = newInternalClass(StrictArgumentsObject::staticVTable(), objectPrototype());
+    argsClass = argsClass->addMember(id_length(), Attr_NotEnumerable);
     argsClass = argsClass->addMember(id_callee(), Attr_Accessor|Attr_NotConfigurable|Attr_NotEnumerable);
     internalClasses[EngineBase::Class_StrictArgumentsObject] = argsClass->addMember(id_caller(), Attr_Accessor|Attr_NotConfigurable|Attr_NotEnumerable);
 
@@ -307,8 +289,6 @@ ExecutionEngine::ExecutionEngine(EvalISelFactory *factory)
     ic = ic->changeVTable(ScriptFunction::staticVTable());
     internalClasses[EngineBase::Class_ScriptFunction] = ic->addMember(id_length(), Attr_ReadOnly, &index);
     Q_ASSERT(index == Heap::ScriptFunction::Index_Length);
-    internalClasses[EngineBase::Class_BuiltinFunction] = ic->changeVTable(BuiltinFunction::staticVTable());
-    Q_ASSERT(index == Heap::ScriptFunction::Index_Length);
     internalClasses[EngineBase::Class_ObjectProto] = internalClasses[Class_Object]->addMember(id_constructor(), Attr_NotEnumerable, &index);
     Q_ASSERT(index == Heap::FunctionObject::Index_ProtoConstructor);
 
@@ -334,7 +314,7 @@ ExecutionEngine::ExecutionEngine(EvalISelFactory *factory)
     internalClasses[EngineBase::Class_RegExpExecArray] = ic->addMember(id_input(), Attr_Data, &index);
     Q_ASSERT(index == RegExpObject::Index_ArrayInput);
 
-    ic = newInternalClass(ErrorObject::staticVTable(), 0);
+    ic = newInternalClass(ErrorObject::staticVTable(), nullptr);
     ic = ic->addMember((str = newIdentifier(QStringLiteral("stack"))), Attr_Accessor|Attr_NotConfigurable|Attr_NotEnumerable, &index);
     Q_ASSERT(index == ErrorObject::Index_Stack);
     ic = ic->addMember((str = newIdentifier(QStringLiteral("fileName"))), Attr_Data|Attr_NotEnumerable, &index);
@@ -352,7 +332,7 @@ ExecutionEngine::ExecutionEngine(EvalISelFactory *factory)
     internalClasses[EngineBase::Class_ErrorProto] = ic->addMember(id_name(), Attr_Data|Attr_NotEnumerable, &index);
     Q_ASSERT(index == ErrorPrototype::Index_Name);
 
-    jsObjects[GetStack_Function] = BuiltinFunction::create(rootContext(), str = newIdentifier(QStringLiteral("stack")), ErrorObject::method_get_stack);
+    jsObjects[GetStack_Function] = FunctionObject::createBuiltinFunction(rootContext(), str = newIdentifier(QStringLiteral("stack")), ErrorObject::method_get_stack);
     getStackFunction()->defineReadonlyProperty(id_length(), Primitive::fromInt32(0));
 
     jsObjects[ErrorProto] = memoryManager->allocObject<ErrorPrototype>(internalClasses[EngineBase::Class_ErrorProto], objectPrototype());
@@ -416,8 +396,8 @@ ExecutionEngine::ExecutionEngine(EvalISelFactory *factory)
     jsObjects[DataView_Ctor] = memoryManager->allocObject<DataViewCtor>(global);
     jsObjects[DataViewProto] = memoryManager->allocObject<DataViewPrototype>();
     static_cast<DataViewPrototype *>(dataViewPrototype())->init(this, dataViewCtor());
-    jsObjects[ValueTypeProto] = (Heap::Base *) 0;
-    jsObjects[SignalHandlerProto] = (Heap::Base *) 0;
+    jsObjects[ValueTypeProto] = (Heap::Base *) nullptr;
+    jsObjects[SignalHandlerProto] = (Heap::Base *) nullptr;
 
     for (int i = 0; i < Heap::TypedArray::NTypes; ++i) {
         static_cast<Value &>(typedArrayCtors[i]) = memoryManager->allocObject<TypedArrayCtor>(global, Heap::TypedArray::Type(i));
@@ -428,8 +408,7 @@ ExecutionEngine::ExecutionEngine(EvalISelFactory *factory)
     //
     // set up the global object
     //
-    rootContext()->d()->global.set(scope.engine, globalObject->d());
-    rootContext()->d()->callData->thisObject = globalObject;
+    rootContext()->d()->activation.set(scope.engine, globalObject->d());
     Q_ASSERT(globalObject->d()->vtable());
 
     globalObject->defineDefaultProperty(QStringLiteral("Object"), *objectCtor());
@@ -475,8 +454,8 @@ ExecutionEngine::ExecutionEngine(EvalISelFactory *factory)
         ScopedString pi(scope, newIdentifier(piString));
         ScopedString pf(scope, newIdentifier(pfString));
         ExecutionContext *global = rootContext();
-        ScopedFunctionObject parseIntFn(scope, BuiltinFunction::create(global, pi, GlobalFunctions::method_parseInt));
-        ScopedFunctionObject parseFloatFn(scope, BuiltinFunction::create(global, pf, GlobalFunctions::method_parseFloat));
+        ScopedFunctionObject parseIntFn(scope, FunctionObject::createBuiltinFunction(global, pi, GlobalFunctions::method_parseInt));
+        ScopedFunctionObject parseFloatFn(scope, FunctionObject::createBuiltinFunction(global, pf, GlobalFunctions::method_parseFloat));
         parseIntFn->defineReadonlyConfigurableProperty(id_length(), Primitive::fromInt32(2));
         parseFloatFn->defineReadonlyConfigurableProperty(id_length(), Primitive::fromInt32(1));
         globalObject->defineDefaultProperty(piString, parseIntFn);
@@ -495,13 +474,13 @@ ExecutionEngine::ExecutionEngine(EvalISelFactory *factory)
     globalObject->defineDefaultProperty(QStringLiteral("unescape"), GlobalFunctions::method_unescape, 1);
 
     ScopedString name(scope, newString(QStringLiteral("thrower")));
-    jsObjects[ThrowerObject] = BuiltinFunction::create(global, name, ::throwTypeError);
+    jsObjects[ThrowerObject] = FunctionObject::createBuiltinFunction(global, name, ::throwTypeError);
 }
 
 ExecutionEngine::~ExecutionEngine()
 {
     delete m_multiplyWrappedQObjects;
-    m_multiplyWrappedQObjects = 0;
+    m_multiplyWrappedQObjects = nullptr;
     delete identifierTable;
     delete memoryManager;
 
@@ -521,7 +500,7 @@ ExecutionEngine::~ExecutionEngine()
     delete [] argumentsAccessors;
 }
 
-#ifndef QT_NO_QML_DEBUGGER
+#if QT_CONFIG(qml_debug)
 void ExecutionEngine::setDebugger(Debugging::Debugger *debugger)
 {
     Q_ASSERT(!m_debugger);
@@ -533,24 +512,16 @@ void ExecutionEngine::setProfiler(Profiling::Profiler *profiler)
     Q_ASSERT(!m_profiler);
     m_profiler.reset(profiler);
 }
-#endif // QT_NO_QML_DEBUGGER
+#endif // QT_CONFIG(qml_debug)
 
 void ExecutionEngine::initRootContext()
 {
     Scope scope(this);
-    Scoped<GlobalContext> r(scope, memoryManager->allocManaged<GlobalContext>(
-                                sizeof(GlobalContext::Data) + sizeof(CallData)));
-    r->d_unchecked()->init(this);
-    r->d()->callData = reinterpret_cast<CallData *>(r->d() + 1);
-    r->d()->callData->tag = quint32(Value::ValueTypeInternal::Integer);
-    r->d()->callData->argc = 0;
-    r->d()->callData->thisObject = globalObject;
-    r->d()->callData->args[0] = Encode::undefined();
+    Scoped<ExecutionContext> r(scope, memoryManager->allocManaged<ExecutionContext>(sizeof(ExecutionContext::Data)));
+    r->d_unchecked()->init(Heap::ExecutionContext::Type_GlobalContext);
+    r->d()->activation.set(this, globalObject->d());
     jsObjects[RootContext] = r;
     jsObjects[IntegerNull] = Encode((int)0);
-
-    currentContext = static_cast<ExecutionContext *>(jsObjects + RootContext);
-    current = currentContext->d();
 }
 
 InternalClass *ExecutionEngine::newClass(const InternalClass &other)
@@ -558,17 +529,9 @@ InternalClass *ExecutionEngine::newClass(const InternalClass &other)
     return new (classPool) InternalClass(other);
 }
 
-ExecutionContext *ExecutionEngine::pushGlobalContext()
-{
-    pushContext(rootContext()->d());
-
-    Q_ASSERT(current == rootContext()->d());
-    return currentContext;
-}
-
 InternalClass *ExecutionEngine::newInternalClass(const VTable *vtable, Object *prototype)
 {
-    return internalClasses[EngineBase::Class_Empty]->changeVTable(vtable)->changePrototype(prototype ? prototype->d() : 0);
+    return internalClasses[EngineBase::Class_Empty]->changeVTable(vtable)->changePrototype(prototype ? prototype->d() : nullptr);
 }
 
 Heap::Object *ExecutionEngine::newObject()
@@ -636,6 +599,12 @@ Heap::ArrayObject *ExecutionEngine::newArrayObject(const Value *values, int leng
         // this doesn't require a write barrier, things will be ok, when the new array data gets inserted into
         // the parent object
         memcpy(&d->values.values, values, length*sizeof(Value));
+        for (int i = 0; i < length; ++i) {
+            if (values[i].isManaged()) {
+                d->needsMark = true;
+                break;
+            }
+        }
         a->d()->arrayData.set(this, d);
         a->setArrayLengthUnchecked(length);
     }
@@ -688,9 +657,9 @@ Heap::DateObject *ExecutionEngine::newDateObjectFromTime(const QTime &t)
 
 Heap::RegExpObject *ExecutionEngine::newRegExpObject(const QString &pattern, int flags)
 {
-    bool global = (flags & IR::RegExp::RegExp_Global);
-    bool ignoreCase = (flags & IR::RegExp::RegExp_IgnoreCase);
-    bool multiline = (flags & IR::RegExp::RegExp_Multiline);
+    bool global = (flags & QV4::CompiledData::RegExp::RegExp_Global);
+    bool ignoreCase = (flags & QV4::CompiledData::RegExp::RegExp_IgnoreCase);
+    bool multiline = (flags & QV4::CompiledData::RegExp::RegExp_Multiline);
 
     Scope scope(this);
     Scoped<RegExp> re(scope, RegExp::create(this, pattern, ignoreCase, multiline, global));
@@ -763,21 +732,19 @@ Heap::Object *ExecutionEngine::newForEachIteratorObject(Object *o)
 
 Heap::QmlContext *ExecutionEngine::qmlContext() const
 {
-    Heap::ExecutionContext *ctx = current;
-
-    // get the correct context when we're within a builtin function
-    if (ctx->type == Heap::ExecutionContext::Type_SimpleCallContext && !ctx->outer)
-        ctx = parentContext(currentContext)->d();
+    if (!currentStackFrame)
+        return nullptr;
+    Heap::ExecutionContext *ctx = currentContext()->d();
 
     if (ctx->type != Heap::ExecutionContext::Type_QmlContext && !ctx->outer)
-        return 0;
+        return nullptr;
 
     while (ctx->outer && ctx->outer->type != Heap::ExecutionContext::Type_GlobalContext)
         ctx = ctx->outer;
 
     Q_ASSERT(ctx);
     if (ctx->type != Heap::ExecutionContext::Type_QmlContext)
-        return 0;
+        return nullptr;
 
     return static_cast<Heap::QmlContext *>(ctx);
 }
@@ -786,89 +753,70 @@ QObject *ExecutionEngine::qmlScopeObject() const
 {
     Heap::QmlContext *ctx = qmlContext();
     if (!ctx)
-        return 0;
+        return nullptr;
 
-    return ctx->qml->scopeObject;
-}
-
-ReturnedValue ExecutionEngine::qmlSingletonWrapper(String *name)
-{
-    QQmlContextData *ctx = callingQmlContext();
-    if (!ctx->imports)
-        return Encode::undefined();
-    // Search for attached properties, enums and imported scripts
-    QQmlTypeNameCache::Result r = ctx->imports->query(name);
-
-    Q_ASSERT(r.isValid());
-    Q_ASSERT(r.type.isValid());
-    Q_ASSERT(r.type.isSingleton());
-
-    QQmlType::SingletonInstanceInfo *siinfo = r.type.singletonInstanceInfo();
-    QQmlEngine *e = qmlEngine();
-    siinfo->init(e);
-
-    if (QObject *qobjectSingleton = siinfo->qobjectApi(e))
-        return QV4::QObjectWrapper::wrap(this, qobjectSingleton);
-    return QJSValuePrivate::convertedToValue(this, siinfo->scriptApi(e));
+    return ctx->qml()->scopeObject;
 }
 
 QQmlContextData *ExecutionEngine::callingQmlContext() const
 {
     Heap::QmlContext *ctx = qmlContext();
     if (!ctx)
-        return 0;
+        return nullptr;
 
-    return ctx->qml->context->contextData();
+    return ctx->qml()->context->contextData();
 }
 
-QVector<StackFrame> ExecutionEngine::stackTrace(int frameLimit) const
+QString CppStackFrame::source() const
+{
+    return v4Function ? v4Function->sourceFile() : QString();
+}
+
+QString CppStackFrame::function() const
+{
+    return v4Function ? v4Function->name()->toQString() : QString();
+}
+
+int CppStackFrame::lineNumber() const
+{
+    if (!v4Function)
+        return -1;
+
+    auto findLine = [](const CompiledData::CodeOffsetToLine &entry, uint offset) {
+        return entry.codeOffset < offset;
+    };
+
+    const QV4::CompiledData::Function *cf = v4Function->compiledFunction;
+    uint offset = instructionPointer;
+    const CompiledData::CodeOffsetToLine *lineNumbers = cf->lineNumberTable();
+    uint nLineNumbers = cf->nLineNumbers;
+    const CompiledData::CodeOffsetToLine *line = std::lower_bound(lineNumbers, lineNumbers + nLineNumbers, offset, findLine) - 1;
+    return line->line;
+}
+
+ReturnedValue CppStackFrame::thisObject() const {
+    return jsFrame->thisObject.asReturnedValue();
+}
+
+StackTrace ExecutionEngine::stackTrace(int frameLimit) const
 {
     Scope scope(const_cast<ExecutionEngine *>(this));
     ScopedString name(scope);
-    QVector<StackFrame> stack;
+    StackTrace stack;
 
-    ExecutionContext *c = currentContext;
-    while (c && frameLimit) {
-        QV4::Function *function = c->getFunction();
-        if (function) {
-            StackFrame frame;
-            frame.source = function->sourceFile();
-            name = function->name();
-            frame.function = name->toQString();
-
-            // line numbers can be negative for places where you can't set a real breakpoint
-            frame.line = qAbs(c->d()->lineNumber);
-            frame.column = -1;
-
-            stack.append(frame);
-            --frameLimit;
-        }
-        c = parentContext(c);
-    }
-
-    if (frameLimit && globalCode) {
-        StackFrame frame;
-        frame.source = globalCode->sourceFile();
-        frame.function = globalCode->name()->toQString();
-        frame.line = rootContext()->d()->lineNumber;
+    CppStackFrame *f = currentStackFrame;
+    while (f && frameLimit) {
+        QV4::StackFrame frame;
+        frame.source = f->source();
+        frame.function = f->function();
+        frame.line = qAbs(f->lineNumber());
         frame.column = -1;
-
         stack.append(frame);
+        --frameLimit;
+        f = f->parent;
     }
+
     return stack;
-}
-
-StackFrame ExecutionEngine::currentStackFrame() const
-{
-    StackFrame frame;
-    frame.line = -1;
-    frame.column = -1;
-
-    QVector<StackFrame> trace = stackTrace(/*limit*/ 1);
-    if (!trace.isEmpty())
-        frame = trace.first();
-
-    return frame;
 }
 
 /* Helper and "C" linkage exported function to format a GDBMI stacktrace for
@@ -911,14 +859,13 @@ QUrl ExecutionEngine::resolvedUrl(const QString &file)
         return src;
 
     QUrl base;
-    ExecutionContext *c = currentContext;
-    while (c) {
-        SimpleCallContext *callCtx = c->asSimpleCallContext();
-        if (callCtx && callCtx->d()->v4Function) {
-            base = callCtx->d()->v4Function->finalUrl();
+    CppStackFrame *f = currentStackFrame;
+    while (f) {
+        if (f->v4Function) {
+            base = f->v4Function->finalUrl();
             break;
         }
-        c = parentContext(c);
+        f = f->parent;
     }
 
     if (base.isEmpty() && globalCode)
@@ -945,7 +892,7 @@ void ExecutionEngine::requireArgumentsAccessors(int n)
         nArgumentsAccessors = qMax(8, n);
         argumentsAccessors = new Property[nArgumentsAccessors];
         if (oldAccessors) {
-            memcpy(argumentsAccessors, oldAccessors, oldSize*sizeof(Property));
+            memcpy(static_cast<void *>(argumentsAccessors), static_cast<const void *>(oldAccessors), oldSize*sizeof(Property));
             delete [] oldAccessors;
         }
         ExecutionContext *global = rootContext();
@@ -1126,7 +1073,7 @@ QQmlError ExecutionEngine::catchExceptionAsQmlError()
 typedef QSet<QV4::Heap::Object *> V4ObjectSet;
 static QVariant toVariant(QV4::ExecutionEngine *e, const QV4::Value &value, int typeHint, bool createJSValueForObjects, V4ObjectSet *visitedObjects);
 static QObject *qtObjectFromJS(QV4::ExecutionEngine *engine, const QV4::Value &value);
-static QVariant objectToVariant(QV4::ExecutionEngine *e, const QV4::Object *o, V4ObjectSet *visitedObjects = 0);
+static QVariant objectToVariant(QV4::ExecutionEngine *e, const QV4::Object *o, V4ObjectSet *visitedObjects = nullptr);
 static bool convertToNativeQObject(QV4::ExecutionEngine *e, const QV4::Value &value,
                             const QByteArray &targetType,
                             void **result);
@@ -1140,7 +1087,7 @@ static QV4::ReturnedValue variantToJS(QV4::ExecutionEngine *v4, const QVariant &
 
 QVariant ExecutionEngine::toVariant(const Value &value, int typeHint, bool createJSValueForObjects)
 {
-    return ::toVariant(this, value, typeHint, createJSValueForObjects, 0);
+    return ::toVariant(this, value, typeHint, createJSValueForObjects, nullptr);
 }
 
 
@@ -1373,7 +1320,7 @@ QV4::ReturnedValue QV4::ExecutionEngine::fromVariant(const QVariant &variant)
             case QMetaType::QDateTime:
                 return QV4::Encode(newDateObject(*reinterpret_cast<const QDateTime *>(ptr)));
             case QMetaType::QDate:
-                return QV4::Encode(newDateObject(QDateTime(*reinterpret_cast<const QDate *>(ptr))));
+                return QV4::Encode(newDateObject(QDateTime(*reinterpret_cast<const QDate *>(ptr), QTime(0, 0, 0), Qt::UTC)));
             case QMetaType::QTime:
                 return QV4::Encode(newDateObjectFromTime(*reinterpret_cast<const QTime *>(ptr)));
             case QMetaType::QRegExp:
@@ -1504,7 +1451,7 @@ static QV4::ReturnedValue variantMapToJS(QV4::ExecutionEngine *v4, const QVarian
 // Returns the value if conversion succeeded, an empty handle otherwise.
 QV4::ReturnedValue ExecutionEngine::metaTypeToJS(int type, const void *data)
 {
-    Q_ASSERT(data != 0);
+    Q_ASSERT(data != nullptr);
 
     // check if it's one of the types we know
     switch (QMetaType::Type(type)) {
@@ -1592,9 +1539,9 @@ QV4::ReturnedValue ExecutionEngine::metaTypeToJS(int type, const void *data)
     return 0;
 }
 
-void ExecutionEngine::failStackLimitCheck(Scope &scope)
+ReturnedValue ExecutionEngine::global()
 {
-    scope.result = throwRangeError(QStringLiteral("Maximum call stack size exceeded."));
+    return globalObject->asReturnedValue();
 }
 
 // Converts a JS value to a meta-type.
@@ -1777,7 +1724,7 @@ bool ExecutionEngine::metaTypeFromJS(const Value *value, int type, void *data)
                     QByteArray className = name.left(name.size()-1);
                     QV4::ScopedObject p(scope, proto.getPointer());
                     if (QObject *qobject = qtObjectFromJS(this, p))
-                        canCast = qobject->qt_metacast(className) != 0;
+                        canCast = qobject->qt_metacast(className) != nullptr;
                 }
                 if (canCast) {
                     QByteArray varTypeName = QMetaType::typeName(var.userType());
@@ -1791,7 +1738,7 @@ bool ExecutionEngine::metaTypeFromJS(const Value *value, int type, void *data)
             }
         }
     } else if (value->isNull() && name.endsWith('*')) {
-        *reinterpret_cast<void* *>(data) = 0;
+        *reinterpret_cast<void* *>(data) = nullptr;
         return true;
     } else if (type == qMetaTypeId<QJSValue>()) {
         *reinterpret_cast<QJSValue*>(data) = QJSValue(this, value->asReturnedValue());
@@ -1819,7 +1766,7 @@ static bool convertToNativeQObject(QV4::ExecutionEngine *e, const QV4::Value &va
 static QObject *qtObjectFromJS(QV4::ExecutionEngine *engine, const QV4::Value &value)
 {
     if (!value.isObject())
-        return 0;
+        return nullptr;
 
     QV4::Scope scope(engine);
     QV4::Scoped<QV4::VariantObject> v(scope, value);
@@ -1832,7 +1779,7 @@ static QObject *qtObjectFromJS(QV4::ExecutionEngine *engine, const QV4::Value &v
     }
     QV4::Scoped<QV4::QObjectWrapper> wrapper(scope, value);
     if (!wrapper)
-        return 0;
+        return nullptr;
     return wrapper->object();
 }
 

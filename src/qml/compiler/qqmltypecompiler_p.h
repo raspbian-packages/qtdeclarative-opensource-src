@@ -55,6 +55,7 @@
 #include <qhash.h>
 #include <private/qqmltypeloader_p.h>
 #include <private/qqmlirbuilder_p.h>
+#include <private/qqmlpropertycachecreator_p.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -73,17 +74,6 @@ struct QmlUnit;
 struct Location;
 }
 }
-
-struct QQmlCompileError
-{
-    QQmlCompileError() {}
-    QQmlCompileError(const QV4::CompiledData::Location &location, const QString &description)
-        : location(location), description(description) {}
-    QV4::CompiledData::Location location;
-    QString description;
-
-    bool isSet() const { return !description.isEmpty(); }
-};
 
 struct QQmlTypeCompiler
 {
@@ -110,8 +100,6 @@ public:
     void recordError(const QQmlCompileError &error);
 
     int registerString(const QString &str);
-
-    QV4::IR::Module *jsIRModule() const;
 
     const QV4::CompiledData::Unit *qmlUnit() const;
 

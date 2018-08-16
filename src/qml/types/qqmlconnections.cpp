@@ -56,7 +56,7 @@ QT_BEGIN_NAMESPACE
 class QQmlConnectionsPrivate : public QObjectPrivate
 {
 public:
-    QQmlConnectionsPrivate() : target(0), enabled(true), targetSet(false), ignoreUnknownSignals(false), componentcomplete(true) {}
+    QQmlConnectionsPrivate() : target(nullptr), enabled(true), targetSet(false), ignoreUnknownSignals(false), componentcomplete(true) {}
 
     QList<QQmlBoundSignal*> boundsignals;
     QObject *target;
@@ -274,7 +274,7 @@ void QQmlConnections::connectSignals()
         return;
     QObject *target = this->target();
     QQmlData *ddata = QQmlData::get(this);
-    QQmlContextData *ctxtdata = ddata ? ddata->outerContext : 0;
+    QQmlContextData *ctxtdata = ddata ? ddata->outerContext : nullptr;
 
     const QV4::CompiledData::Unit *qmlUnit = d->compilationUnit->data;
     for (const QV4::CompiledData::Binding *binding : qAsConst(d->bindings)) {
@@ -288,9 +288,10 @@ void QQmlConnections::connectSignals()
                 new QQmlBoundSignal(target, signalIndex, this, qmlEngine(this));
             signal->setEnabled(d->enabled);
 
-            QQmlBoundSignalExpression *expression = ctxtdata ?
-                new QQmlBoundSignalExpression(target, signalIndex,
-                                              ctxtdata, this, d->compilationUnit->runtimeFunctions[binding->value.compiledScriptIndex]) : 0;
+            auto f = d->compilationUnit->runtimeFunctions[binding->value.compiledScriptIndex];
+            QQmlBoundSignalExpression *expression =
+                    ctxtdata ? new QQmlBoundSignalExpression(target, signalIndex, ctxtdata, this, f)
+                             : nullptr;
             signal->takeExpression(expression);
             d->boundsignals += signal;
         } else {

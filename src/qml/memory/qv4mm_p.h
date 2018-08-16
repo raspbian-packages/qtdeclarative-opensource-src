@@ -69,51 +69,7 @@ QT_BEGIN_NAMESPACE
 namespace QV4 {
 
 struct ChunkAllocator;
-
-template<typename T>
-struct StackAllocator {
-    Q_STATIC_ASSERT(sizeof(T) < Chunk::DataSize);
-    static const uint requiredSlots = (sizeof(T) + sizeof(HeapItem) - 1)/sizeof(HeapItem);
-
-    StackAllocator(ChunkAllocator *chunkAlloc);
-
-    T *allocate() {
-        HeapItem *m = nextFree;
-        if (Q_UNLIKELY(nextFree == lastInChunk)) {
-            nextChunk();
-        } else {
-            nextFree += requiredSlots;
-        }
-#if MM_DEBUG || !defined(QT_NO_DEBUG) || defined(QT_FORCE_ASSERTS)
-        Chunk *c = m->chunk();
-        Chunk::setBit(c->objectBitmap, m - c->realBase());
-#endif
-        return m->as<T>();
-    }
-    void free() {
-        if (Q_UNLIKELY(nextFree == firstInChunk)) {
-            prevChunk();
-        } else {
-            nextFree -= requiredSlots;
-        }
-#if MM_DEBUG || !defined(QT_NO_DEBUG) || defined(QT_FORCE_ASSERTS)
-        Chunk *c = nextFree->chunk();
-        Chunk::clearBit(c->objectBitmap, nextFree - c->realBase());
-#endif
-    }
-
-    void nextChunk();
-    void prevChunk();
-
-    void freeAll();
-
-    ChunkAllocator *chunkAllocator;
-    HeapItem *nextFree = 0;
-    HeapItem *firstInChunk = 0;
-    HeapItem *lastInChunk = 0;
-    std::vector<Chunk *> chunks;
-    uint currentChunk = 0;
-};
+struct MemorySegment;
 
 struct BlockAllocator {
     BlockAllocator(ChunkAllocator *chunkAllocator, ExecutionEngine *engine)
@@ -150,7 +106,7 @@ struct BlockAllocator {
     void collectGrayItems(MarkStack *markStack);
 
     // bump allocations
-    HeapItem *nextFree = 0;
+    HeapItem *nextFree = nullptr;
     size_t nFree = 0;
     size_t usedSlotsAfterLastSweep = 0;
     HeapItem *freeBins[NumBins];
@@ -181,6 +137,7 @@ struct HugeItemAllocator {
     ChunkAllocator *chunkAllocator;
     ExecutionEngine *engine;
     struct HugeChunk {
+        MemorySegment *segment;
         Chunk *chunk;
         size_t size;
     };
@@ -202,29 +159,28 @@ public:
     Q_DECL_CONSTEXPR static inline std::size_t align(std::size_t size)
     { return (size + Chunk::SlotSize - 1) & ~(Chunk::SlotSize - 1); }
 
-    QV4::Heap::CallContext *allocSimpleCallContext()
-    {
-        Heap::CallContext *ctxt = stackAllocator.allocate();
-        memset(ctxt, 0, sizeof(Heap::SimpleCallContext));
-        ctxt->internalClass = SimpleCallContext::defaultInternalClass(engine);
-        Q_ASSERT(ctxt->internalClass && ctxt->internalClass->vtable);
-        ctxt->init();
-        return ctxt;
-
-    }
-    void freeSimpleCallContext()
-    { stackAllocator.free(); }
-
     template<typename ManagedType>
     inline typename ManagedType::Data *allocManaged(std::size_t size)
     {
-        V4_ASSERT_IS_TRIVIAL(typename ManagedType::Data)
+        Q_STATIC_ASSERT(std::is_trivial< typename ManagedType::Data >::value);
         size = align(size);
         Heap::Base *o = allocData(size);
         InternalClass *ic = ManagedType::defaultInternalClass(engine);
         ic = ic->changeVTable(ManagedType::staticVTable());
         o->internalClass = ic;
         Q_ASSERT(o->internalClass && o->internalClass->vtable);
+        return static_cast<typename ManagedType::Data *>(o);
+    }
+
+    template<typename ManagedType>
+    inline typename ManagedType::Data *allocManaged(std::size_t size, InternalClass *ic)
+    {
+        Q_STATIC_ASSERT(std::is_trivial< typename ManagedType::Data >::value);
+        size = align(size);
+        Heap::Base *o = allocData(size);
+        o->internalClass = ic;
+        Q_ASSERT(o->internalClass && o->internalClass->vtable);
+        Q_ASSERT(ic->vtable == ManagedType::staticVTable());
         return static_cast<typename ManagedType::Data *>(o);
     }
 
@@ -275,7 +231,7 @@ public:
     {
         Scope scope(engine);
         Scoped<ObjectType> t(scope, allocateObject<ObjectType>(ic));
-        Q_ASSERT(t->internalClass()->prototype == (prototype ? prototype->d() : 0));
+        Q_ASSERT(t->internalClass()->prototype == (prototype ? prototype->d() : nullptr));
         Q_UNUSED(prototype);
         t->d_unchecked()->init();
         return t->d();
@@ -286,7 +242,7 @@ public:
     {
         Scope scope(engine);
         Scoped<ObjectType> t(scope, allocateObject<ObjectType>(ic));
-        Q_ASSERT(t->internalClass()->prototype == (prototype ? prototype->d() : 0));
+        Q_ASSERT(t->internalClass()->prototype == (prototype ? prototype->d() : nullptr));
         Q_UNUSED(prototype);
         t->d_unchecked()->init(arg1);
         return t->d();
@@ -297,7 +253,7 @@ public:
     {
         Scope scope(engine);
         Scoped<ObjectType> t(scope, allocateObject<ObjectType>(ic));
-        Q_ASSERT(t->internalClass()->prototype == (prototype ? prototype->d() : 0));
+        Q_ASSERT(t->internalClass()->prototype == (prototype ? prototype->d() : nullptr));
         Q_UNUSED(prototype);
         t->d_unchecked()->init(arg1, arg2);
         return t->d();
@@ -308,7 +264,7 @@ public:
     {
         Scope scope(engine);
         Scoped<ObjectType> t(scope, allocateObject<ObjectType>(ic));
-        Q_ASSERT(t->internalClass()->prototype == (prototype ? prototype->d() : 0));
+        Q_ASSERT(t->internalClass()->prototype == (prototype ? prototype->d() : nullptr));
         Q_UNUSED(prototype);
         t->d_unchecked()->init(arg1, arg2, arg3);
         return t->d();
@@ -319,7 +275,7 @@ public:
     {
         Scope scope(engine);
         Scoped<ObjectType> t(scope, allocateObject<ObjectType>(ic));
-        Q_ASSERT(t->internalClass()->prototype == (prototype ? prototype->d() : 0));
+        Q_ASSERT(t->internalClass()->prototype == (prototype ? prototype->d() : nullptr));
         Q_UNUSED(prototype);
         t->d_unchecked()->init(arg1, arg2, arg3, arg4);
         return t->d();
@@ -452,7 +408,6 @@ private:
 public:
     QV4::ExecutionEngine *engine;
     ChunkAllocator *chunkAllocator;
-    StackAllocator<Heap::CallContext> stackAllocator;
     BlockAllocator blockAllocator;
     HugeItemAllocator hugeItemAllocator;
     PersistentValueStorage *m_persistentValues;

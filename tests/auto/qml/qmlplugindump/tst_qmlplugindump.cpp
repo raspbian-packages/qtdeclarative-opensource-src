@@ -26,6 +26,8 @@
 **
 ****************************************************************************/
 
+#include "util.h"
+
 #include <qtest.h>
 #include <QLibraryInfo>
 #include <QDir>
@@ -33,7 +35,7 @@
 #include <QDebug>
 #include <cstdlib>
 
-class tst_qmlplugindump : public QObject
+class tst_qmlplugindump : public QQmlDataTest
 {
     Q_OBJECT
 public:
@@ -54,6 +56,7 @@ tst_qmlplugindump::tst_qmlplugindump()
 
 void tst_qmlplugindump::initTestCase()
 {
+    QQmlDataTest::initTestCase();
     qmlplugindumpPath = QLatin1String(TESTBINDIR);
 
 #if defined(Q_OS_WIN)

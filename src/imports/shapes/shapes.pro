@@ -1,9 +1,9 @@
 CXX_MODULE = qml
 TARGET  = qmlshapesplugin
 TARGETPATH = QtQuick/Shapes
-IMPORT_VERSION = 1.0
+IMPORT_VERSION = 1.11
 
-QT = core gui qml quick quick-private
+QT = core gui-private qml quick-private
 
 HEADERS += \
     qquickshape_p.h \

@@ -62,7 +62,7 @@ public:
     };
     Q_DECLARE_FLAGS(ClearMode, ClearModeBit)
 
-    virtual ~QSGAbstractRenderer();
+    ~QSGAbstractRenderer() override;
 
     void setRootNode(QSGRootNode *node);
     QSGRootNode *rootNode() const;
@@ -90,7 +90,7 @@ Q_SIGNALS:
     void sceneGraphChanged();
 
 protected:
-    explicit QSGAbstractRenderer(QObject *parent = Q_NULLPTR);
+    explicit QSGAbstractRenderer(QObject *parent = nullptr);
     virtual void nodeChanged(QSGNode *node, QSGNode::DirtyState state) = 0;
 
 private:

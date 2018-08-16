@@ -72,6 +72,8 @@ class Q_QML_PRIVATE_EXPORT QQmlBinding : public QQmlJavaScriptExpression,
 {
     friend class QQmlAbstractBinding;
 public:
+    typedef QExplicitlySharedDataPointer<QQmlBinding> Ptr;
+
     static QQmlBinding *create(const QQmlPropertyData *, const QQmlScriptString &, QObject *, QQmlContext *);
     static QQmlBinding *create(const QQmlPropertyData *, const QString &, QObject *, QQmlContextData *,
                                const QString &url = QString(), quint16 lineNumber = 0);
@@ -79,17 +81,17 @@ public:
                                QObject *obj, QQmlContextData *ctxt, QV4::ExecutionContext *scope);
     static QQmlBinding *createTranslationBinding(QV4::CompiledData::CompilationUnit *unit, const QV4::CompiledData::Binding *binding,
                                                  QObject *obj, QQmlContextData *ctxt);
-    ~QQmlBinding();
+    ~QQmlBinding() override;
 
     void setTarget(const QQmlProperty &);
-    void setTarget(QObject *, const QQmlPropertyData &, const QQmlPropertyData *valueType);
+    bool setTarget(QObject *, const QQmlPropertyData &, const QQmlPropertyData *valueType);
 
     void setNotifyOnValueChanged(bool);
 
-    void refresh() Q_DECL_OVERRIDE;
+    void refresh() override;
 
-    void setEnabled(bool, QQmlPropertyData::WriteFlags flags = QQmlPropertyData::DontRemoveBinding) Q_DECL_OVERRIDE;
-    QString expression() const Q_DECL_OVERRIDE;
+    void setEnabled(bool, QQmlPropertyData::WriteFlags flags = QQmlPropertyData::DontRemoveBinding) override;
+    QString expression() const override;
     void update(QQmlPropertyData::WriteFlags flags = QQmlPropertyData::DontRemoveBinding);
 
     typedef int Identifier;
@@ -101,6 +103,12 @@ public:
 
     QString expressionIdentifier() const override;
     void expressionChanged() override;
+
+    QQmlSourceLocation sourceLocation() const override;
+    void setSourceLocation(const QQmlSourceLocation &location);
+    void setBoundFunction(QV4::BoundFunction *boundFunction) {
+        m_boundFunction.set(boundFunction->engine(), *boundFunction);
+    }
 
     /**
      * This method returns a snapshot of the currently tracked dependencies of
@@ -121,6 +129,8 @@ protected:
     bool slowWrite(const QQmlPropertyData &core, const QQmlPropertyData &valueTypeData,
                    const QV4::Value &result, bool isUndefined, QQmlPropertyData::WriteFlags flags);
 
+    QV4::ReturnedValue evaluate(bool *isUndefined);
+
 private:
     inline bool updatingFlag() const;
     inline void setUpdatingFlag(bool);
@@ -128,6 +138,9 @@ private:
     inline void setEnabledFlag(bool);
 
     static QQmlBinding *newBinding(QQmlEnginePrivate *engine, const QQmlPropertyData *property);
+
+    QQmlSourceLocation *m_sourceLocation = nullptr; // used for Qt.binding() created functions
+    QV4::PersistentValue m_boundFunction; // used for Qt.binding() that are created from a bound function object
 };
 
 bool QQmlBinding::updatingFlag() const

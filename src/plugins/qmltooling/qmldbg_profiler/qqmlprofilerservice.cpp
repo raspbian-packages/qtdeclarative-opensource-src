@@ -41,7 +41,6 @@
 #include "qv4profileradapter.h"
 #include "qqmlprofileradapter.h"
 #include "qqmlprofilerservicefactory.h"
-#include "qqmldebugpacket.h"
 
 #include <private/qjsengine_p.h>
 #include <private/qqmldebugpluginmanager_p.h>
@@ -59,7 +58,7 @@ Q_QML_DEBUG_PLUGIN_LOADER(QQmlAbstractProfilerAdapter)
 
 QQmlProfilerServiceImpl::QQmlProfilerServiceImpl(QObject *parent) :
     QQmlConfigurableDebugService<QQmlProfilerService>(1, parent),
-    m_waitingForStop(false), m_useMessageTypes(false)
+    m_waitingForStop(false), m_useMessageTypes(false), m_globalEnabled(false), m_globalFeatures(0)
 {
     m_timer.start();
     QQmlAbstractProfilerAdapter *quickAdapter =
@@ -126,7 +125,7 @@ void QQmlProfilerServiceImpl::engineAboutToBeAdded(QJSEngine *engine)
                 = new QQmlProfilerAdapter(this, &(enginePrivate->typeLoader));
         addEngineProfiler(compileAdapter, engine);
     }
-    QV4ProfilerAdapter *v4Adapter = new QV4ProfilerAdapter(this, QV8Engine::getV4(engine->handle()));
+    QV4ProfilerAdapter *v4Adapter = new QV4ProfilerAdapter(this, engine->handle());
     addEngineProfiler(v4Adapter, engine);
     QQmlConfigurableDebugService<QQmlProfilerService>::engineAboutToBeAdded(engine);
 }
@@ -137,6 +136,10 @@ void QQmlProfilerServiceImpl::engineAdded(QJSEngine *engine)
                "QML profilers have to be added from the engine thread");
 
     QMutexLocker lock(&m_configMutex);
+
+    if (m_globalEnabled)
+        startProfiling(engine, m_globalFeatures);
+
     const auto range = qAsConst(m_engineProfilers).equal_range(engine);
     for (auto it = range.first; it != range.second; ++it)
         (*it)->stopWaiting();
@@ -240,9 +243,9 @@ void QQmlProfilerServiceImpl::startProfiling(QJSEngine *engine, quint64 features
 
     QQmlDebugPacket d;
 
-    d << m_timer.nsecsElapsed() << (int)Event << (int)StartTrace;
+    d << m_timer.nsecsElapsed() << static_cast<qint32>(Event) << static_cast<qint32>(StartTrace);
     bool startedAny = false;
-    if (engine != 0) {
+    if (engine != nullptr) {
         const auto range = qAsConst(m_engineProfilers).equal_range(engine);
         for (auto it = range.first; it != range.second; ++it) {
             QQmlAbstractProfilerAdapter *profiler = *it;
@@ -254,6 +257,9 @@ void QQmlProfilerServiceImpl::startProfiling(QJSEngine *engine, quint64 features
         if (startedAny)
             d << idForObject(engine);
     } else {
+        m_globalEnabled = true;
+        m_globalFeatures = features;
+
         QSet<QJSEngine *> engines;
         for (QMultiHash<QJSEngine *, QQmlAbstractProfilerAdapter *>::iterator i(m_engineProfilers.begin());
                 i != m_engineProfilers.end(); ++i) {
@@ -274,9 +280,8 @@ void QQmlProfilerServiceImpl::startProfiling(QJSEngine *engine, quint64 features
         }
 
         emit startFlushTimer();
+        emit messageToClient(name(), d.data());
     }
-
-    emit messageToClient(name(), d.data());
 }
 
 /*!
@@ -292,12 +297,15 @@ void QQmlProfilerServiceImpl::stopProfiling(QJSEngine *engine)
     QList<QQmlAbstractProfilerAdapter *> stopping;
     QList<QQmlAbstractProfilerAdapter *> reporting;
 
+    if (engine == nullptr)
+        m_globalEnabled = false;
+
     bool stillRunning = false;
     for (QMultiHash<QJSEngine *, QQmlAbstractProfilerAdapter *>::iterator i(m_engineProfilers.begin());
             i != m_engineProfilers.end(); ++i) {
         if (i.value()->isRunning()) {
             m_startTimes.insert(-1, i.value());
-            if (engine == 0 || i.key() == engine) {
+            if (engine == nullptr || i.key() == engine) {
                 stopping << i.value();
             } else {
                 reporting << i.value();
@@ -339,7 +347,8 @@ void QQmlProfilerServiceImpl::sendMessages()
 
     QQmlDebugPacket traceEnd;
     if (m_waitingForStop) {
-        traceEnd << m_timer.nsecsElapsed() << (int)Event << (int)EndTrace;
+        traceEnd << m_timer.nsecsElapsed() << static_cast<qint32>(Event)
+                 << static_cast<qint32>(EndTrace);
 
         QSet<QJSEngine *> seen;
         for (QQmlAbstractProfilerAdapter *profiler : qAsConst(m_startTimes)) {
@@ -384,7 +393,7 @@ void QQmlProfilerServiceImpl::sendMessages()
         if (!stillRunning) {
             // Complete is only sent once, when no engines are running anymore.
             QQmlDebugPacket ds;
-            ds << (qint64)-1 << (int)Complete;
+            ds << static_cast<qint64>(-1) << static_cast<qint32>(Complete);
             messages << ds.data();
             m_waitingForStop = false;
         }
@@ -422,7 +431,7 @@ void QQmlProfilerServiceImpl::messageReceived(const QByteArray &message)
     int engineId = -1;
     quint64 features = std::numeric_limits<quint64>::max();
     bool enabled;
-    uint flushInterval = 0;
+    quint32 flushInterval = 0;
     stream >> enabled;
     if (!stream.atEnd())
         stream >> engineId;
@@ -430,7 +439,9 @@ void QQmlProfilerServiceImpl::messageReceived(const QByteArray &message)
         stream >> features;
     if (!stream.atEnd()) {
         stream >> flushInterval;
-        m_flushTimer.setInterval(flushInterval);
+        m_flushTimer.setInterval(
+                    static_cast<int>(qMin(flushInterval,
+                                          static_cast<quint32>(std::numeric_limits<int>::max()))));
         auto timerStart = static_cast<void(QTimer::*)()>(&QTimer::start);
         if (flushInterval > 0) {
             connect(&m_flushTimer, &QTimer::timeout, this, &QQmlProfilerServiceImpl::flush);

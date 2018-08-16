@@ -27,6 +27,7 @@
 ****************************************************************************/
 
 #include <qtest.h>
+#include <qtesttouch.h>
 #include <QtTest/QSignalSpy>
 #include <QtQml/qqmlcomponent.h>
 #include <QtQml/qqmlcontext.h>
@@ -38,10 +39,80 @@
 #include <QtCore/QDebug>
 #include <QtQml/qqmlengine.h>
 
+#include <QtCore/QLoggingCategory>
+#include <QtGui/qstylehints.h>
 #include <QtWidgets/QBoxLayout>
 #include <QtWidgets/QLabel>
 
 #include <QtQuickWidgets/QQuickWidget>
+
+Q_LOGGING_CATEGORY(lcTests, "qt.quick.tests")
+
+class MouseRecordingQQWidget : public QQuickWidget
+{
+public:
+    explicit MouseRecordingQQWidget(QWidget *parent = nullptr) : QQuickWidget(parent) {
+        setAttribute(Qt::WA_AcceptTouchEvents);
+    }
+
+protected:
+    void mousePressEvent(QMouseEvent *event) override {
+        qCDebug(lcTests) << event;
+        m_mouseEvents << *event;
+        QQuickWidget::mousePressEvent(event);
+    }
+    void mouseMoveEvent(QMouseEvent *event) override {
+        qCDebug(lcTests) << event;
+        m_mouseEvents << *event;
+        QQuickWidget::mouseMoveEvent(event);
+    }
+    void mouseReleaseEvent(QMouseEvent *event) override {
+        qCDebug(lcTests) << event;
+        m_mouseEvents << *event;
+        QQuickWidget::mouseReleaseEvent(event);
+    }
+
+public:
+    QList<QMouseEvent> m_mouseEvents;
+};
+
+class MouseRecordingItem : public QQuickItem
+{
+public:
+    MouseRecordingItem(bool acceptTouch, QQuickItem *parent = nullptr)
+        : QQuickItem(parent)
+        , m_acceptTouch(acceptTouch)
+    {
+        setSize(QSizeF(300, 300));
+        setAcceptedMouseButtons(Qt::LeftButton);
+    }
+
+protected:
+    void touchEvent(QTouchEvent* event) override {
+        event->setAccepted(m_acceptTouch);
+        m_touchEvents << *event;
+        qCDebug(lcTests) << "accepted?" << event->isAccepted() << event;
+    }
+    void mousePressEvent(QMouseEvent *event) override {
+        qCDebug(lcTests) << event;
+        m_mouseEvents << *event;
+    }
+    void mouseMoveEvent(QMouseEvent *event) override {
+        qCDebug(lcTests) << event;
+        m_mouseEvents << *event;
+    }
+    void mouseReleaseEvent(QMouseEvent *event) override {
+        qCDebug(lcTests) << event;
+        m_mouseEvents << *event;
+    }
+
+public:
+    QList<QMouseEvent> m_mouseEvents;
+    QList<QTouchEvent> m_touchEvents;
+
+private:
+    bool m_acceptTouch;
+};
 
 class tst_qquickwidget : public QQmlDataTest
 {
@@ -67,8 +138,13 @@ private slots:
     void shortcuts();
     void enterLeave();
     void mouseEventWindowPos();
-};
+    void synthMouseFromTouch_data();
+    void synthMouseFromTouch();
+    void tabKey();
 
+private:
+    QTouchDevice *device = QTest::createTouchDevice();
+};
 
 tst_qquickwidget::tst_qquickwidget()
 {
@@ -279,8 +355,8 @@ void tst_qquickwidget::errors()
 void tst_qquickwidget::engine()
 {
     QScopedPointer<QQmlEngine> engine(new QQmlEngine);
-    QScopedPointer<QQuickWidget> view(new QQuickWidget(engine.data(), 0));
-    QScopedPointer<QQuickWidget> view2(new QQuickWidget(view->engine(), 0));
+    QScopedPointer<QQuickWidget> view(new QQuickWidget(engine.data(), nullptr));
+    QScopedPointer<QQuickWidget> view2(new QQuickWidget(view->engine(), nullptr));
 
     QVERIFY(view->engine());
     QVERIFY(view2->engine());
@@ -370,6 +446,10 @@ void tst_qquickwidget::reparentToNewWindow()
     QSignalSpy afterRenderingSpy(qqw->quickWindow(), &QQuickWindow::afterRendering);
     qqw->setParent(&window2);
     qqw->show();
+
+    if (QGuiApplication::platformName() == QLatin1String("offscreen"))
+        QEXPECT_FAIL("", "afterRendering not emitted after reparenting on offscreen", Continue);
+
     QTRY_VERIFY(afterRenderingSpy.size() > 0);
 
     QImage img = qqw->grabFramebuffer();
@@ -497,6 +577,85 @@ void tst_qquickwidget::mouseEventWindowPos()
     QTRY_VERIFY(rootItem->property("wasDoubleClicked").toBool());
     QTest::mouseMove(window, QPoint(70, 70));
     QTRY_VERIFY(rootItem->property("wasMoved").toBool());
+}
+
+void tst_qquickwidget::synthMouseFromTouch_data()
+{
+    QTest::addColumn<bool>("synthMouse"); // AA_SynthesizeMouseForUnhandledTouchEvents
+    QTest::addColumn<bool>("acceptTouch"); // QQuickItem::touchEvent: setAccepted()
+
+    QTest::newRow("no synth, accept") << false << true; // suitable for touch-capable UIs
+    QTest::newRow("no synth, don't accept") << false << false;
+    QTest::newRow("synth and accept") << true << true;
+    QTest::newRow("synth, don't accept") << true << false; // the default
+}
+
+void tst_qquickwidget::synthMouseFromTouch()
+{
+    QFETCH(bool, synthMouse);
+    QFETCH(bool, acceptTouch);
+
+    QCoreApplication::setAttribute(Qt::AA_SynthesizeMouseForUnhandledTouchEvents, synthMouse);
+    QWidget window;
+    window.setAttribute(Qt::WA_AcceptTouchEvents);
+    QScopedPointer<MouseRecordingQQWidget> childView(new MouseRecordingQQWidget(&window));
+    MouseRecordingItem *item = new MouseRecordingItem(acceptTouch, nullptr);
+    childView->setContent(QUrl(), nullptr, item);
+    window.resize(300, 300);
+    childView->resize(300, 300);
+    window.show();
+    QVERIFY(QTest::qWaitForWindowActive(&window));
+    QVERIFY(childView->quickWindow()->isVisible());
+    QVERIFY(item->isVisible());
+
+    QPoint p1 = QPoint(20, 20);
+    QPoint p2 = QPoint(30, 30);
+    QTest::touchEvent(&window, device).press(0, p1, &window);
+    QTest::touchEvent(&window, device).move(0, p2, &window);
+    QTest::touchEvent(&window, device).release(0, p2, &window);
+
+    QCOMPARE(item->m_touchEvents.count(), 3);
+    QCOMPARE(item->m_mouseEvents.count(), acceptTouch ? 0 : 3);
+    QCOMPARE(childView->m_mouseEvents.count(), 0);
+    for (const QMouseEvent &ev : item->m_mouseEvents)
+        QCOMPARE(ev.source(), Qt::MouseEventSynthesizedByQt);
+}
+
+void tst_qquickwidget::tabKey()
+{
+    if (QGuiApplication::styleHints()->tabFocusBehavior() != Qt::TabFocusAllControls)
+        QSKIP("This function doesn't support NOT iterating all.");
+    QWidget window1;
+    QQuickWidget *qqw = new QQuickWidget(&window1);
+    qqw->setSource(testFileUrl("activeFocusOnTab.qml"));
+    QQuickWidget *qqw2 = new QQuickWidget(&window1);
+    qqw2->setSource(testFileUrl("noActiveFocusOnTab.qml"));
+    qqw2->move(100, 0);
+    window1.show();
+    qqw->setFocus();
+    QVERIFY(QTest::qWaitForWindowExposed(&window1, 5000));
+    QVERIFY(qqw->hasFocus());
+    QQuickItem *item = qobject_cast<QQuickItem *>(qqw->rootObject());
+    QQuickItem *topItem = item->findChild<QQuickItem *>("topRect");
+    QQuickItem *middleItem = item->findChild<QQuickItem *>("middleRect");
+    QQuickItem *bottomItem = item->findChild<QQuickItem *>("bottomRect");
+    topItem->forceActiveFocus();
+    QVERIFY(topItem->property("activeFocus").toBool());
+    QTest::keyClick(qqw, Qt::Key_Tab);
+    QTRY_VERIFY(middleItem->property("activeFocus").toBool());
+    QTest::keyClick(qqw, Qt::Key_Tab);
+    QTRY_VERIFY(bottomItem->property("activeFocus").toBool());
+    QTest::keyClick(qqw, Qt::Key_Backtab);
+    QTRY_VERIFY(middleItem->property("activeFocus").toBool());
+
+    qqw2->setFocus();
+    QQuickItem *item2 = qobject_cast<QQuickItem *>(qqw2->rootObject());
+    QQuickItem *topItem2 = item2->findChild<QQuickItem *>("topRect2");
+    QTRY_VERIFY(qqw2->hasFocus());
+    QVERIFY(topItem2->property("activeFocus").toBool());
+    QTest::keyClick(qqw2, Qt::Key_Tab);
+    QTRY_VERIFY(qqw->hasFocus());
+    QVERIFY(middleItem->property("activeFocus").toBool());
 }
 
 QTEST_MAIN(tst_qquickwidget)

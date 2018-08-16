@@ -16,17 +16,29 @@ gcc:isEqual(QT_ARCH, "mips"): QMAKE_CXXFLAGS += -fno-reorder-blocks
 
 DEFINES += QT_NO_FOREACH
 
-tagFile=$$PWD/../../.tag
-tag=
-exists($$tagFile) {
-    tag=$$cat($$tagFile, singleline)
-    QMAKE_INTERNAL_INCLUDED_FILES += $$tagFile
-}
-!equals(tag, "$${LITERAL_DOLLAR}Format:%H$${LITERAL_DOLLAR}") {
-    DEFINES += QML_COMPILE_HASH="$$tag"
-} else:exists($$PWD/../../.git) {
-    commit=$$system(git describe --tags --always --long --dirty)
-    DEFINES += QML_COMPILE_HASH="$$commit"
+!build_pass {
+    # Create a header containing a hash that describes this library.  For a
+    # released version of Qt, we'll use the .tag file that is updated by git
+    # archive with the commit hash. For unreleased versions, we'll ask git
+    # describe. Note that it won't update unless qmake is run again, even if
+    # the commit change also changed something in this library.
+    tagFile = $$PWD/../../.tag
+    tag =
+    exists($$tagFile) {
+        tag = $$cat($$tagFile, singleline)
+        QMAKE_INTERNAL_INCLUDED_FILES += $$tagFile
+    }
+    !equals(tag, "$${LITERAL_DOLLAR}Format:%H$${LITERAL_DOLLAR}") {
+        QML_COMPILE_HASH = $$tag
+    } else:exists($$PWD/../../.git) {
+        commit = $$system(git describe --tags --always --long --dirty)
+        QML_COMPILE_HASH = $$commit
+    }
+    compile_hash_contents = \
+        "// Generated file, DO NOT EDIT" \
+        "$${LITERAL_HASH}define QML_COMPILE_HASH \"$$QML_COMPILE_HASH\"" \
+        "$${LITERAL_HASH}define QML_COMPILE_HASH_LENGTH $$str_size($$QML_COMPILE_HASH)"
+    write_file("$$OUT_PWD/qml_compile_hash_p.h", compile_hash_contents)|error()
 }
 
 exists("qqml_enable_gcov") {
@@ -57,14 +69,16 @@ include(memory/memory.pri)
 include(parser/parser.pri)
 include(compiler/compiler.pri)
 include(jsapi/jsapi.pri)
-include(jit/jit.pri)
 include(jsruntime/jsruntime.pri)
+include(jit/jit.pri)
 include(qml/qml.pri)
 include(debugger/debugger.pri)
 qtConfig(animation) {
     include(animations/animations.pri)
 }
 include(types/types.pri)
+include(../3rdparty/masm/masm-defs.pri)
+include(../3rdparty/masm/masm.pri)
 
 MODULE_PLUGIN_TYPES = \
     qmltooling

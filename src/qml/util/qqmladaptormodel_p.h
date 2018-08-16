@@ -57,6 +57,8 @@
 
 #include <private/qqmlguard_p.h>
 
+QT_REQUIRE_CONFIG(qml_delegate_model);
+
 QT_BEGIN_NAMESPACE
 
 class QQmlEngine;
@@ -74,7 +76,7 @@ public:
         inline Accessors() {}
         virtual ~Accessors();
         virtual int count(const QQmlAdaptorModel &) const { return 0; }
-        virtual void cleanup(QQmlAdaptorModel &, QQmlDelegateModel * = 0) const {}
+        virtual void cleanup(QQmlAdaptorModel &, QQmlDelegateModel * = nullptr) const {}
 
         virtual QVariant value(const QQmlAdaptorModel &, int, const QString &) const {
             return QVariant(); }
@@ -82,7 +84,7 @@ public:
         virtual QQmlDelegateModelItem *createItem(
                 QQmlAdaptorModel &,
                 QQmlDelegateModelItemMetaType *,
-                int) const { return 0; }
+                int) const { return nullptr; }
 
         virtual bool notify(
                 const QQmlAdaptorModel &,

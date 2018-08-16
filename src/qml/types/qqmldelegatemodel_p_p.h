@@ -60,6 +60,8 @@
 // We mean it.
 //
 
+QT_REQUIRE_CONFIG(qml_delegate_model);
+
 QT_BEGIN_NAMESPACE
 
 typedef QQmlListCompositor Compositor;
@@ -69,7 +71,7 @@ class QQmlDelegateModelAttachedMetaObject;
 class QQmlDelegateModelItemMetaType : public QQmlRefCount
 {
 public:
-    QQmlDelegateModelItemMetaType(QV8Engine *engine, QQmlDelegateModel *model, const QStringList &groupNames);
+    QQmlDelegateModelItemMetaType(QV4::ExecutionEngine *engine, QQmlDelegateModel *model, const QStringList &groupNames);
     ~QQmlDelegateModelItemMetaType();
 
     void initializeMetaObject();
@@ -80,7 +82,7 @@ public:
 
     QPointer<QQmlDelegateModel> model;
     const int groupCount;
-    QV8Engine * const v8Engine;
+    QV4::ExecutionEngine * const v4Engine;
     QQmlDelegateModelAttachedMetaObject *metaObject;
     const QStringList groupNames;
     QV4::PersistentValue modelItemProto;
@@ -126,9 +128,9 @@ public:
     virtual void setValue(const QString &role, const QVariant &value) { Q_UNUSED(role); Q_UNUSED(value); }
     virtual bool resolveIndex(const QQmlAdaptorModel &, int) { return false; }
 
-    static void get_model(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void get_groups(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void set_groups(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
+    static QV4::ReturnedValue get_model(const QV4::FunctionObject *, const QV4::Value *thisObject, const QV4::Value *argv, int argc);
+    static QV4::ReturnedValue get_groups(const QV4::FunctionObject *, const QV4::Value *thisObject, const QV4::Value *argv, int argc);
+    static QV4::ReturnedValue set_groups(const QV4::FunctionObject *, const QV4::Value *thisObject, const QV4::Value *argv, int argc);
     static QV4::ReturnedValue get_member(QQmlDelegateModelItem *thisItem, uint flag, const QV4::Value &);
     static QV4::ReturnedValue set_member(QQmlDelegateModelItem *thisItem, uint flag, const QV4::Value &arg);
     static QV4::ReturnedValue get_index(QQmlDelegateModelItem *thisItem, uint flag, const QV4::Value &arg);
@@ -182,7 +184,7 @@ class QQDMIncubationTask : public QQmlIncubator
 public:
     QQDMIncubationTask(QQmlDelegateModelPrivate *l, IncubationMode mode)
         : QQmlIncubator(mode)
-        , incubating(0)
+        , incubating(nullptr)
         , vdm(l) {}
 
     void statusChanged(Status) override;
@@ -220,7 +222,7 @@ public:
 
     void setModel(QQmlDelegateModel *model, Compositor::Group group);
     bool isChangedConnected();
-    void emitChanges(QV8Engine *engine);
+    void emitChanges(QV4::ExecutionEngine *engine);
     void emitModelUpdated(bool reset);
 
     void createdPackage(int index, QQuickPackage *package);
@@ -278,12 +280,12 @@ public:
     void itemsInserted(
             const QVector<Compositor::Insert> &inserts,
             QVarLengthArray<QVector<QQmlChangeSet::Change>, Compositor::MaximumGroupCount> *translatedInserts,
-            QHash<int, QList<QQmlDelegateModelItem *> > *movedItems = 0);
+            QHash<int, QList<QQmlDelegateModelItem *> > *movedItems = nullptr);
     void itemsInserted(const QVector<Compositor::Insert> &inserts);
     void itemsRemoved(
             const QVector<Compositor::Remove> &removes,
             QVarLengthArray<QVector<QQmlChangeSet::Change>, Compositor::MaximumGroupCount> *translatedRemoves,
-            QHash<int, QList<QQmlDelegateModelItem *> > *movedItems = 0);
+            QHash<int, QList<QQmlDelegateModelItem *> > *movedItems = nullptr);
     void itemsRemoved(const QVector<Compositor::Remove> &removes);
     void itemsMoved(
             const QVector<Compositor::Remove> &removes, const QVector<Compositor::Insert> &inserts);
@@ -341,7 +343,7 @@ class QQmlPartsModel : public QQmlInstanceModel, public QQmlDelegateModelGroupEm
     Q_OBJECT
     Q_PROPERTY(QString filterOnGroup READ filterGroup WRITE setFilterGroup NOTIFY filterGroupChanged RESET resetFilterGroup)
 public:
-    QQmlPartsModel(QQmlDelegateModel *model, const QString &part, QObject *parent = 0);
+    QQmlPartsModel(QQmlDelegateModel *model, const QString &part, QObject *parent = nullptr);
     ~QQmlPartsModel();
 
     QString filterGroup() const;

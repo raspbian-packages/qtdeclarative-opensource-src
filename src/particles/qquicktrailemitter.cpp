@@ -62,7 +62,7 @@ QQuickTrailEmitter::QQuickTrailEmitter(QQuickItem *parent) :
   , m_emitterXVariation(0)
   , m_emitterYVariation(0)
   , m_followCount(0)
-  , m_emissionExtruder(0)
+  , m_emissionExtruder(nullptr)
   , m_defaultEmissionExtruder(new QQuickParticleExtruder(this))
 {
     //TODO: If followed increased their size
@@ -150,7 +150,7 @@ void QQuickTrailEmitter::reset()
 
 void QQuickTrailEmitter::emitWindow(int timeStamp)
 {
-    if (m_system == 0)
+    if (m_system == nullptr)
         return;
     if (!m_enabled && !m_pulseLeft && m_burstQueue.isEmpty())
         return;
@@ -267,7 +267,7 @@ void QQuickTrailEmitter::emitWindow(int timeStamp)
 
         if (isEmitConnected() || isEmitFollowConnected()) {
             QQmlEngine *qmlEngine = ::qmlEngine(this);
-            QV4::ExecutionEngine *v4 = QV8Engine::getV4(qmlEngine->handle());
+            QV4::ExecutionEngine *v4 = qmlEngine->handle();
 
             QV4::Scope scope(v4);
             QV4::ScopedArrayObject array(scope, v4->newArrayObject(toEmit.size()));

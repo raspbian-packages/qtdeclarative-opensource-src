@@ -40,13 +40,12 @@
 #include "qv4debugservice.h"
 #include "qv4debugjob.h"
 #include "qqmlengine.h"
-#include "qqmldebugpacket.h"
 
 #include <private/qv4engine_p.h>
-#include <private/qv4isel_moth_p.h>
 #include <private/qv4function_p.h>
 #include <private/qqmldebugconnector_p.h>
 #include <private/qv8engine_p.h>
+#include <private/qversionedpacket_p.h>
 
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonDocument>
@@ -70,6 +69,8 @@ QT_BEGIN_NAMESPACE
 
 class V8CommandHandler;
 class UnknownV8CommandHandler;
+
+using QQmlDebugPacket = QVersionedPacket<QQmlDebugConnector>;
 
 int QV4DebugServiceImpl::sequence = 0;
 
@@ -99,7 +100,7 @@ public:
             debugService->send(response);
         }
 
-        debugService = 0;
+        debugService = nullptr;
         seq = QJsonValue();
         req = QJsonObject();
         response = QJsonObject();
@@ -703,10 +704,9 @@ void QV4DebugServiceImpl::engineAdded(QJSEngine *engine)
 {
     QMutexLocker lock(&m_configMutex);
     if (engine) {
-        QV4::ExecutionEngine *ee = QV8Engine::getV4(engine->handle());
+        QV4::ExecutionEngine *ee = engine->handle();
         if (QQmlDebugConnector *server = QQmlDebugConnector::instance()) {
             if (ee) {
-                ee->iselFactory.reset(new QV4::Moth::ISelFactory);
                 QV4Debugger *debugger = new QV4Debugger(ee);
                 if (state() == Enabled)
                     ee->setDebugger(debugger);
@@ -722,7 +722,7 @@ void QV4DebugServiceImpl::engineAboutToBeRemoved(QJSEngine *engine)
 {
     QMutexLocker lock(&m_configMutex);
     if (engine){
-        const QV4::ExecutionEngine *ee = QV8Engine::getV4(engine->handle());
+        const QV4::ExecutionEngine *ee = engine->handle();
         if (ee) {
             QV4Debugger *debugger = qobject_cast<QV4Debugger *>(ee->debugger());
             if (debugger)

@@ -11,22 +11,22 @@ Uploaders: Sune Vuorela <debian@pusling.com>,
 Build-Depends: debhelper (>= 11),
                dpkg-dev (>= 1.17.14),
                libgl1-mesa-dri,
-               libqt5opengl5-dev (>= 5.10.1+dfsg~),
-               libqt5xmlpatterns5-dev (>= 5.10.1~),
+               libqt5opengl5-dev (>= 5.11.1+dfsg~),
+               libqt5xmlpatterns5-dev (>= 5.11.1~),
                pkg-kde-tools (>= 0.15.17~),
                python,
-               qtbase5-private-dev (>= 5.10.1+dfsg~),
+               qtbase5-private-dev (>= 5.11.1+dfsg~),
                xauth,
                xvfb
-Build-Depends-Indep: qtbase5-doc-html (>= 5.10.1+dfsg~) <!nodoc>,
-                     qttools5-dev-tools (>= 5.10.1~) <!nodoc>
+Build-Depends-Indep: qtbase5-doc-html (>= 5.11.1+dfsg~) <!nodoc>,
+                     qttools5-dev-tools (>= 5.11.1~) <!nodoc>
 Standards-Version: 4.1.4
 Homepage: http://qt-project.org/
 Vcs-Git: https://salsa.debian.org/qt-kde-team/qt/qtdeclarative.git
 Vcs-Browser: https://salsa.debian.org/qt-kde-team/qt/qtdeclarative
 
 Package: libqt5qml5
-Provides: qtdeclarative-abi-5-10-1
+Provides: qtdeclarative-abi-5-11-0
 Architecture: any
 Multi-Arch: same
 Pre-Depends: ${misc:Pre-Depends}
@@ -273,6 +273,7 @@ Depends: libqt5qml5 (= ${binary:Version}),
          libqt5quicktest5 (= ${binary:Version}),
          libqt5quickwidgets5 (= ${binary:Version}),
          qt5-qmltooling-plugins,
+         qtdeclarative5-dev-tools,
          qtbase5-dev,
          ${misc:Depends}
 Description: Qt 5 declarative development files

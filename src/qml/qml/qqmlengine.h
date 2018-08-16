@@ -46,7 +46,6 @@
 #include <QtQml/qjsengine.h>
 #include <QtQml/qqml.h>
 #include <QtQml/qqmlerror.h>
-#include <QtQml/qqmldebug.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -97,8 +96,8 @@ class Q_QML_EXPORT QQmlEngine : public QJSEngine
     Q_PROPERTY(QString offlineStoragePath READ offlineStoragePath WRITE setOfflineStoragePath)
     Q_OBJECT
 public:
-    explicit QQmlEngine(QObject *p = Q_NULLPTR);
-    virtual ~QQmlEngine();
+    explicit QQmlEngine(QObject *p = nullptr);
+    ~QQmlEngine() override;
 
     QQmlContext *rootContext() const;
 

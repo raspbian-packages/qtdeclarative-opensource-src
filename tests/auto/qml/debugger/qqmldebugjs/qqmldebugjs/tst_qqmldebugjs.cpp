@@ -27,6 +27,7 @@
 ****************************************************************************/
 
 #include "debugutil_p.h"
+#include "qqmldebugprocess_p.h"
 #include "../../shared/qqmlenginedebugclient.h"
 #include "../../../../shared/util.h"
 
@@ -123,6 +124,7 @@ const char *QUIT_QMLFILE = "quit.qml";
 const char *CHANGEBREAKPOINT_QMLFILE = "changeBreakpoint.qml";
 const char *STEPACTION_QMLFILE = "stepAction.qml";
 const char *BREAKPOINTRELOCATION_QMLFILE = "breakpointRelocation.qml";
+const char *ENCODEQMLSCOPE_QMLFILE = "encodeQmlScope.qml";
 
 #define VARIANTMAPINIT \
     QString obj("{}"); \
@@ -215,6 +217,8 @@ private slots:
 
     void getScripts_data() { targetData(); }
     void getScripts();
+
+    void encodeQmlScope();
 
 private:
     ConnectResult init(bool qmlscene, const QString &qmlFile = QString(TEST_QMLFILE),
@@ -1188,6 +1192,14 @@ void tst_QQmlDebugJS::stepNext()
     QCOMPARE(QFileInfo(body.value("script").toMap().value("name").toString()).fileName(), QLatin1String(STEPACTION_QMLFILE));
 }
 
+static QVariantMap responseBody(QJSDebugClient *client)
+{
+    const QString jsonString(client->response);
+    const QVariantMap value = client->parser.call(QJSValueList() << QJSValue(jsonString))
+            .toVariant().toMap();
+    return value.value("body").toMap();
+}
+
 void tst_QQmlDebugJS::stepIn()
 {
     //void continueDebugging(StepAction stepAction, int stepCount = 1);
@@ -1196,21 +1208,18 @@ void tst_QQmlDebugJS::stepIn()
     QFETCH(bool, namesAsObjects);
 
     int sourceLine = 41;
-    int actualLine = 37;
+    int actualLine = 36;
     QCOMPARE(init(qmlscene, STEPACTION_QMLFILE), ConnectSuccess);
 
     m_client->setBreakpoint(QLatin1String(STEPACTION_QMLFILE), sourceLine, 1, true);
     m_client->connect(redundantRefs, namesAsObjects);
     QVERIFY(QQmlDebugTest::waitForSignal(m_client, SIGNAL(stopped())));
+    QCOMPARE(responseBody(m_client).value("sourceLine").toInt(), sourceLine);
 
     m_client->continueDebugging(QJSDebugClient::In);
     QVERIFY(QQmlDebugTest::waitForSignal(m_client, SIGNAL(stopped())));
 
-    QString jsonString(m_client->response);
-    QVariantMap value = m_client->parser.call(QJSValueList() << QJSValue(jsonString)).toVariant().toMap();
-
-    QVariantMap body = value.value("body").toMap();
-
+    const QVariantMap body = responseBody(m_client);
     QCOMPARE(body.value("sourceLine").toInt(), actualLine);
     QCOMPARE(QFileInfo(body.value("script").toMap().value("name").toString()).fileName(), QLatin1String(STEPACTION_QMLFILE));
 }
@@ -1229,15 +1238,12 @@ void tst_QQmlDebugJS::stepOut()
     m_client->setBreakpoint(QLatin1String(STEPACTION_QMLFILE), sourceLine, -1, true);
     m_client->connect(redundantRefs, namesAsObjects);
     QVERIFY(QQmlDebugTest::waitForSignal(m_client, SIGNAL(stopped())));
+    QCOMPARE(responseBody(m_client).value("sourceLine").toInt(), sourceLine);
 
     m_client->continueDebugging(QJSDebugClient::Out);
     QVERIFY(QQmlDebugTest::waitForSignal(m_client, SIGNAL(stopped())));
 
-    QString jsonString(m_client->response);
-    QVariantMap value = m_client->parser.call(QJSValueList() << QJSValue(jsonString)).toVariant().toMap();
-
-    QVariantMap body = value.value("body").toMap();
-
+    const QVariantMap body = responseBody(m_client);
     QCOMPARE(body.value("sourceLine").toInt(), actualLine);
     QCOMPARE(QFileInfo(body.value("script").toMap().value("name").toString()).fileName(), QLatin1String(STEPACTION_QMLFILE));
 }
@@ -1331,16 +1337,15 @@ void tst_QQmlDebugJS::evaluateInGlobalScope()
 
     m_client->connect();
 
-    do {
+    for (int i = 0; i < 10; ++i) {
         // The engine might not be initialized, yet. We just try until it shows up.
         m_client->evaluate(QLatin1String("console.log('Hello World')"));
-    } while (!QQmlDebugTest::waitForSignal(m_client, SIGNAL(result()), 500));
+        if (QQmlDebugTest::waitForSignal(m_client, SIGNAL(result()), 500))
+            break;
+    }
 
     //Verify the return value of 'console.log()', which is "undefined"
-    QString jsonString(m_client->response);
-    QVariantMap value = m_client->parser.call(QJSValueList() << QJSValue(jsonString)).toVariant().toMap();
-    QVariantMap body = value.value("body").toMap();
-    QCOMPARE(body.value("type").toString(),QLatin1String("undefined"));
+    QCOMPARE(responseBody(m_client).value("type").toString(), QLatin1String("undefined"));
 }
 
 void tst_QQmlDebugJS::evaluateInLocalScope()
@@ -1424,11 +1429,7 @@ void tst_QQmlDebugJS::evaluateInContext()
     m_client->evaluate(QLatin1String("a + 10"), -1, object.debugId);
     QVERIFY(QQmlDebugTest::waitForSignal(m_client, SIGNAL(result())));
 
-    QString jsonString = m_client->response;
-    QVariantMap value = m_client->parser.call(QJSValueList() << QJSValue(jsonString)).toVariant().toMap();
-
-    QVariantMap body = value.value("body").toMap();
-    QTRY_COMPARE(body.value("value").toInt(), 20);
+    QTRY_COMPARE(responseBody(m_client).value("value").toInt(), 20);
 }
 
 void tst_QQmlDebugJS::getScripts()
@@ -1454,6 +1455,70 @@ void tst_QQmlDebugJS::getScripts()
 
     QCOMPARE(scripts.count(), 1);
     QVERIFY(scripts.first().toMap()[QStringLiteral("name")].toString().endsWith(QStringLiteral("data/test.qml")));
+}
+
+void tst_QQmlDebugJS::encodeQmlScope()
+{
+    QString file(ENCODEQMLSCOPE_QMLFILE);
+    QCOMPARE(init(true, file), ConnectSuccess);
+
+    int numFrames = 0;
+    int numExpectedScopes = 0;
+    int numReceivedScopes = 0;
+    bool isStopped = false;
+    bool scopesFailed = false;
+
+    QObject::connect(m_client, &QJSDebugClient::failure, this, [&]() {
+        qWarning() << "received failure" << m_client->response;
+        scopesFailed = true;
+        m_process->stop();
+        numFrames = 2;
+        isStopped = false;
+    });
+
+    QObject::connect(m_client, &QJSDebugClient::stopped, this, [&]() {
+        m_client->frame();
+        isStopped = true;
+    });
+
+    QObject::connect(m_client, &QJSDebugClient::result, this, [&]() {
+        const QVariantMap value = m_client->parser.call(
+                    QJSValueList() << QJSValue(QString(m_client->response))).toVariant().toMap();
+
+        const QMap<QString, QVariant> body = value.value("body").toMap();
+        const QString command = value.value("command").toString();
+
+        if (command == QString("scope")) {
+            // If the scope commands fail we get a failure() signal above.
+            if (++numReceivedScopes == numExpectedScopes) {
+                m_client->continueDebugging(QJSDebugClient::Continue);
+                isStopped = false;
+            }
+        } else if (command == QString("frame")) {
+
+            // We want at least a global scope and some kind of local scope here.
+            const QList<QVariant> scopes = body.value("scopes").toList();
+            if (scopes.length() < 2)
+                scopesFailed = true;
+
+            for (const QVariant &scope : scopes) {
+                ++numExpectedScopes;
+                m_client->scope(scope.toMap().value("index").toInt());
+            }
+
+            ++numFrames;
+        }
+    });
+
+    m_client->setBreakpoint(file, 6);
+    m_client->setBreakpoint(file, 8);
+    m_client->connect();
+
+    QTRY_COMPARE(numFrames, 2);
+    QVERIFY(numExpectedScopes > 3);
+    QVERIFY(!scopesFailed);
+    QTRY_VERIFY(!isStopped);
+    QCOMPARE(numReceivedScopes, numExpectedScopes);
 }
 
 QList<QQmlDebugClient *> tst_QQmlDebugJS::createClients()

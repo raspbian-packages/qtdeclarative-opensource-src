@@ -64,6 +64,7 @@
 #include <QtCore/qjsonvalue.h>
 #include <QtCore/qdatetime.h>
 #include <QtCore/qdatastream.h>
+#include <private/qsimd_p.h>
 
 #include <private/qv4value_p.h>
 #include <private/qv4dateobject_p.h>
@@ -122,12 +123,18 @@ static void restoreJSValue(QDataStream &stream, void *data)
     }
 }
 
-QV8Engine::QV8Engine(QJSEngine* qq)
+QV8Engine::QV8Engine(QJSEngine *qq, QV4::ExecutionEngine *v4)
     : q(qq)
-    , m_engine(0)
-    , m_xmlHttpRequestData(0)
-    , m_listModelData(0)
+    , m_engine(nullptr)
+    , m_v4Engine(v4)
+    , m_xmlHttpRequestData(nullptr)
 {
+#ifdef Q_PROCESSOR_X86_32
+    if (!qCpuHasFeature(SSE2)) {
+        qFatal("This program requires an X86 processor that supports SSE2 extension, at least a Pentium 4 or newer");
+    }
+#endif
+
     QML_MEMORY_SCOPE_STRING("QV8Engine::QV8Engine");
     qMetaTypeId<QJSValue>();
     qMetaTypeId<QList<int> >();
@@ -140,8 +147,6 @@ QV8Engine::QV8Engine(QJSEngine* qq)
         QMetaType::registerConverter<QJSValue, QStringList>(convertJSValueToVariantType<QStringList>);
     QMetaType::registerStreamOperators(qMetaTypeId<QJSValue>(), saveJSValue, restoreJSValue);
 
-    m_v4Engine = new QV4::ExecutionEngine;
-    m_v4Engine->v8Engine = this;
     m_delayedCallQueue.init(m_v4Engine);
 
     QV4::QObjectWrapper::initializeBindings(m_v4Engine);
@@ -154,13 +159,8 @@ QV8Engine::~QV8Engine()
 
 #if QT_CONFIG(xmlstreamreader) && QT_CONFIG(qml_network)
     qt_rem_qmlxmlhttprequest(m_v4Engine, m_xmlHttpRequestData);
-    m_xmlHttpRequestData = 0;
+    m_xmlHttpRequestData = nullptr;
 #endif
-
-    delete m_listModelData;
-    m_listModelData = 0;
-
-    delete m_v4Engine;
 }
 
 #if QT_CONFIG(qml_network)
@@ -283,11 +283,6 @@ void QV8Engine::setEngine(QQmlEngine *engine)
 {
     m_engine = engine;
     initQmlGlobalObject();
-}
-
-QV4::ReturnedValue QV8Engine::global()
-{
-    return m_v4Engine->globalObject->asReturnedValue();
 }
 
 void QV8Engine::startTimer(const QString &timerName)

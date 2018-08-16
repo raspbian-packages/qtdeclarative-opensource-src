@@ -38,7 +38,6 @@
 #include <private/qv4debugging_p.h>
 #include <private/qv8engine_p.h>
 #include <private/qv4objectiterator_p.h>
-#include <private/qv4isel_moth_p.h>
 #include <private/qv4string_p.h>
 #include <private/qqmlbuiltinfunctions_p.h>
 #include <private/qqmldebugservice_p.h>
@@ -46,7 +45,7 @@
 using namespace QV4;
 using namespace QV4::Debugging;
 
-typedef void (*InjectedFunction)(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
+typedef QV4::ReturnedValue (*InjectedFunction)(const FunctionObject *b, const QV4::Value *, const QV4::Value *, int);
 Q_DECLARE_METATYPE(InjectedFunction)
 
 static bool waitForSignal(QObject* obj, const char* signal, int timeout = 10000)
@@ -79,7 +78,7 @@ public:
         emit evaluateFinished();
     }
 
-    QV4::ExecutionEngine *v4Engine() { return QV8Engine::getV4(this); }
+    QV4::ExecutionEngine *v4Engine() { return handle(); }
 
     Q_INVOKABLE void injectFunction(const QString &functionName, InjectedFunction injectedFunction)
     {
@@ -88,7 +87,7 @@ public:
 
         QV4::ScopedString name(scope, v4->newString(functionName));
         QV4::ScopedContext ctx(scope, v4->rootContext());
-        QV4::ScopedValue function(scope, BuiltinFunction::create(ctx, name, injectedFunction));
+        QV4::ScopedValue function(scope, FunctionObject::createBuiltinFunction(ctx, name, injectedFunction));
         v4->globalObject->put(name, function);
     }
 
@@ -167,7 +166,7 @@ public:
         , m_thrownValue(-1)
         , collector(engine)
         , m_resumeSpeed(QV4Debugger::FullThrottle)
-        , m_debugger(0)
+        , m_debugger(nullptr)
     {
     }
 
@@ -298,6 +297,7 @@ private slots:
     // context access:
     void readArguments_data() { redundancy_data(); }
     void readArguments();
+    void readComplicatedArguments();
     void readLocals_data() { redundancy_data(); }
     void readLocals();
     void readObject_data() { redundancy_data(); }
@@ -317,6 +317,8 @@ private slots:
 
     void lastLineOfConditional_data();
     void lastLineOfConditional();
+
+    void readThis();
 private:
     QV4Debugger *debugger() const
     {
@@ -343,7 +345,6 @@ void tst_qv4debugger::init()
     m_javaScriptThread = new QThread;
     m_engine = new TestEngine;
     m_v4 = m_engine->v4Engine();
-    m_v4->iselFactory.reset(new QV4::Moth::ISelFactory);
     m_v4->setDebugger(new QV4Debugger(m_v4));
     m_engine->moveToThread(m_javaScriptThread);
     m_javaScriptThread->start();
@@ -357,10 +358,10 @@ void tst_qv4debugger::cleanup()
     m_javaScriptThread->wait();
     delete m_engine;
     delete m_javaScriptThread;
-    m_engine = 0;
-    m_v4 = 0;
+    m_engine = nullptr;
+    m_v4 = nullptr;
     delete m_debuggerAgent;
-    m_debuggerAgent = 0;
+    m_debuggerAgent = nullptr;
 }
 
 void tst_qv4debugger::breakAnywhere()
@@ -438,9 +439,9 @@ void tst_qv4debugger::addBreakPointWhilePaused()
     QCOMPARE(state.lineNumber, 2);
 }
 
-static void someCall(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *)
+static QV4::ReturnedValue someCall(const FunctionObject *function, const QV4::Value *, const QV4::Value *, int)
 {
-    static_cast<QV4Debugger *>(scope.engine->debugger())
+    static_cast<QV4Debugger *>(function->engine()->debugger())
             ->removeBreakPoint("removeBreakPointForNextInstruction", 2);
     RETURN_UNDEFINED();
 }
@@ -464,7 +465,7 @@ void tst_qv4debugger::conditionalBreakPoint()
 {
     m_debuggerAgent->m_captureContextInfo = true;
     QString script =
-            "function test() {\n"
+            "var test = function() {\n"
             "    for (var i = 0; i < 15; ++i) {\n"
             "        var x = i;\n"
             "    }\n"
@@ -489,9 +490,8 @@ void tst_qv4debugger::conditionalBreakPoint()
 void tst_qv4debugger::conditionalBreakPointInQml()
 {
     QQmlEngine engine;
-    QV4::ExecutionEngine *v4 = QV8Engine::getV4(&engine);
+    QV4::ExecutionEngine *v4 = engine.handle();
     QV4Debugger *v4Debugger = new QV4Debugger(v4);
-    v4->iselFactory.reset(new QV4::Moth::ISelFactory);
     v4->setDebugger(v4Debugger);
 
     QScopedPointer<QThread> debugThread(new QThread);
@@ -531,7 +531,7 @@ void tst_qv4debugger::readArguments()
 
     m_debuggerAgent->m_captureContextInfo = true;
     QString script =
-            "function f(a, b, c, d) {\n"
+            "var f = function(a, b, c, d) {\n"
             "  return a === b\n"
             "}\n"
             "var four;\n"
@@ -550,6 +550,27 @@ void tst_qv4debugger::readArguments()
     QCOMPARE(frame0.value(QStringLiteral("b")).toString(), QStringLiteral("two"));
 }
 
+void tst_qv4debugger::readComplicatedArguments()
+{
+    m_debuggerAgent->collector.setRedundantRefs(false);
+    m_debuggerAgent->m_captureContextInfo = true;
+    QString script =
+            "var f = function(a) {\n"
+            "  a = 12;\n"
+            "  return a;\n"
+            "}\n"
+            "f(1, 2);\n";
+    debugger()->addBreakPoint("readArguments", 3);
+    evaluateJavaScript(script, "readArguments");
+    QVERIFY(m_debuggerAgent->m_wasPaused);
+    QVERIFY(m_debuggerAgent->m_capturedScope.size() > 1);
+    const TestAgent::NamedRefs &frame0 = m_debuggerAgent->m_capturedScope.at(0);
+    QCOMPARE(frame0.size(), 1);
+    QVERIFY(frame0.contains(QStringLiteral("a")));
+    QCOMPARE(frame0.type(QStringLiteral("a")), QStringLiteral("number"));
+    QCOMPARE(frame0.value(QStringLiteral("a")).toInt(), 12);
+}
+
 void tst_qv4debugger::readLocals()
 {
     QFETCH(bool, redundantRefs);
@@ -557,7 +578,7 @@ void tst_qv4debugger::readLocals()
 
     m_debuggerAgent->m_captureContextInfo = true;
     QString script =
-            "function f(a, b) {\n"
+            "var f = function(a, b) {\n"
             "  var c = a + b\n"
             "  var d = a - b\n" // breakpoint, c should be set, d should be undefined
             "  return c === d\n"
@@ -583,7 +604,7 @@ void tst_qv4debugger::readObject()
 
     m_debuggerAgent->m_captureContextInfo = true;
     QString script =
-            "function f(a) {\n"
+            "var f = function(a) {\n"
             "  var b = a\n"
             "  return b\n"
             "}\n"
@@ -641,7 +662,7 @@ void tst_qv4debugger::readContextInAllFrames()
 
     m_debuggerAgent->m_captureContextInfo = true;
     QString script =
-            "function fact(n) {\n"
+            "var fact = function(n) {\n"
             "  if (n > 1) {\n"
             "    var n_1 = n - 1;\n"
             "    n_1 = fact(n_1);\n"
@@ -814,13 +835,13 @@ void tst_qv4debugger::lastLineOfConditional_data()
     QTest::newRow("do..while {block}") << "do {\n"           << "} while (ret < 10);" << 4 << 7;
 
     QTest::newRow("if true {block}")       << "if (true) {\n"  << "}"
-                                           << 4 << 7;
+                                           << 4 << 8;
     QTest::newRow("if false {block}")      << "if (false) {\n" << "}"
                                            << 2 << 8;
     QTest::newRow("if true else {block}")  << "if (true) {\n"  << "} else {\n    ret += 8;\n}"
-                                           << 4 << 7;
+                                           << 4 << 10;
     QTest::newRow("if false else {block}") << "if (false) {\n" << "} else {\n    ret += 8;\n}"
-                                           << 8 << 9;
+                                           << 8 << 10;
 
     QTest::newRow("for statement")       << "for (var i = 0; i < 10; ++i)\n"   << "" << 4 << 2;
     QTest::newRow("for..in statement")   << "for (var i in [0, 1, 2, 3, 4])\n" << "" << 4 << 2;
@@ -829,11 +850,11 @@ void tst_qv4debugger::lastLineOfConditional_data()
 
     // For two nested if statements without blocks, we need to map the jump from the inner to the
     // outer one on the outer "if". There is just no better place.
-    QTest::newRow("if true statement")       << "if (true)\n"  << ""                    << 4 << 2;
+    QTest::newRow("if true statement")       << "if (true)\n"  << ""                    << 4 << 8;
     QTest::newRow("if false statement")      << "if (false)\n" << ""                    << 2 << 8;
 
     // Also two nested ifs without blocks.
-    QTest::newRow("if true else statement")  << "if (true)\n"  << "else\n    ret += 8;" << 4 << 2;
+    QTest::newRow("if true else statement")  << "if (true)\n"  << "else\n    ret += 8;" << 4 << 9;
     QTest::newRow("if false else statement") << "if (false)\n" << "else\n    ret += 8;" << 8 << 9;
 }
 
@@ -866,6 +887,36 @@ void tst_qv4debugger::lastLineOfConditional()
     QV4Debugger::ExecutionState secondState = m_debuggerAgent->m_statesWhenPaused.at(1);
     QCOMPARE(secondState.fileName, QString("trueBranch"));
     QCOMPARE(secondState.lineNumber, lastLine);
+}
+
+void tst_qv4debugger::readThis()
+{
+    m_debuggerAgent->m_captureContextInfo = true;
+    QString script =
+            "var x = function() {\n"
+            "    return this.a;\n"
+            "}.apply({a : 5}, []);\n";
+
+    TestAgent::ExpressionRequest request;
+    request.expression = "this";
+    request.frameNr = 0;
+    request.context = -1; // no extra context
+    m_debuggerAgent->m_expressionRequests << request;
+
+    debugger()->addBreakPoint("applyThis", 2);
+    evaluateJavaScript(script, "applyThis");
+    QVERIFY(m_debuggerAgent->m_wasPaused);
+
+    QCOMPARE(m_debuggerAgent->m_expressionResults.count(), 1);
+    QJsonObject result0 = m_debuggerAgent->m_expressionResults[0];
+    QCOMPARE(result0.value("type").toString(), QStringLiteral("object"));
+    QCOMPARE(result0.value("value").toInt(), 1);
+    QJsonArray properties = result0.value("properties").toArray();
+    QCOMPARE(properties.size(), 1);
+    QJsonObject a = properties.first().toObject();
+    QCOMPARE(a.value("name").toString(), QStringLiteral("a"));
+    QCOMPARE(a.value("type").toString(), QStringLiteral("number"));
+    QCOMPARE(a.value("value").toInt(), 5);
 }
 
 void tst_qv4debugger::redundancy_data()

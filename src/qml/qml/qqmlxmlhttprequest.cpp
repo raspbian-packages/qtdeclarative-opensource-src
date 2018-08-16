@@ -51,6 +51,7 @@
 #include <private/qv4engine_p.h>
 #include <private/qv4functionobject_p.h>
 #include <private/qv4scopedvalue_p.h>
+#include <private/qv4jscall_p.h>
 
 #include <QtCore/qobject.h>
 #include <QtQml/qjsvalue.h>
@@ -74,8 +75,7 @@ using namespace QV4;
 #define V4THROW_REFERENCE(string) \
     do { \
         ScopedObject error(scope, scope.engine->newReferenceErrorObject(QStringLiteral(string))); \
-        scope.result = scope.engine->throwError(error); \
-        return; \
+        return scope.engine->throwError(error); \
     } while (false)
 
 QT_BEGIN_NAMESPACE
@@ -116,7 +116,7 @@ class DocumentImpl;
 class NodeImpl
 {
 public:
-    NodeImpl() : type(Element), document(0), parent(0) {}
+    NodeImpl() : type(Element), document(nullptr), parent(nullptr) {}
     virtual ~NodeImpl() {
         qDeleteAll(children);
         qDeleteAll(attributes);
@@ -157,7 +157,7 @@ public:
 class DocumentImpl : public QQmlRefCount, public NodeImpl
 {
 public:
-    DocumentImpl() : root(0) { type = Document; }
+    DocumentImpl() : root(nullptr) { type = Document; }
     virtual ~DocumentImpl() {
         delete root;
     }
@@ -276,25 +276,25 @@ public:
     static void initClass(ExecutionEngine *engine);
 
     // JS API
-    static void method_get_nodeName(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_get_nodeValue(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_get_nodeType(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_get_namespaceUri(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
+    static ReturnedValue method_get_nodeName(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_get_nodeValue(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_get_nodeType(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_get_namespaceUri(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
 
-    static void method_get_parentNode(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_get_childNodes(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_get_firstChild(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_get_lastChild(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_get_previousSibling(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_get_nextSibling(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_get_attributes(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
+    static ReturnedValue method_get_parentNode(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_get_childNodes(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_get_firstChild(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_get_lastChild(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_get_previousSibling(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_get_nextSibling(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_get_attributes(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
 
-    //static void ownerDocument(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    //static void namespaceURI(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    //static void prefix(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    //static void localName(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    //static void baseURI(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    //static void textContent(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
+    //static ReturnedValue ownerDocument(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    //static ReturnedValue namespaceURI(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    //static ReturnedValue prefix(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    //static ReturnedValue localName(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    //static ReturnedValue baseURI(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    //static ReturnedValue textContent(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
 
     static ReturnedValue getProto(ExecutionEngine *v4);
 
@@ -306,18 +306,18 @@ void Heap::NodePrototype::init()
     Scope scope(internalClass->engine);
     ScopedObject o(scope, this);
 
-    o->defineAccessorProperty(QStringLiteral("nodeName"), QV4::NodePrototype::method_get_nodeName, 0);
-    o->defineAccessorProperty(QStringLiteral("nodeValue"), QV4::NodePrototype::method_get_nodeValue, 0);
-    o->defineAccessorProperty(QStringLiteral("nodeType"), QV4::NodePrototype::method_get_nodeType, 0);
-    o->defineAccessorProperty(QStringLiteral("namespaceUri"), QV4::NodePrototype::method_get_namespaceUri, 0);
+    o->defineAccessorProperty(QStringLiteral("nodeName"), QV4::NodePrototype::method_get_nodeName, nullptr);
+    o->defineAccessorProperty(QStringLiteral("nodeValue"), QV4::NodePrototype::method_get_nodeValue, nullptr);
+    o->defineAccessorProperty(QStringLiteral("nodeType"), QV4::NodePrototype::method_get_nodeType, nullptr);
+    o->defineAccessorProperty(QStringLiteral("namespaceUri"), QV4::NodePrototype::method_get_namespaceUri, nullptr);
 
-    o->defineAccessorProperty(QStringLiteral("parentNode"), QV4::NodePrototype::method_get_parentNode, 0);
-    o->defineAccessorProperty(QStringLiteral("childNodes"), QV4::NodePrototype::method_get_childNodes, 0);
-    o->defineAccessorProperty(QStringLiteral("firstChild"), QV4::NodePrototype::method_get_firstChild, 0);
-    o->defineAccessorProperty(QStringLiteral("lastChild"), QV4::NodePrototype::method_get_lastChild, 0);
-    o->defineAccessorProperty(QStringLiteral("previousSibling"), QV4::NodePrototype::method_get_previousSibling, 0);
-    o->defineAccessorProperty(QStringLiteral("nextSibling"), QV4::NodePrototype::method_get_nextSibling, 0);
-    o->defineAccessorProperty(QStringLiteral("attributes"), QV4::NodePrototype::method_get_attributes, 0);
+    o->defineAccessorProperty(QStringLiteral("parentNode"), QV4::NodePrototype::method_get_parentNode, nullptr);
+    o->defineAccessorProperty(QStringLiteral("childNodes"), QV4::NodePrototype::method_get_childNodes, nullptr);
+    o->defineAccessorProperty(QStringLiteral("firstChild"), QV4::NodePrototype::method_get_firstChild, nullptr);
+    o->defineAccessorProperty(QStringLiteral("lastChild"), QV4::NodePrototype::method_get_lastChild, nullptr);
+    o->defineAccessorProperty(QStringLiteral("previousSibling"), QV4::NodePrototype::method_get_previousSibling, nullptr);
+    o->defineAccessorProperty(QStringLiteral("nextSibling"), QV4::NodePrototype::method_get_nextSibling, nullptr);
+    o->defineAccessorProperty(QStringLiteral("attributes"), QV4::NodePrototype::method_get_attributes, nullptr);
 }
 
 
@@ -355,10 +355,10 @@ class Attr : public Node
 {
 public:
     // JS API
-    static void method_name(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
+    static ReturnedValue method_name(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
 //    static void specified(CallContext *);
-    static void method_value(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_ownerElement(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
+    static ReturnedValue method_value(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_ownerElement(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
 //    static void schemaTypeInfo(CallContext *);
 //    static void isId(CallContext *c);
 
@@ -370,7 +370,7 @@ class CharacterData : public Node
 {
 public:
     // JS API
-    static void method_length(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
+    static ReturnedValue method_length(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
 
     // C++ API
     static ReturnedValue prototype(ExecutionEngine *v4);
@@ -380,8 +380,8 @@ class Text : public CharacterData
 {
 public:
     // JS API
-    static void method_isElementContentWhitespace(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_wholeText(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
+    static ReturnedValue method_isElementContentWhitespace(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_wholeText(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
 
     // C++ API
     static ReturnedValue prototype(ExecutionEngine *);
@@ -398,10 +398,10 @@ class Document : public Node
 {
 public:
     // JS API
-    static void method_xmlVersion(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_xmlEncoding(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_xmlStandalone(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_documentElement(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
+    static ReturnedValue method_xmlVersion(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_xmlEncoding(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_xmlStandalone(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_documentElement(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
 
     // C++ API
     static ReturnedValue prototype(ExecutionEngine *);
@@ -420,9 +420,10 @@ void NodeImpl::release()
     document->release();
 }
 
-void NodePrototype::method_get_nodeName(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue NodePrototype::method_get_nodeName(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r)
         THROW_TYPE_ERROR();
 
@@ -441,12 +442,13 @@ void NodePrototype::method_get_nodeName(const QV4::BuiltinFunction *, QV4::Scope
         name = r->d()->d->name;
         break;
     }
-    scope.result = Encode(scope.engine->newString(name));
+    return Encode(scope.engine->newString(name));
 }
 
-void NodePrototype::method_get_nodeValue(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue NodePrototype::method_get_nodeValue(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    QV4::Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r)
         THROW_TYPE_ERROR();
 
@@ -459,75 +461,82 @@ void NodePrototype::method_get_nodeValue(const QV4::BuiltinFunction *, QV4::Scop
         r->d()->d->type == NodeImpl::Notation)
         RETURN_RESULT(Encode::null());
 
-    scope.result = Encode(scope.engine->newString(r->d()->d->data));
+    return Encode(scope.engine->newString(r->d()->d->data));
 }
 
-void NodePrototype::method_get_nodeType(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue NodePrototype::method_get_nodeType(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    QV4::Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r)
         THROW_TYPE_ERROR();
 
-    scope.result = Encode(r->d()->d->type);
+    return Encode(r->d()->d->type);
 }
 
-void NodePrototype::method_get_namespaceUri(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue NodePrototype::method_get_namespaceUri(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    QV4::Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r)
         THROW_TYPE_ERROR();
 
-    scope.result = Encode(scope.engine->newString(r->d()->d->namespaceUri));
+    return Encode(scope.engine->newString(r->d()->d->namespaceUri));
 }
 
-void NodePrototype::method_get_parentNode(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue NodePrototype::method_get_parentNode(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    QV4::Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r)
         THROW_TYPE_ERROR();
 
     if (r->d()->d->parent)
-        scope.result = Node::create(scope.engine, r->d()->d->parent);
+        return Node::create(scope.engine, r->d()->d->parent);
     else
-        scope.result = Encode::null();
+        return Encode::null();
 }
 
-void NodePrototype::method_get_childNodes(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue NodePrototype::method_get_childNodes(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    QV4::Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r)
         THROW_TYPE_ERROR();
 
-    scope.result = NodeList::create(scope.engine, r->d()->d);
+    return NodeList::create(scope.engine, r->d()->d);
 }
 
-void NodePrototype::method_get_firstChild(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue NodePrototype::method_get_firstChild(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
-    if (!r)
-        THROW_TYPE_ERROR();
-
-    if (r->d()->d->children.isEmpty())
-        scope.result = Encode::null();
-    else
-        scope.result = Node::create(scope.engine, r->d()->d->children.constFirst());
-}
-
-void NodePrototype::method_get_lastChild(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
-{
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    QV4::Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r)
         THROW_TYPE_ERROR();
 
     if (r->d()->d->children.isEmpty())
-        scope.result = Encode::null();
+        return Encode::null();
     else
-        scope.result = Node::create(scope.engine, r->d()->d->children.constLast());
+        return Node::create(scope.engine, r->d()->d->children.constFirst());
 }
 
-void NodePrototype::method_get_previousSibling(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue NodePrototype::method_get_lastChild(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    QV4::Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
+    if (!r)
+        THROW_TYPE_ERROR();
+
+    if (r->d()->d->children.isEmpty())
+        return Encode::null();
+    else
+        return Node::create(scope.engine, r->d()->d->children.constLast());
+}
+
+ReturnedValue NodePrototype::method_get_previousSibling(const FunctionObject *b, const Value *thisObject, const Value *, int)
+{
+    QV4::Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r)
         THROW_TYPE_ERROR();
 
@@ -537,19 +546,19 @@ void NodePrototype::method_get_previousSibling(const QV4::BuiltinFunction *, QV4
     for (int ii = 0; ii < r->d()->d->parent->children.count(); ++ii) {
         if (r->d()->d->parent->children.at(ii) == r->d()->d) {
             if (ii == 0)
-                scope.result = Encode::null();
+                return Encode::null();
             else
-                scope.result = Node::create(scope.engine, r->d()->d->parent->children.at(ii - 1));
-            return;
+                return Node::create(scope.engine, r->d()->d->parent->children.at(ii - 1));
         }
     }
 
-    scope.result = Encode::null();
+    return Encode::null();
 }
 
-void NodePrototype::method_get_nextSibling(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue NodePrototype::method_get_nextSibling(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    QV4::Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r)
         THROW_TYPE_ERROR();
 
@@ -559,26 +568,26 @@ void NodePrototype::method_get_nextSibling(const QV4::BuiltinFunction *, QV4::Sc
     for (int ii = 0; ii < r->d()->d->parent->children.count(); ++ii) {
         if (r->d()->d->parent->children.at(ii) == r->d()->d) {
             if ((ii + 1) == r->d()->d->parent->children.count())
-                scope.result = Encode::null();
+                return Encode::null();
             else
-                scope.result = Node::create(scope.engine, r->d()->d->parent->children.at(ii + 1));
-            return;
+                return Node::create(scope.engine, r->d()->d->parent->children.at(ii + 1));
         }
     }
 
-    scope.result = Encode::null();
+    return Encode::null();
 }
 
-void NodePrototype::method_get_attributes(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue NodePrototype::method_get_attributes(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    QV4::Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r)
         THROW_TYPE_ERROR();
 
     if (r->d()->d->type != NodeImpl::Element)
-        scope.result = Encode::null();
+        return Encode::null();
     else
-        scope.result = NamedNodeMap::create(scope.engine, r->d()->d, r->d()->d->attributes);
+        return NamedNodeMap::create(scope.engine, r->d()->d, r->d()->d->attributes);
 }
 
 ReturnedValue NodePrototype::getProto(ExecutionEngine *v4)
@@ -635,7 +644,7 @@ ReturnedValue Element::prototype(ExecutionEngine *engine)
         ScopedObject p(scope, engine->newObject());
         ScopedObject pp(scope);
         p->setPrototype((pp = NodePrototype::getProto(engine)));
-        p->defineAccessorProperty(QStringLiteral("tagName"), NodePrototype::method_get_nodeName, 0);
+        p->defineAccessorProperty(QStringLiteral("tagName"), NodePrototype::method_get_nodeName, nullptr);
         d->elementPrototype.set(engine, p);
         engine->v8Engine->freezeObject(p);
     }
@@ -650,49 +659,53 @@ ReturnedValue Attr::prototype(ExecutionEngine *engine)
         ScopedObject p(scope, engine->newObject());
         ScopedObject pp(scope);
         p->setPrototype((pp = NodePrototype::getProto(engine)));
-        p->defineAccessorProperty(QStringLiteral("name"), method_name, 0);
-        p->defineAccessorProperty(QStringLiteral("value"), method_value, 0);
-        p->defineAccessorProperty(QStringLiteral("ownerElement"), method_ownerElement, 0);
+        p->defineAccessorProperty(QStringLiteral("name"), method_name, nullptr);
+        p->defineAccessorProperty(QStringLiteral("value"), method_value, nullptr);
+        p->defineAccessorProperty(QStringLiteral("ownerElement"), method_ownerElement, nullptr);
         d->attrPrototype.set(engine, p);
         engine->v8Engine->freezeObject(p);
     }
     return d->attrPrototype.value();
 }
 
-void Attr::method_name(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue Attr::method_name(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    QV4::Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r)
         RETURN_UNDEFINED();
 
-    scope.result = scope.engine->newString(r->d()->d->name);
+    return Encode(scope.engine->newString(r->d()->d->name));
 }
 
-void Attr::method_value(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue Attr::method_value(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    QV4::Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r)
         RETURN_UNDEFINED();
 
-    scope.result = scope.engine->newString(r->d()->d->data);
+    return Encode(scope.engine->newString(r->d()->d->data));
 }
 
-void Attr::method_ownerElement(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue Attr::method_ownerElement(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    QV4::Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r)
         RETURN_UNDEFINED();
 
-    scope.result = Node::create(scope.engine, r->d()->d->parent);
+    return Node::create(scope.engine, r->d()->d->parent);
 }
 
-void CharacterData::method_length(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue CharacterData::method_length(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    QV4::Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r)
         RETURN_UNDEFINED();
 
-    scope.result = Encode(r->d()->d->data.length());
+    return Encode(r->d()->d->data.length());
 }
 
 ReturnedValue CharacterData::prototype(ExecutionEngine *v4)
@@ -703,30 +716,32 @@ ReturnedValue CharacterData::prototype(ExecutionEngine *v4)
         ScopedObject p(scope, v4->newObject());
         ScopedObject pp(scope);
         p->setPrototype((pp = NodePrototype::getProto(v4)));
-        p->defineAccessorProperty(QStringLiteral("data"), NodePrototype::method_get_nodeValue, 0);
-        p->defineAccessorProperty(QStringLiteral("length"), method_length, 0);
+        p->defineAccessorProperty(QStringLiteral("data"), NodePrototype::method_get_nodeValue, nullptr);
+        p->defineAccessorProperty(QStringLiteral("length"), method_length, nullptr);
         d->characterDataPrototype.set(v4, p);
         v4->v8Engine->freezeObject(p);
     }
     return d->characterDataPrototype.value();
 }
 
-void Text::method_isElementContentWhitespace(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue Text::method_isElementContentWhitespace(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    QV4::Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r)
         RETURN_UNDEFINED();
 
-    scope.result = Encode(QStringRef(&r->d()->d->data).trimmed().isEmpty());
+    return Encode(QStringRef(&r->d()->d->data).trimmed().isEmpty());
 }
 
-void Text::method_wholeText(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue Text::method_wholeText(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    QV4::Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r)
         RETURN_UNDEFINED();
 
-    scope.result = scope.engine->newString(r->d()->d->data);
+    return Encode(scope.engine->newString(r->d()->d->data));
 }
 
 ReturnedValue Text::prototype(ExecutionEngine *v4)
@@ -737,8 +752,8 @@ ReturnedValue Text::prototype(ExecutionEngine *v4)
         ScopedObject p(scope, v4->newObject());
         ScopedObject pp(scope);
         p->setPrototype((pp = CharacterData::prototype(v4)));
-        p->defineAccessorProperty(QStringLiteral("isElementContentWhitespace"), method_isElementContentWhitespace, 0);
-        p->defineAccessorProperty(QStringLiteral("wholeText"), method_wholeText, 0);
+        p->defineAccessorProperty(QStringLiteral("isElementContentWhitespace"), method_isElementContentWhitespace, nullptr);
+        p->defineAccessorProperty(QStringLiteral("wholeText"), method_wholeText, nullptr);
         d->textPrototype.set(v4, p);
         v4->v8Engine->freezeObject(p);
     }
@@ -768,10 +783,10 @@ ReturnedValue Document::prototype(ExecutionEngine *v4)
         ScopedObject p(scope, v4->newObject());
         ScopedObject pp(scope);
         p->setPrototype((pp = NodePrototype::getProto(v4)));
-        p->defineAccessorProperty(QStringLiteral("xmlVersion"), method_xmlVersion, 0);
-        p->defineAccessorProperty(QStringLiteral("xmlEncoding"), method_xmlEncoding, 0);
-        p->defineAccessorProperty(QStringLiteral("xmlStandalone"), method_xmlStandalone, 0);
-        p->defineAccessorProperty(QStringLiteral("documentElement"), method_documentElement, 0);
+        p->defineAccessorProperty(QStringLiteral("xmlVersion"), method_xmlVersion, nullptr);
+        p->defineAccessorProperty(QStringLiteral("xmlEncoding"), method_xmlEncoding, nullptr);
+        p->defineAccessorProperty(QStringLiteral("xmlStandalone"), method_xmlStandalone, nullptr);
+        p->defineAccessorProperty(QStringLiteral("documentElement"), method_documentElement, nullptr);
         d->documentPrototype.set(v4, p);
         v4->v8Engine->freezeObject(p);
     }
@@ -782,7 +797,7 @@ ReturnedValue Document::load(ExecutionEngine *v4, const QByteArray &data)
 {
     Scope scope(v4);
 
-    DocumentImpl *document = 0;
+    DocumentImpl *document = nullptr;
     QStack<NodeImpl *> nodeStack;
 
     QXmlStreamReader reader(data);
@@ -870,7 +885,7 @@ ReturnedValue Document::load(ExecutionEngine *v4, const QByteArray &data)
 
 bool Node::isNull() const
 {
-    return d()->d == 0;
+    return d()->d == nullptr;
 }
 
 ReturnedValue NamedNodeMap::getIndexed(const Managed *m, uint index, bool *hasProperty)
@@ -952,40 +967,44 @@ ReturnedValue NodeList::create(ExecutionEngine *v4, NodeImpl *data)
     return (v4->memoryManager->allocObject<NodeList>(data))->asReturnedValue();
 }
 
-void Document::method_documentElement(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue Document::method_documentElement(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r || r->d()->d->type != NodeImpl::Document)
         RETURN_UNDEFINED();
 
-    scope.result = Node::create(scope.engine, static_cast<DocumentImpl *>(r->d()->d)->root);
+    return Node::create(scope.engine, static_cast<DocumentImpl *>(r->d()->d)->root);
 }
 
-void Document::method_xmlStandalone(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue Document::method_xmlStandalone(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r || r->d()->d->type != NodeImpl::Document)
         RETURN_UNDEFINED();
 
-    scope.result = Encode(static_cast<DocumentImpl *>(r->d()->d)->isStandalone);
+    return Encode(static_cast<DocumentImpl *>(r->d()->d)->isStandalone);
 }
 
-void Document::method_xmlVersion(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue Document::method_xmlVersion(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r || r->d()->d->type != NodeImpl::Document)
         RETURN_UNDEFINED();
 
-    scope.result = scope.engine->newString(static_cast<DocumentImpl *>(r->d()->d)->version);
+    return Encode(scope.engine->newString(static_cast<DocumentImpl *>(r->d()->d)->version));
 }
 
-void Document::method_xmlEncoding(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue Document::method_xmlEncoding(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<Node> r(scope, callData->thisObject.as<Node>());
+    Scope scope(b);
+    Scoped<Node> r(scope, thisObject->as<Node>());
     if (!r || r->d()->d->type != NodeImpl::Document)
         RETURN_UNDEFINED();
 
-    scope.result = scope.engine->newString(static_cast<DocumentImpl *>(r->d()->d)->encoding);
+    return Encode(scope.engine->newString(static_cast<DocumentImpl *>(r->d()->d)->encoding));
 }
 
 class QQmlXMLHttpRequest : public QObject
@@ -1000,7 +1019,7 @@ public:
                  Opened = 1, HeadersReceived = 2,
                  Loading = 3, Done = 4 };
 
-    QQmlXMLHttpRequest(QNetworkAccessManager *manager);
+    QQmlXMLHttpRequest(QNetworkAccessManager *manager, QV4::ExecutionEngine *v4);
     virtual ~QQmlXMLHttpRequest();
 
     bool sendFlag() const;
@@ -1009,9 +1028,9 @@ public:
     int replyStatus() const;
     QString replyStatusText() const;
 
-    ReturnedValue open(Object *thisObject, QQmlContextData *context, const QString &, const QUrl &, LoadType);
+    ReturnedValue open(Object *thisObject, const QString &, const QUrl &, LoadType);
     ReturnedValue send(Object *thisObject, QQmlContextData *context, const QByteArray &);
-    ReturnedValue abort(Object *thisObject, QQmlContextData *context);
+    ReturnedValue abort(Object *thisObject);
 
     void addHeader(const QString &, const QString &);
     QString header(const QString &name) const;
@@ -1059,9 +1078,10 @@ private:
 
     PersistentValue m_thisObject;
     QQmlContextDataRef m_qmlContext;
+    bool m_wasConstructedWithQmlContext = true;
 
-    static void dispatchCallback(Object *thisObj, QQmlContextData *context);
-    void dispatchCallback();
+    static void dispatchCallbackNow(Object *thisObj);
+    void dispatchCallbackSafely();
 
     int m_status;
     QString m_statusText;
@@ -1077,12 +1097,13 @@ private:
     QV4::PersistentValue m_parsedDocument;
 };
 
-QQmlXMLHttpRequest::QQmlXMLHttpRequest(QNetworkAccessManager *manager)
+QQmlXMLHttpRequest::QQmlXMLHttpRequest(QNetworkAccessManager *manager, QV4::ExecutionEngine *v4)
     : m_state(Unsent), m_errorFlag(false), m_sendFlag(false)
-    , m_redirectCount(0), m_gotXml(false), m_textCodec(0), m_network(0), m_nam(manager)
+    , m_redirectCount(0), m_gotXml(false), m_textCodec(nullptr), m_network(nullptr), m_nam(manager)
     , m_responseType()
     , m_parsedDocument()
 {
+    m_wasConstructedWithQmlContext = v4->callingQmlContext() != nullptr;
 }
 
 QQmlXMLHttpRequest::~QQmlXMLHttpRequest()
@@ -1115,7 +1136,7 @@ QString QQmlXMLHttpRequest::replyStatusText() const
     return m_statusText;
 }
 
-ReturnedValue QQmlXMLHttpRequest::open(Object *thisObject, QQmlContextData *context, const QString &method, const QUrl &url, LoadType loadType)
+ReturnedValue QQmlXMLHttpRequest::open(Object *thisObject, const QString &method, const QUrl &url, LoadType loadType)
 {
     destroyNetwork();
     m_sendFlag = false;
@@ -1126,7 +1147,7 @@ ReturnedValue QQmlXMLHttpRequest::open(Object *thisObject, QQmlContextData *cont
     m_request.setAttribute(QNetworkRequest::SynchronousRequestAttribute, loadType == SynchronousLoad);
     m_state = Opened;
     m_addedHeaders.clear();
-    dispatchCallback(thisObject, context);
+    dispatchCallbackNow(thisObject);
     return Encode::undefined();
 }
 
@@ -1278,7 +1299,7 @@ ReturnedValue QQmlXMLHttpRequest::send(Object *thisObject, QQmlContextData *cont
     return Encode::undefined();
 }
 
-ReturnedValue QQmlXMLHttpRequest::abort(Object *thisObject, QQmlContextData *context)
+ReturnedValue QQmlXMLHttpRequest::abort(Object *thisObject)
 {
     destroyNetwork();
     m_responseEntityBody = QByteArray();
@@ -1291,7 +1312,7 @@ ReturnedValue QQmlXMLHttpRequest::abort(Object *thisObject, QQmlContextData *con
 
         m_state = Done;
         m_sendFlag = false;
-        dispatchCallback(thisObject, context);
+        dispatchCallbackNow(thisObject);
     }
 
     m_state = Unsent;
@@ -1310,7 +1331,7 @@ void QQmlXMLHttpRequest::readyRead()
     if (m_state < HeadersReceived) {
         m_state = HeadersReceived;
         fillHeadersList ();
-        dispatchCallback();
+        dispatchCallbackSafely();
     }
 
     bool wasEmpty = m_responseEntityBody.isEmpty();
@@ -1318,7 +1339,7 @@ void QQmlXMLHttpRequest::readyRead()
     if (wasEmpty && !m_responseEntityBody.isEmpty())
         m_state = Loading;
 
-    dispatchCallback();
+    dispatchCallbackSafely();
 }
 
 static const char *errorToString(QNetworkReply::NetworkError error)
@@ -1361,14 +1382,14 @@ void QQmlXMLHttpRequest::error(QNetworkReply::NetworkError error)
         error == QNetworkReply::ServiceUnavailableError ||
         error == QNetworkReply::UnknownServerError) {
         m_state = Loading;
-        dispatchCallback();
+        dispatchCallbackSafely();
     } else {
         m_errorFlag = true;
         m_responseEntityBody = QByteArray();
     }
 
     m_state = Done;
-    dispatchCallback();
+    dispatchCallbackSafely();
 }
 
 #define XMLHTTPREQUEST_MAXIMUM_REDIRECT_RECURSION 15
@@ -1400,7 +1421,7 @@ void QQmlXMLHttpRequest::finished()
     if (m_state < HeadersReceived) {
         m_state = HeadersReceived;
         fillHeadersList ();
-        dispatchCallback();
+        dispatchCallbackSafely();
     }
     m_responseEntityBody.append(m_network->readAll());
     readEncoding();
@@ -1417,14 +1438,14 @@ void QQmlXMLHttpRequest::finished()
     destroyNetwork();
     if (m_state < Loading) {
         m_state = Loading;
-        dispatchCallback();
+        dispatchCallbackSafely();
     }
     m_state = Done;
 
-    dispatchCallback();
+    dispatchCallbackSafely();
 
     m_thisObject.clear();
-    m_qmlContext.setContextData(0);
+    m_qmlContext.setContextData(nullptr);
 }
 
 
@@ -1497,7 +1518,7 @@ QV4::ReturnedValue QQmlXMLHttpRequest::xmlResponseBody(QV4::ExecutionEngine* eng
 #if QT_CONFIG(textcodec)
 QTextCodec* QQmlXMLHttpRequest::findTextCodec() const
 {
-    QTextCodec *codec = 0;
+    QTextCodec *codec = nullptr;
 
     if (!m_charset.isEmpty())
         codec = QTextCodec::codecForName(m_charset);
@@ -1509,10 +1530,10 @@ QTextCodec* QQmlXMLHttpRequest::findTextCodec() const
     }
 
     if (!codec && m_mime == "text/html")
-        codec = QTextCodec::codecForHtml(m_responseEntityBody, 0);
+        codec = QTextCodec::codecForHtml(m_responseEntityBody, nullptr);
 
     if (!codec)
-        codec = QTextCodec::codecForUtfText(m_responseEntityBody, 0);
+        codec = QTextCodec::codecForUtfText(m_responseEntityBody, nullptr);
 
     if (!codec)
         codec = QTextCodec::codecForName("UTF-8");
@@ -1538,16 +1559,9 @@ const QByteArray &QQmlXMLHttpRequest::rawResponseBody() const
     return m_responseEntityBody;
 }
 
-void QQmlXMLHttpRequest::dispatchCallback(Object *thisObj, QQmlContextData *context)
+void QQmlXMLHttpRequest::dispatchCallbackNow(Object *thisObj)
 {
     Q_ASSERT(thisObj);
-
-    if (!context)
-        // if the calling context object is no longer valid, then it has been
-        // deleted explicitly (e.g., by a Loader deleting the itemContext when
-        // the source is changed).  We do nothing in this case, as the evaluation
-        // cannot succeed.
-        return;
 
     QV4::Scope scope(thisObj->engine());
     ScopedString s(scope, scope.engine->newString(QStringLiteral("onreadystatechange")));
@@ -1557,9 +1571,8 @@ void QQmlXMLHttpRequest::dispatchCallback(Object *thisObj, QQmlContextData *cont
         return;
     }
 
-    QV4::ScopedCallData callData(scope);
-    callData->thisObject = Encode::undefined();
-    callback->call(scope, callData);
+    QV4::JSCallData jsCallData(scope);
+    callback->call(jsCallData);
 
     if (scope.engine->hasException) {
         QQmlError error = scope.engine->catchExceptionAsQmlError();
@@ -1567,9 +1580,16 @@ void QQmlXMLHttpRequest::dispatchCallback(Object *thisObj, QQmlContextData *cont
     }
 }
 
-void QQmlXMLHttpRequest::dispatchCallback()
+void QQmlXMLHttpRequest::dispatchCallbackSafely()
 {
-    dispatchCallback(m_thisObject.as<Object>(), m_qmlContext.contextData());
+    if (m_wasConstructedWithQmlContext && !m_qmlContext.contextData())
+        // if the calling context object is no longer valid, then it has been
+        // deleted explicitly (e.g., by a Loader deleting the itemContext when
+        // the source is changed).  We do nothing in this case, as the evaluation
+        // cannot succeed.
+        return;
+
+    dispatchCallbackNow(m_thisObject.as<Object>());
 }
 
 void QQmlXMLHttpRequest::destroyNetwork()
@@ -1577,7 +1597,7 @@ void QQmlXMLHttpRequest::destroyNetwork()
     if (m_network) {
         m_network->disconnect();
         m_network->deleteLater();
-        m_network = 0;
+        m_network = nullptr;
     }
 }
 
@@ -1601,7 +1621,7 @@ struct QQmlXMLHttpRequestWrapper : Object {
     Member(class, Pointer, Object *, proto)
 
 DECLARE_HEAP_OBJECT(QQmlXMLHttpRequestCtor, FunctionObject) {
-    DECLARE_MARK_TABLE(QQmlXMLHttpRequestCtor);
+    DECLARE_MARKOBJECTS(QQmlXMLHttpRequestCtor);
     void init(ExecutionEngine *engine);
 };
 
@@ -1617,42 +1637,39 @@ struct QQmlXMLHttpRequestCtor : public FunctionObject
 {
     V4_OBJECT2(QQmlXMLHttpRequestCtor, FunctionObject)
 
-    static void construct(const Managed *that, Scope &scope, QV4::CallData *)
+    static ReturnedValue callAsConstructor(const FunctionObject *f, const Value *, int)
     {
-        Scoped<QQmlXMLHttpRequestCtor> ctor(scope, that->as<QQmlXMLHttpRequestCtor>());
-        if (!ctor) {
-            scope.result = scope.engine->throwTypeError();
-            return;
-        }
+        Scope scope(f->engine());
+        const QQmlXMLHttpRequestCtor *ctor = static_cast<const QQmlXMLHttpRequestCtor *>(f);
 
-        QQmlXMLHttpRequest *r = new QQmlXMLHttpRequest(scope.engine->v8Engine->networkAccessManager());
+        QQmlXMLHttpRequest *r = new QQmlXMLHttpRequest(scope.engine->v8Engine->networkAccessManager(), scope.engine);
         Scoped<QQmlXMLHttpRequestWrapper> w(scope, scope.engine->memoryManager->allocObject<QQmlXMLHttpRequestWrapper>(r));
         ScopedObject proto(scope, ctor->d()->proto);
         w->setPrototype(proto);
-        scope.result = w.asReturnedValue();
+        return w.asReturnedValue();
     }
 
-    static void call(const Managed *, Scope &scope, QV4::CallData *) {
-        scope.result = Primitive::undefinedValue();
+    static ReturnedValue call(const FunctionObject *, const Value *, const Value *, int) {
+        return Encode::undefined();
     }
 
     void setupProto();
 
-    static void method_open(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_setRequestHeader(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_send(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_abort(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_getResponseHeader(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_getAllResponseHeaders(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
+    static ReturnedValue method_open(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_setRequestHeader(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_send(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_abort(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_getResponseHeader(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_getAllResponseHeaders(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
 
-    static void method_get_readyState(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_get_status(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_get_statusText(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_get_responseText(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_get_responseXML(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_get_response(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_get_responseType(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
-    static void method_set_responseType(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData);
+    static ReturnedValue method_get_readyState(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_get_status(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_get_statusText(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_get_responseText(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_get_responseXML(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_get_response(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_get_responseType(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_set_responseType(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc);
 };
 
 }
@@ -1694,12 +1711,12 @@ void QQmlXMLHttpRequestCtor::setupProto()
     p->defineDefaultProperty(QStringLiteral("getAllResponseHeaders"), method_getAllResponseHeaders);
 
     // Read-only properties
-    p->defineAccessorProperty(QStringLiteral("readyState"), method_get_readyState, 0);
-    p->defineAccessorProperty(QStringLiteral("status"),method_get_status, 0);
-    p->defineAccessorProperty(QStringLiteral("statusText"),method_get_statusText, 0);
-    p->defineAccessorProperty(QStringLiteral("responseText"),method_get_responseText, 0);
-    p->defineAccessorProperty(QStringLiteral("responseXML"),method_get_responseXML, 0);
-    p->defineAccessorProperty(QStringLiteral("response"),method_get_response, 0);
+    p->defineAccessorProperty(QStringLiteral("readyState"), method_get_readyState, nullptr);
+    p->defineAccessorProperty(QStringLiteral("status"),method_get_status, nullptr);
+    p->defineAccessorProperty(QStringLiteral("statusText"),method_get_statusText, nullptr);
+    p->defineAccessorProperty(QStringLiteral("responseText"),method_get_responseText, nullptr);
+    p->defineAccessorProperty(QStringLiteral("responseXML"),method_get_responseXML, nullptr);
+    p->defineAccessorProperty(QStringLiteral("response"),method_get_response, nullptr);
 
     // Read-write properties
     p->defineAccessorProperty(QStringLiteral("responseType"), method_get_responseType, method_set_responseType);
@@ -1714,18 +1731,19 @@ void QQmlXMLHttpRequestCtor::setupProto()
 
 
 // XMLHttpRequest methods
-void QQmlXMLHttpRequestCtor::method_open(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue QQmlXMLHttpRequestCtor::method_open(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc)
 {
-    Scoped<QQmlXMLHttpRequestWrapper> w(scope, callData->thisObject.as<QQmlXMLHttpRequestWrapper>());
+    Scope scope(b);
+    Scoped<QQmlXMLHttpRequestWrapper> w(scope, thisObject->as<QQmlXMLHttpRequestWrapper>());
     if (!w)
         V4THROW_REFERENCE("Not an XMLHttpRequest object");
     QQmlXMLHttpRequest *r = w->d()->request;
 
-    if (callData->argc < 2 || callData->argc > 5)
+    if (argc < 2 || argc > 5)
         THROW_DOM(DOMEXCEPTION_SYNTAX_ERR, "Incorrect argument count");
 
     // Argument 0 - Method
-    QString method = callData->args[0].toQStringNoThrow().toUpper();
+    QString method = argv[0].toQStringNoThrow().toUpper();
     if (method != QLatin1String("GET") &&
         method != QLatin1String("PUT") &&
         method != QLatin1String("HEAD") &&
@@ -1737,23 +1755,23 @@ void QQmlXMLHttpRequestCtor::method_open(const QV4::BuiltinFunction *, QV4::Scop
         THROW_DOM(DOMEXCEPTION_SYNTAX_ERR, "Unsupported HTTP method type");
 
     // Argument 1 - URL
-    QUrl url = QUrl(callData->args[1].toQStringNoThrow());
+    QUrl url = QUrl(argv[1].toQStringNoThrow());
 
     if (url.isRelative())
         url = scope.engine->callingQmlContext()->resolvedUrl(url);
 
     bool async = true;
     // Argument 2 - async (optional)
-    if (callData->argc > 2) {
-        async = callData->args[2].booleanValue();
+    if (argc > 2) {
+        async = argv[2].booleanValue();
     }
 
     // Argument 3/4 - user/pass (optional)
     QString username, password;
-    if (callData->argc > 3)
-        username = callData->args[3].toQStringNoThrow();
-    if (callData->argc > 4)
-        password = callData->args[4].toQStringNoThrow();
+    if (argc > 3)
+        username = argv[3].toQStringNoThrow();
+    if (argc > 4)
+        password = argv[4].toQStringNoThrow();
 
     // Clear the fragment (if any)
     url.setFragment(QString());
@@ -1762,24 +1780,25 @@ void QQmlXMLHttpRequestCtor::method_open(const QV4::BuiltinFunction *, QV4::Scop
     if (!username.isNull()) url.setUserName(username);
     if (!password.isNull()) url.setPassword(password);
 
-    scope.result = r->open(w, scope.engine->callingQmlContext(), method, url, async ? QQmlXMLHttpRequest::AsynchronousLoad : QQmlXMLHttpRequest::SynchronousLoad);
+    return r->open(w, method, url, async ? QQmlXMLHttpRequest::AsynchronousLoad : QQmlXMLHttpRequest::SynchronousLoad);
 }
 
-void QQmlXMLHttpRequestCtor::method_setRequestHeader(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue QQmlXMLHttpRequestCtor::method_setRequestHeader(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc)
 {
-    Scoped<QQmlXMLHttpRequestWrapper> w(scope, callData->thisObject.as<QQmlXMLHttpRequestWrapper>());
+    Scope scope(b);
+    Scoped<QQmlXMLHttpRequestWrapper> w(scope, thisObject->as<QQmlXMLHttpRequestWrapper>());
     if (!w)
         V4THROW_REFERENCE("Not an XMLHttpRequest object");
     QQmlXMLHttpRequest *r = w->d()->request;
 
-    if (callData->argc != 2)
+    if (argc != 2)
         THROW_DOM(DOMEXCEPTION_SYNTAX_ERR, "Incorrect argument count");
 
     if (r->readyState() != QQmlXMLHttpRequest::Opened || r->sendFlag())
         THROW_DOM(DOMEXCEPTION_INVALID_STATE_ERR, "Invalid state");
 
-    QString name = callData->args[0].toQStringNoThrow();
-    QString value = callData->args[1].toQStringNoThrow();
+    QString name = argv[0].toQStringNoThrow();
+    QString value = argv[1].toQStringNoThrow();
 
     // ### Check that name and value are well formed
 
@@ -1811,9 +1830,10 @@ void QQmlXMLHttpRequestCtor::method_setRequestHeader(const QV4::BuiltinFunction 
     RETURN_UNDEFINED();
 }
 
-void QQmlXMLHttpRequestCtor::method_send(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue QQmlXMLHttpRequestCtor::method_send(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc)
 {
-    Scoped<QQmlXMLHttpRequestWrapper> w(scope, callData->thisObject.as<QQmlXMLHttpRequestWrapper>());
+    Scope scope(b);
+    Scoped<QQmlXMLHttpRequestWrapper> w(scope, thisObject->as<QQmlXMLHttpRequestWrapper>());
     if (!w)
         V4THROW_REFERENCE("Not an XMLHttpRequest object");
     QQmlXMLHttpRequest *r = w->d()->request;
@@ -1823,35 +1843,37 @@ void QQmlXMLHttpRequestCtor::method_send(const QV4::BuiltinFunction *, QV4::Scop
         THROW_DOM(DOMEXCEPTION_INVALID_STATE_ERR, "Invalid state");
 
     QByteArray data;
-    if (callData->argc > 0) {
-        if (const ArrayBuffer *buffer = callData->args[0].as<ArrayBuffer>()) {
+    if (argc > 0) {
+        if (const ArrayBuffer *buffer = argv[0].as<ArrayBuffer>()) {
             data = buffer->asByteArray();
         } else {
-            data = callData->args[0].toQStringNoThrow().toUtf8();
+            data = argv[0].toQStringNoThrow().toUtf8();
         }
     }
 
-    scope.result = r->send(w, scope.engine->callingQmlContext(), data);
+    return r->send(w, scope.engine->callingQmlContext(), data);
 }
 
-void QQmlXMLHttpRequestCtor::method_abort(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue QQmlXMLHttpRequestCtor::method_abort(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<QQmlXMLHttpRequestWrapper> w(scope, callData->thisObject.as<QQmlXMLHttpRequestWrapper>());
+    Scope scope(b);
+    Scoped<QQmlXMLHttpRequestWrapper> w(scope, thisObject->as<QQmlXMLHttpRequestWrapper>());
     if (!w)
         V4THROW_REFERENCE("Not an XMLHttpRequest object");
     QQmlXMLHttpRequest *r = w->d()->request;
 
-    scope.result = r->abort(w, scope.engine->callingQmlContext());
+    return r->abort(w);
 }
 
-void QQmlXMLHttpRequestCtor::method_getResponseHeader(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue QQmlXMLHttpRequestCtor::method_getResponseHeader(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc)
 {
-    Scoped<QQmlXMLHttpRequestWrapper> w(scope, callData->thisObject.as<QQmlXMLHttpRequestWrapper>());
+    Scope scope(b);
+    Scoped<QQmlXMLHttpRequestWrapper> w(scope, thisObject->as<QQmlXMLHttpRequestWrapper>());
     if (!w)
         V4THROW_REFERENCE("Not an XMLHttpRequest object");
     QQmlXMLHttpRequest *r = w->d()->request;
 
-    if (callData->argc != 1)
+    if (argc != 1)
         THROW_DOM(DOMEXCEPTION_SYNTAX_ERR, "Incorrect argument count");
 
     if (r->readyState() != QQmlXMLHttpRequest::Loading &&
@@ -1859,17 +1881,18 @@ void QQmlXMLHttpRequestCtor::method_getResponseHeader(const QV4::BuiltinFunction
         r->readyState() != QQmlXMLHttpRequest::HeadersReceived)
         THROW_DOM(DOMEXCEPTION_INVALID_STATE_ERR, "Invalid state");
 
-    scope.result = scope.engine->newString(r->header(callData->args[0].toQStringNoThrow()));
+    return Encode(scope.engine->newString(r->header(argv[0].toQStringNoThrow())));
 }
 
-void QQmlXMLHttpRequestCtor::method_getAllResponseHeaders(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue QQmlXMLHttpRequestCtor::method_getAllResponseHeaders(const FunctionObject *b, const Value *thisObject, const Value *, int argc)
 {
-    Scoped<QQmlXMLHttpRequestWrapper> w(scope, callData->thisObject.as<QQmlXMLHttpRequestWrapper>());
+    Scope scope(b);
+    Scoped<QQmlXMLHttpRequestWrapper> w(scope, thisObject->as<QQmlXMLHttpRequestWrapper>());
     if (!w)
         V4THROW_REFERENCE("Not an XMLHttpRequest object");
     QQmlXMLHttpRequest *r = w->d()->request;
 
-    if (callData->argc != 0)
+    if (argc != 0)
         THROW_DOM(DOMEXCEPTION_SYNTAX_ERR, "Incorrect argument count");
 
     if (r->readyState() != QQmlXMLHttpRequest::Loading &&
@@ -1877,40 +1900,25 @@ void QQmlXMLHttpRequestCtor::method_getAllResponseHeaders(const QV4::BuiltinFunc
         r->readyState() != QQmlXMLHttpRequest::HeadersReceived)
         THROW_DOM(DOMEXCEPTION_INVALID_STATE_ERR, "Invalid state");
 
-    scope.result = scope.engine->newString(r->headers());
+    return Encode(scope.engine->newString(r->headers()));
 }
 
 // XMLHttpRequest properties
-void QQmlXMLHttpRequestCtor::method_get_readyState(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue QQmlXMLHttpRequestCtor::method_get_readyState(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<QQmlXMLHttpRequestWrapper> w(scope, callData->thisObject.as<QQmlXMLHttpRequestWrapper>());
+    Scope scope(b);
+    Scoped<QQmlXMLHttpRequestWrapper> w(scope, thisObject->as<QQmlXMLHttpRequestWrapper>());
     if (!w)
         V4THROW_REFERENCE("Not an XMLHttpRequest object");
     QQmlXMLHttpRequest *r = w->d()->request;
 
-    scope.result = Encode(r->readyState());
+    return Encode(r->readyState());
 }
 
-void QQmlXMLHttpRequestCtor::method_get_status(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue QQmlXMLHttpRequestCtor::method_get_status(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<QQmlXMLHttpRequestWrapper> w(scope, callData->thisObject.as<QQmlXMLHttpRequestWrapper>());
-    if (!w)
-        V4THROW_REFERENCE("Not an XMLHttpRequest object");
-    QQmlXMLHttpRequest *r = w->d()->request;
-
-    if (r->readyState() == QQmlXMLHttpRequest::Unsent ||
-        r->readyState() == QQmlXMLHttpRequest::Opened)
-        THROW_DOM(DOMEXCEPTION_INVALID_STATE_ERR, "Invalid state");
-
-    if (r->errorFlag())
-        scope.result = Encode(0);
-    else
-        scope.result = Encode(r->replyStatus());
-}
-
-void QQmlXMLHttpRequestCtor::method_get_statusText(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
-{
-    Scoped<QQmlXMLHttpRequestWrapper> w(scope, callData->thisObject.as<QQmlXMLHttpRequestWrapper>());
+    Scope scope(b);
+    Scoped<QQmlXMLHttpRequestWrapper> w(scope, thisObject->as<QQmlXMLHttpRequestWrapper>());
     if (!w)
         V4THROW_REFERENCE("Not an XMLHttpRequest object");
     QQmlXMLHttpRequest *r = w->d()->request;
@@ -1920,28 +1928,48 @@ void QQmlXMLHttpRequestCtor::method_get_statusText(const QV4::BuiltinFunction *,
         THROW_DOM(DOMEXCEPTION_INVALID_STATE_ERR, "Invalid state");
 
     if (r->errorFlag())
-        scope.result = scope.engine->newString(QString());
+        return Encode(0);
     else
-        scope.result = scope.engine->newString(r->replyStatusText());
+        return Encode(r->replyStatus());
 }
 
-void QQmlXMLHttpRequestCtor::method_get_responseText(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue QQmlXMLHttpRequestCtor::method_get_statusText(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<QQmlXMLHttpRequestWrapper> w(scope, callData->thisObject.as<QQmlXMLHttpRequestWrapper>());
+    Scope scope(b);
+    Scoped<QQmlXMLHttpRequestWrapper> w(scope, thisObject->as<QQmlXMLHttpRequestWrapper>());
+    if (!w)
+        V4THROW_REFERENCE("Not an XMLHttpRequest object");
+    QQmlXMLHttpRequest *r = w->d()->request;
+
+    if (r->readyState() == QQmlXMLHttpRequest::Unsent ||
+        r->readyState() == QQmlXMLHttpRequest::Opened)
+        THROW_DOM(DOMEXCEPTION_INVALID_STATE_ERR, "Invalid state");
+
+    if (r->errorFlag())
+        return Encode(scope.engine->newString(QString()));
+    else
+        return Encode(scope.engine->newString(r->replyStatusText()));
+}
+
+ReturnedValue QQmlXMLHttpRequestCtor::method_get_responseText(const FunctionObject *b, const Value *thisObject, const Value *, int)
+{
+    Scope scope(b);
+    Scoped<QQmlXMLHttpRequestWrapper> w(scope, thisObject->as<QQmlXMLHttpRequestWrapper>());
     if (!w)
         V4THROW_REFERENCE("Not an XMLHttpRequest object");
     QQmlXMLHttpRequest *r = w->d()->request;
 
     if (r->readyState() != QQmlXMLHttpRequest::Loading &&
         r->readyState() != QQmlXMLHttpRequest::Done)
-        scope.result = scope.engine->newString(QString());
+        return Encode(scope.engine->newString(QString()));
     else
-        scope.result = scope.engine->newString(r->responseBody());
+        return Encode(scope.engine->newString(r->responseBody()));
 }
 
-void QQmlXMLHttpRequestCtor::method_get_responseXML(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue QQmlXMLHttpRequestCtor::method_get_responseXML(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<QQmlXMLHttpRequestWrapper> w(scope, callData->thisObject.as<QQmlXMLHttpRequestWrapper>());
+    Scope scope(b);
+    Scoped<QQmlXMLHttpRequestWrapper> w(scope, thisObject->as<QQmlXMLHttpRequestWrapper>());
     if (!w)
         V4THROW_REFERENCE("Not an XMLHttpRequest object");
     QQmlXMLHttpRequest *r = w->d()->request;
@@ -1949,17 +1977,18 @@ void QQmlXMLHttpRequestCtor::method_get_responseXML(const QV4::BuiltinFunction *
     if (!r->receivedXml() ||
         (r->readyState() != QQmlXMLHttpRequest::Loading &&
          r->readyState() != QQmlXMLHttpRequest::Done)) {
-        scope.result = Encode::null();
+        return Encode::null();
     } else {
         if (r->responseType().isEmpty())
             r->setResponseType(QLatin1String("document"));
-        scope.result = r->xmlResponseBody(scope.engine);
+        return r->xmlResponseBody(scope.engine);
     }
 }
 
-void QQmlXMLHttpRequestCtor::method_get_response(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue QQmlXMLHttpRequestCtor::method_get_response(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<QQmlXMLHttpRequestWrapper> w(scope, callData->thisObject.as<QQmlXMLHttpRequestWrapper>());
+    Scope scope(b);
+    Scoped<QQmlXMLHttpRequestWrapper> w(scope, thisObject->as<QQmlXMLHttpRequestWrapper>());
     if (!w)
         V4THROW_REFERENCE("Not an XMLHttpRequest object");
     QQmlXMLHttpRequest *r = w->d()->request;
@@ -1983,29 +2012,31 @@ void QQmlXMLHttpRequestCtor::method_get_response(const QV4::BuiltinFunction *, Q
 }
 
 
-void QQmlXMLHttpRequestCtor::method_get_responseType(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue QQmlXMLHttpRequestCtor::method_get_responseType(const FunctionObject *b, const Value *thisObject, const Value *, int)
 {
-    Scoped<QQmlXMLHttpRequestWrapper> w(scope, callData->thisObject.as<QQmlXMLHttpRequestWrapper>());
+    Scope scope(b);
+    Scoped<QQmlXMLHttpRequestWrapper> w(scope, thisObject->as<QQmlXMLHttpRequestWrapper>());
     if (!w)
         V4THROW_REFERENCE("Not an XMLHttpRequest object");
     QQmlXMLHttpRequest *r = w->d()->request;
-    scope.result = scope.engine->newString(r->responseType());
+    return Encode(scope.engine->newString(r->responseType()));
 }
 
-void QQmlXMLHttpRequestCtor::method_set_responseType(const QV4::BuiltinFunction *, QV4::Scope &scope, QV4::CallData *callData)
+ReturnedValue QQmlXMLHttpRequestCtor::method_set_responseType(const FunctionObject *b, const Value *thisObject, const Value *argv, int argc)
 {
-    Scoped<QQmlXMLHttpRequestWrapper> w(scope, callData->thisObject.as<QQmlXMLHttpRequestWrapper>());
+    Scope scope(b);
+    Scoped<QQmlXMLHttpRequestWrapper> w(scope, thisObject->as<QQmlXMLHttpRequestWrapper>());
     if (!w)
         V4THROW_REFERENCE("Not an XMLHttpRequest object");
     QQmlXMLHttpRequest *r = w->d()->request;
 
-    if (callData->argc < 1)
+    if (argc < 1)
         THROW_DOM(DOMEXCEPTION_SYNTAX_ERR, "Incorrect argument count");
 
     // Argument 0 - response type
-    r->setResponseType(callData->args[0].toQStringNoThrow());
+    r->setResponseType(argv[0].toQStringNoThrow());
 
-    scope.result = Encode::undefined();
+    return Encode::undefined();
 }
 
 void qt_rem_qmlxmlhttprequest(ExecutionEngine * /* engine */, void *d)

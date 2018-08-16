@@ -53,18 +53,13 @@
 #include <QtCore/QString>
 #include <private/qv4global_p.h>
 #include <private/qv4mmdefs_p.h>
+#include <private/qv4writebarrier_p.h>
 #include <private/qv4internalclass_p.h>
 #include <QSharedPointer>
 
 // To check if Heap::Base::init is called (meaning, all subclasses did their init and called their
 // parent's init all up the inheritance chain), define QML_CHECK_INIT_DESTROY_CALLS below.
 #undef QML_CHECK_INIT_DESTROY_CALLS
-
-#if defined(_MSC_VER) && (_MSC_VER < 1900) // broken compilers:
-#  define V4_ASSERT_IS_TRIVIAL(x)
-#else // working compilers:
-#  define V4_ASSERT_IS_TRIVIAL(x) Q_STATIC_ASSERT(std::is_trivial< x >::value);
-#endif
 
 QT_BEGIN_NAMESPACE
 
@@ -75,7 +70,6 @@ struct InternalClass;
 struct VTable
 {
     const VTable * const parent;
-    const quint64 markTable;
     uint inlinePropertyOffset : 16;
     uint nInlineProperties : 16;
     uint isExecutionContext : 1;
@@ -97,7 +91,7 @@ namespace Heap {
 struct Q_QML_EXPORT Base {
     void *operator new(size_t) = delete;
 
-    static Q_CONSTEXPR quint64 markTable = 0;
+    static void markObjects(Heap::Base *, MarkStack *) {}
 
     InternalClass *internalClass;
 
@@ -131,7 +125,9 @@ struct Q_QML_EXPORT Base {
         return Chunk::testBit(c->objectBitmap, h - c->realBase());
     }
 
-    inline void markChildren(MarkStack *markStack);
+    inline void markChildren(MarkStack *markStack) {
+        vtable()->markObjects(this, markStack);
+    }
 
     void *operator new(size_t, Managed *m) { return m; }
     void *operator new(size_t, Heap::Base *m) { return m; }
@@ -174,13 +170,62 @@ struct Q_QML_EXPORT Base {
     Q_ALWAYS_INLINE void _setDestroyed() {}
 #endif
 };
-V4_ASSERT_IS_TRIVIAL(Base)
+Q_STATIC_ASSERT(std::is_trivial< Base >::value);
 // This class needs to consist only of pointer sized members to allow
 // for a size/offset translation when cross-compiling between 32- and
 // 64-bit.
 Q_STATIC_ASSERT(std::is_standard_layout<Base>::value);
 Q_STATIC_ASSERT(offsetof(Base, internalClass) == 0);
 Q_STATIC_ASSERT(sizeof(Base) == QT_POINTER_SIZE);
+
+}
+
+inline
+void Heap::Base::mark(QV4::MarkStack *markStack)
+{
+    Q_ASSERT(inUse());
+    const HeapItem *h = reinterpret_cast<const HeapItem *>(this);
+    Chunk *c = h->chunk();
+    size_t index = h - c->realBase();
+    Q_ASSERT(!Chunk::testBit(c->extendsBitmap, index));
+    quintptr *bitmap = c->blackBitmap + Chunk::bitmapIndex(index);
+    quintptr bit = Chunk::bitForIndex(index);
+    if (!(*bitmap & bit)) {
+        *bitmap |= bit;
+        markStack->push(this);
+    }
+}
+
+namespace Heap {
+
+template <typename T, size_t o>
+struct Pointer {
+    static Q_CONSTEXPR size_t offset = o;
+    T operator->() const { return get(); }
+    operator T () const { return get(); }
+
+    Heap::Base *base() {
+        Heap::Base *base = reinterpret_cast<Heap::Base *>(this) - (offset/sizeof(Heap::Base));
+        Q_ASSERT(base->inUse());
+        return base;
+    }
+
+    void set(EngineBase *e, T newVal) {
+        WriteBarrier::write(e, base(), &ptr, reinterpret_cast<Heap::Base *>(newVal));
+    }
+
+    T get() const { return reinterpret_cast<T>(ptr); }
+
+    template <typename Type>
+    Type *cast() { return static_cast<Type *>(ptr); }
+
+    Heap::Base *heapObject() const { return ptr; }
+
+private:
+    Heap::Base *ptr;
+};
+typedef Pointer<char *, 0> V4PointerCheck;
+Q_STATIC_ASSERT(std::is_trivial< V4PointerCheck >::value);
 
 }
 
@@ -236,7 +281,7 @@ private:
     QtSharedPointer::ExternalRefCountData *d;
     QObject *qObject;
 };
-V4_ASSERT_IS_TRIVIAL(QQmlQPointer<QObject>)
+Q_STATIC_ASSERT(std::is_trivial< QQmlQPointer<QObject> >::value);
 #endif
 
 }

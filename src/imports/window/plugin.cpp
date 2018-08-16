@@ -51,7 +51,7 @@ static void initResources()
 QT_BEGIN_NAMESPACE
 
 /*!
-    \qmlmodule QtQuick.Window 2.2
+    \qmlmodule QtQuick.Window 2.11
     \title Qt Quick Window QML Types
     \ingroup qmlmodules
     \brief Provides QML types for window management
@@ -61,7 +61,7 @@ QT_BEGIN_NAMESPACE
     To use the types in this module, import the module with the following line:
 
     \code
-    import QtQuick.Window 2.2
+    import QtQuick.Window 2.11
     \endcode
 */
 
@@ -72,12 +72,15 @@ class QtQuick2WindowPlugin : public QQmlExtensionPlugin
     Q_OBJECT
     Q_PLUGIN_METADATA(IID QQmlExtensionInterface_iid)
 public:
-    QtQuick2WindowPlugin(QObject *parent = 0) : QQmlExtensionPlugin(parent) { initResources(); }
-    void registerTypes(const char *uri) Q_DECL_OVERRIDE
+    QtQuick2WindowPlugin(QObject *parent = nullptr) : QQmlExtensionPlugin(parent) { initResources(); }
+    void registerTypes(const char *uri) override
     {
         Q_ASSERT(QLatin1String(uri) == QLatin1String("QtQuick.Window"));
         Q_UNUSED(uri);
         QQuickWindowModule::defineModule();
+
+        // Auto-increment the import to stay in sync with ALL future QtQuick minor versions from 5.11 onward
+        qmlRegisterModule(uri, 2, QT_VERSION_MINOR);
     }
 };
 //![class decl]

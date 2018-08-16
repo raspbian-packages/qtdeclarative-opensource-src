@@ -46,8 +46,7 @@ using namespace QV4;
 
 const VTable Managed::static_vtbl =
 {
-    0,
-    0,
+    nullptr,
     0,
     0,
     Managed::IsExecutionContext,
@@ -59,15 +58,15 @@ const VTable Managed::static_vtbl =
     0,
     Managed::MyType,
     "Managed",
-    0,
-    0 /*markObjects*/,
+    nullptr,
+    nullptr /*markObjects*/,
     isEqualTo
 };
 
 
 QString Managed::className() const
 {
-    const char *s = 0;
+    const char *s = nullptr;
     switch (Type(d()->vtable()->type)) {
     case Type_Invalid:
     case Type_String:

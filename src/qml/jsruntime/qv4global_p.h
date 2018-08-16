@@ -76,9 +76,6 @@ namespace std {
 inline bool isinf(double d) { return !_finite(d) && !_isnan(d); }
 inline bool isnan(double d) { return !!_isnan(d); }
 inline bool isfinite(double d) { return _finite(d); }
-#if _MSC_VER < 1800
-inline bool signbit(double d) { return _copysign(1.0, d) < 0; }
-#endif
 
 } // namespace std
 
@@ -104,11 +101,16 @@ inline double trunc(double d) { return d > 0 ? floor(d) : ceil(d); }
 #    define V4_ENABLE_JIT
 #  endif
 #elif defined(Q_PROCESSOR_ARM_64) && (QT_POINTER_SIZE == 8)
-#  if defined(Q_OS_LINUX) || defined(Q_OS_QNX)
+#  if defined(Q_OS_LINUX) || defined(Q_OS_QNX) || defined(Q_OS_INTEGRITY)
 #    define V4_ENABLE_JIT
 #  endif
-#elif defined(Q_PROCESSOR_MIPS_32) && 0
-#  define V4_ENABLE_JIT
+//#elif defined(Q_PROCESSOR_MIPS_32) && defined(Q_OS_LINUX)
+//#  define V4_ENABLE_JIT
+#endif
+
+// check FPU with double precision on ARM platform
+#if (defined(Q_PROCESSOR_ARM_64) || defined(Q_PROCESSOR_ARM_32)) && defined(V4_ENABLE_JIT) && defined(__ARM_FP) && (__ARM_FP <= 0x04)
+#  undef V4_ENABLE_JIT
 #endif
 
 // Black list some platforms
@@ -147,6 +149,12 @@ QT_BEGIN_NAMESPACE
 
 namespace QV4 {
 
+namespace Compiler {
+    struct Module;
+    struct Context;
+    struct JSUnitGenerator;
+}
+
 namespace Heap {
     struct Base;
     struct MemberData;
@@ -157,7 +165,6 @@ namespace Heap {
     struct ObjectPrototype;
 
     struct ExecutionContext;
-    struct GlobalContext;
     struct CallContext;
     struct ScriptFunction;
 
@@ -182,12 +189,12 @@ namespace Heap {
 }
 
 class MemoryManager;
+class ExecutableAllocator;
 struct String;
 struct Object;
 struct ObjectPrototype;
 struct ObjectIterator;
 struct ExecutionContext;
-struct GlobalContext;
 struct CallContext;
 struct ScriptFunction;
 struct InternalClass;
@@ -206,7 +213,6 @@ struct StringObject;
 struct ArrayObject;
 struct DateObject;
 struct FunctionObject;
-struct BuiltinFunction;
 struct ErrorObject;
 struct ArgumentsObject;
 struct Managed;
@@ -242,12 +248,6 @@ class WeakValue;
 struct IdentifierTable;
 class RegExpCache;
 class MultiplyWrappedQObjectMap;
-
-namespace Global {
-    enum {
-        ReservedArgumentCount = 6
-    };
-}
 
 enum PropertyFlag {
     Attr_Data = 0,
@@ -349,11 +349,11 @@ struct PropertyAttributes
     }
 };
 
-struct StackFrame {
+struct Q_QML_EXPORT StackFrame {
     QString source;
     QString function;
-    int line;
-    int column;
+    int line = -1;
+    int column = -1;
 };
 typedef QVector<StackFrame> StackTrace;
 

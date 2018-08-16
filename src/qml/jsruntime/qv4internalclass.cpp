@@ -105,13 +105,14 @@ void PropertyHash::addEntry(const PropertyHash::Entry &entry, int classSize)
 
 InternalClass::InternalClass(ExecutionEngine *engine)
     : engine(engine)
-    , vtable(0)
-    , prototype(0)
-    , m_sealed(0)
-    , m_frozen(0)
+    , vtable(nullptr)
+    , prototype(nullptr)
+    , m_sealed(nullptr)
+    , m_frozen(nullptr)
     , size(0)
     , extensible(true)
 {
+    id = engine->newInternalClassId();
 }
 
 
@@ -123,12 +124,13 @@ InternalClass::InternalClass(const QV4::InternalClass &other)
     , propertyTable(other.propertyTable)
     , nameMap(other.nameMap)
     , propertyData(other.propertyData)
-    , m_sealed(0)
-    , m_frozen(0)
+    , m_sealed(nullptr)
+    , m_frozen(nullptr)
     , size(other.size)
     , extensible(other.extensible)
+    , isUsedAsProto(other.isUsedAsProto)
 {
-    Q_ASSERT(extensible);
+    id = engine->newInternalClassId();
 }
 
 static void insertHoleIntoPropertyData(Object *object, int idx)
@@ -147,6 +149,9 @@ static void removeFromPropertyData(Object *object, int idx, bool accessor = fals
     int size = o->internalClass->size;
     for (int i = idx; i < size; ++i)
         o->setProperty(v4, i, *o->propertyData(i + (accessor ? 2 : 1)));
+    o->setProperty(v4, size, Primitive::undefinedValue());
+    if (accessor)
+        o->setProperty(v4, size + 1, Primitive::undefinedValue());
 }
 
 void InternalClass::changeMember(Object *object, String *string, PropertyAttributes data, uint *index)
@@ -213,9 +218,12 @@ InternalClass *InternalClass::changeMember(Identifier *identifier, PropertyAttri
 
 InternalClass *InternalClass::changePrototypeImpl(Heap::Object *proto)
 {
+    if (proto)
+        proto->setUsedAsProto();
     Q_ASSERT(prototype != proto);
+    Q_ASSERT(!proto || proto->internalClass->isUsedAsProto);
 
-    Transition temp = { { nullptr }, 0, Transition::PrototypeChange };
+    Transition temp = { { nullptr }, nullptr, Transition::PrototypeChange };
     temp.prototype = proto;
 
     Transition &t = lookupOrInsertTransition(temp);
@@ -237,6 +245,7 @@ InternalClass *InternalClass::changePrototypeImpl(Heap::Object *proto)
     }
 
     t.lookup = newClass;
+
     return newClass;
 }
 
@@ -389,7 +398,7 @@ void InternalClass::removeMember(Object *object, Identifier *id)
     Q_ASSERT(t.lookup);
 }
 
-uint QV4::InternalClass::find(const String *string)
+uint InternalClass::find(const String *string)
 {
     engine->identifierTable->identifier(string);
     const Identifier *id = string->d()->identifier;
@@ -449,6 +458,24 @@ InternalClass *InternalClass::propertiesFrozen() const
     return frozen;
 }
 
+InternalClass *InternalClass::asProtoClass()
+{
+    if (isUsedAsProto)
+        return this;
+
+    Transition temp = { { nullptr }, nullptr, Transition::ProtoClass };
+    Transition &t = lookupOrInsertTransition(temp);
+    if (t.lookup)
+        return t.lookup;
+
+    InternalClass *newClass = engine->newClass(*this);
+    newClass->isUsedAsProto = true;
+
+    t.lookup = newClass;
+    Q_ASSERT(t.lookup);
+    return newClass;
+}
+
 void InternalClass::destroy()
 {
     std::vector<InternalClass *> destroyStack;
@@ -460,7 +487,7 @@ void InternalClass::destroy()
         destroyStack.pop_back();
         if (!next->engine)
             continue;
-        next->engine = 0;
+        next->engine = nullptr;
         next->propertyTable.~PropertyHash();
         next->nameMap.~SharedInternalClassData<Identifier *>();
         next->propertyData.~SharedInternalClassData<PropertyAttributes>();
@@ -477,6 +504,42 @@ void InternalClass::destroy()
         next->transitions.~vector<Transition>();
     }
 }
+
+void InternalClass::updateProtoUsage(Heap::Object *o)
+{
+    Q_ASSERT(isUsedAsProto);
+    InternalClass *ic = engine->internalClasses[EngineBase::Class_Empty];
+    Q_ASSERT(!ic->prototype);
+
+    // only need to go two levels into the IC hierarchy, as prototype changes
+    // can only happen there
+    for (auto &t : ic->transitions) {
+        Q_ASSERT(t.lookup);
+        if (t.flags == InternalClassTransition::VTableChange) {
+            InternalClass *ic2 = t.lookup;
+            for (auto &t2 : ic2->transitions) {
+                if (t2.flags == InternalClassTransition::PrototypeChange &&
+                    t2.lookup->prototype == o)
+                    ic2->updateInternalClassIdRecursive();
+            }
+        } else if (t.flags == InternalClassTransition::PrototypeChange && t.lookup->prototype == o) {
+            ic->updateInternalClassIdRecursive();
+        }
+    }
+}
+
+void InternalClass::updateInternalClassIdRecursive()
+{
+    id = engine->newInternalClassId();
+    for (auto &t : transitions) {
+        Q_ASSERT(t.lookup);
+        if (t.flags == InternalClassTransition::VTableChange || t.flags == InternalClassTransition::PrototypeChange)
+            continue;
+        t.lookup->updateInternalClassIdRecursive();
+    }
+}
+
+
 
 void InternalClassPool::markObjects(MarkStack *markStack)
 {

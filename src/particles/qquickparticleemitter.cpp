@@ -222,9 +222,9 @@ QQuickParticleEmitter::QQuickParticleEmitter(QQuickItem *parent) :
   , m_particleDuration(1000)
   , m_particleDurationVariation(0)
   , m_enabled(true)
-  , m_system(0)
-  , m_extruder(0)
-  , m_defaultExtruder(0)
+  , m_system(nullptr)
+  , m_extruder(nullptr)
+  , m_defaultExtruder(nullptr)
   , m_velocity(&m_nullVector)
   , m_acceleration(&m_nullVector)
   , m_particleSize(16)
@@ -349,7 +349,7 @@ void QQuickParticleEmitter::reset()
 
 void QQuickParticleEmitter::emitWindow(int timeStamp)
 {
-    if (m_system == 0)
+    if (m_system == nullptr)
         return;
     if ((!m_enabled || m_particlesPerSecond <= 0)&& !m_pulseLeft && m_burstQueue.isEmpty()){
         m_reset_last = true;
@@ -486,7 +486,7 @@ void QQuickParticleEmitter::emitWindow(int timeStamp)
 
     if (isEmitConnected()) {
         QQmlEngine *qmlEngine = ::qmlEngine(this);
-        QV4::ExecutionEngine *v4 = QV8Engine::getV4(qmlEngine->handle());
+        QV4::ExecutionEngine *v4 = qmlEngine->handle();
         QV4::Scope scope(v4);
 
         //Done after emitParticle so that the Painter::load is done first, this allows you to customize its static variables

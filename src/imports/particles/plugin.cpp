@@ -38,6 +38,7 @@
 ****************************************************************************/
 
 #include <QtQml/qqmlextensionplugin.h>
+#include <QtQml/qqml.h>
 
 #include <private/qquickparticlesmodule_p.h>
 
@@ -56,12 +57,15 @@ class QtQuick2ParticlesPlugin : public QQmlExtensionPlugin
     Q_OBJECT
     Q_PLUGIN_METADATA(IID QQmlExtensionInterface_iid)
 public:
-    QtQuick2ParticlesPlugin(QObject *parent = 0) : QQmlExtensionPlugin(parent) { initResources(); }
-    void registerTypes(const char *uri) Q_DECL_OVERRIDE
+    QtQuick2ParticlesPlugin(QObject *parent = nullptr) : QQmlExtensionPlugin(parent) { initResources(); }
+    void registerTypes(const char *uri) override
     {
         Q_ASSERT(QLatin1String(uri) == QLatin1String("QtQuick.Particles"));
         Q_UNUSED(uri);
         QQuickParticlesModule::defineModule();
+
+        // Auto-increment the import to stay in sync with ALL future QtQuick minor versions from 5.11 onward
+        qmlRegisterModule(uri, 2, QT_VERSION_MINOR);
     }
 };
 //![class decl]

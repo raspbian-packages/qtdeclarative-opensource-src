@@ -38,7 +38,7 @@
 ****************************************************************************/
 
 #include "qqmlprofileradapter.h"
-#include "qqmldebugpacket.h"
+#include "qqmlprofilerservice.h"
 
 #include <private/qqmldebugserviceinterfaces_p.h>
 

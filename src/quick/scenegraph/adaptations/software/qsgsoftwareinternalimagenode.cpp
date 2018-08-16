@@ -68,6 +68,9 @@ void qDrawBorderPixmap(QPainter *painter, const QRect &targetRect, const QMargin
     QMargins sourceMargins = normalizedMargins(sourceMarginsIn);
     QMargins targetMargins = normalizedMargins(targetMarginsIn);
 
+    const qreal sourceDpr = pixmap.devicePixelRatioF();
+    sourceMargins *= sourceDpr;
+
     // source center
     const int sourceCenterTop = sourceRect.top() + sourceMargins.top();
     const int sourceCenterLeft = sourceRect.left() + sourceMargins.left();
@@ -89,9 +92,9 @@ void qDrawBorderPixmap(QPainter *painter, const QRect &targetRect, const QMargin
     int columns = 3;
     int rows = 3;
     if (rules.horizontal != Qt::StretchTile && sourceCenterWidth != 0)
-        columns = qMax(3, 2 + qCeil(targetCenterWidth / qreal(sourceCenterWidth)));
+        columns = qMax(3, 2 + qCeil((targetCenterWidth * sourceDpr) / qreal(sourceCenterWidth)));
     if (rules.vertical != Qt::StretchTile && sourceCenterHeight != 0)
-        rows = qMax(3, 2 + qCeil(targetCenterHeight / qreal(sourceCenterHeight)));
+        rows = qMax(3, 2 + qCeil((targetCenterHeight * sourceDpr) / qreal(sourceCenterHeight)));
 
     xTarget.resize(columns + 1);
     yTarget.resize(rows + 1);
@@ -121,7 +124,7 @@ void qDrawBorderPixmap(QPainter *painter, const QRect &targetRect, const QMargin
         dx = targetCenterWidth;
         break;
     case Qt::RepeatTile:
-        dx = sourceCenterWidth;
+        dx = sourceCenterWidth / sourceDpr;
         break;
     case Qt::RoundTile:
         dx = targetCenterWidth / qreal(columns - 2);
@@ -136,7 +139,7 @@ void qDrawBorderPixmap(QPainter *painter, const QRect &targetRect, const QMargin
         dy = targetCenterHeight;
         break;
     case Qt::RepeatTile:
-        dy = sourceCenterHeight;
+        dy = sourceCenterHeight / sourceDpr;
         break;
     case Qt::RoundTile:
         dy = targetCenterHeight / qreal(rows - 2);
@@ -318,8 +321,9 @@ void qDrawBorderPixmap(QPainter *painter, const QRect &targetRect, const QMargin
 QSGSoftwareInternalImageNode::QSGSoftwareInternalImageNode()
     : m_innerSourceRect(0, 0, 1, 1)
     , m_subSourceRect(0, 0, 1, 1)
-    , m_texture(0)
+    , m_texture(nullptr)
     , m_mirror(false)
+    , m_textureIsLayer(false)
     , m_smooth(true)
     , m_tileHorizontal(false)
     , m_tileVertical(false)
@@ -366,6 +370,7 @@ void QSGSoftwareInternalImageNode::setTexture(QSGTexture *texture)
 {
     m_texture = texture;
     m_cachedMirroredPixmapIsDirty = true;
+    m_textureIsLayer = static_cast<bool>(qobject_cast<QSGSoftwareLayer*>(texture));
     markDirty(DirtyMaterial);
 }
 
@@ -415,8 +420,13 @@ void QSGSoftwareInternalImageNode::setVerticalWrapMode(QSGTexture::WrapMode wrap
 void QSGSoftwareInternalImageNode::update()
 {
     if (m_cachedMirroredPixmapIsDirty) {
-        if (m_mirror) {
-            m_cachedMirroredPixmap = pixmap().transformed(QTransform(-1, 0, 0, 1, 0, 0));
+        if (m_mirror || m_textureIsLayer) {
+            QTransform transform(
+                        (m_mirror ? -1 : 1), 0,
+                        0                  , (m_textureIsLayer ? -1 :1),
+                        0                  , 0
+            );
+            m_cachedMirroredPixmap = pixmap().transformed(transform);
         } else {
             //Cleanup cached pixmap if necessary
             if (!m_cachedMirroredPixmap.isNull())
@@ -436,6 +446,7 @@ void QSGSoftwareInternalImageNode::preprocess()
     }
     if (doDirty)
         markDirty(DirtyMaterial);
+    m_cachedMirroredPixmapIsDirty = doDirty;
 }
 
 static Qt::TileRule getTileRule(qreal factor)
@@ -454,7 +465,7 @@ void QSGSoftwareInternalImageNode::paint(QPainter *painter)
 {
     painter->setRenderHint(QPainter::SmoothPixmapTransform, m_smooth);
 
-    const QPixmap &pm = m_mirror ? m_cachedMirroredPixmap : pixmap();
+    const QPixmap &pm = m_mirror || m_textureIsLayer ? m_cachedMirroredPixmap : pixmap();
 
     if (m_innerTargetRect != m_targetRect) {
         // border image
@@ -462,7 +473,7 @@ void QSGSoftwareInternalImageNode::paint(QPainter *painter)
                          m_targetRect.right() - m_innerTargetRect.right(), m_targetRect.bottom() - m_innerTargetRect.bottom());
         QSGSoftwareHelpers::QTileRules tilerules(getTileRule(m_subSourceRect.width()), getTileRule(m_subSourceRect.height()));
         QSGSoftwareHelpers::qDrawBorderPixmap(painter, m_targetRect.toRect(), margins, pm, QRect(0, 0, pm.width(), pm.height()),
-                                              margins, tilerules, QSGSoftwareHelpers::QDrawBorderPixmap::DrawingHints(0));
+                                              margins, tilerules, QSGSoftwareHelpers::QDrawBorderPixmap::DrawingHints(nullptr));
         return;
     }
 
@@ -494,7 +505,7 @@ const QPixmap &QSGSoftwareInternalImageNode::pixmap() const
         return pt->pixmap();
     if (QSGSoftwareLayer *layer = qobject_cast<QSGSoftwareLayer*>(m_texture))
         return layer->pixmap();
-    Q_ASSERT(m_texture == 0);
+    Q_ASSERT(m_texture == nullptr);
     static const QPixmap nullPixmap;
     return nullPixmap;
 }

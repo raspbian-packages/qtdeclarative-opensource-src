@@ -48,7 +48,7 @@ RegExpCache::~RegExpCache()
 {
     for (RegExpCache::Iterator it = begin(), e = end(); it != e; ++it) {
         if (RegExp *re = it.value().as<RegExp>())
-            re->d()->cache = 0;
+            re->d()->cache = nullptr;
     }
 }
 
@@ -62,7 +62,7 @@ uint RegExp::match(const QString &string, int start, uint *matchOffsets)
     WTF::String s(string);
 
 #if ENABLE(YARR_JIT)
-    if (!jitCode()->isFallBack() && jitCode()->has16BitCode())
+    if (d()->hasValidJITCode())
         return uint(jitCode()->execute(s.characters16(), start, s.length(), (int*)matchOffsets).start);
 #endif
 
@@ -90,7 +90,7 @@ Heap::RegExp *RegExp::create(ExecutionEngine* engine, const QString& pattern, bo
     return result->d();
 }
 
-void Heap::RegExp::init(ExecutionEngine* engine, const QString &pattern, bool ignoreCase, bool multiline, bool global)
+void Heap::RegExp::init(ExecutionEngine *engine, const QString &pattern, bool ignoreCase, bool multiline, bool global)
 {
     Base::init();
     this->pattern = new QString(pattern);
@@ -98,20 +98,30 @@ void Heap::RegExp::init(ExecutionEngine* engine, const QString &pattern, bool ig
     this->multiLine = multiline;
     this->global = global;
 
-    const char* error = 0;
-    JSC::Yarr::YarrPattern yarrPattern(WTF::String(pattern), ignoreCase, multiline, &error);
+    valid = false;
+
+    const char* error = nullptr;
+    JSC::Yarr::YarrPattern yarrPattern(WTF::String(pattern), ignoreCase, multiLine, &error);
     if (error)
         return;
     subPatternCount = yarrPattern.m_numSubpatterns;
-    OwnPtr<JSC::Yarr::BytecodePattern> p = JSC::Yarr::byteCompile(yarrPattern, engine->bumperPointerAllocator);
-    byteCode = p.take();
 #if ENABLE(YARR_JIT)
-    jitCode = new JSC::Yarr::YarrCodeBlock;
-    if (!yarrPattern.m_containsBackreferences && engine->iselFactory->jitCompileRegexps()) {
-        JSC::JSGlobalData dummy(engine->regExpAllocator);
+    if (!yarrPattern.m_containsBackreferences && engine->canJIT()) {
+        jitCode = new JSC::Yarr::YarrCodeBlock;
+        JSC::JSGlobalData dummy(internalClass->engine->regExpAllocator);
         JSC::Yarr::jitCompile(yarrPattern, JSC::Yarr::Char16, &dummy, *jitCode);
     }
+#else
+    Q_UNUSED(engine)
 #endif
+    if (hasValidJITCode()) {
+        valid = true;
+        return;
+    }
+    OwnPtr<JSC::Yarr::BytecodePattern> p = JSC::Yarr::byteCompile(yarrPattern, internalClass->engine->bumperPointerAllocator);
+    byteCode = p.take();
+    if (byteCode)
+        valid = true;
 }
 
 void Heap::RegExp::destroy()

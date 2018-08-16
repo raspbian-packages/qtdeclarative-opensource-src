@@ -186,7 +186,7 @@ struct MemorySegment {
     }
 
     PageReservation pageReservation;
-    Chunk *base = 0;
+    Chunk *base = nullptr;
     quint64 allocatedMap = 0;
     size_t availableBytes = 0;
     uint nChunks = 0;
@@ -203,14 +203,14 @@ Chunk *MemorySegment::allocate(size_t size)
     }
     size_t requiredChunks = (size + sizeof(Chunk) - 1)/sizeof(Chunk);
     uint sequence = 0;
-    Chunk *candidate = 0;
+    Chunk *candidate = nullptr;
     for (uint i = 0; i < nChunks; ++i) {
         if (!testBit(i)) {
             if (!candidate)
                 candidate = base + i;
             ++sequence;
         } else {
-            candidate = 0;
+            candidate = nullptr;
             sequence = 0;
         }
         if (sequence == requiredChunks) {
@@ -221,7 +221,7 @@ Chunk *MemorySegment::allocate(size_t size)
             return candidate;
         }
     }
-    return 0;
+    return nullptr;
 }
 
 struct ChunkAllocator {
@@ -285,64 +285,6 @@ QString binary(quintptr) { return QString(); }
 #define SDUMP if (1) ; else qDebug
 #endif
 
-void Heap::Base::markChildren(MarkStack *markStack)
-{
-    if (vtable()->markObjects)
-        vtable()->markObjects(this, markStack);
-    if (quint64 m = vtable()->markTable) {
-//            qDebug() << "using mark table:" << hex << m << "for" << h;
-        void **mem = reinterpret_cast<void **>(this);
-        while (m) {
-            MarkFlags mark = static_cast<MarkFlags>(m & 3);
-            switch (mark) {
-            case Mark_NoMark:
-                break;
-            case Mark_Value:
-//                    qDebug() << "marking value at " << mem;
-                reinterpret_cast<Value *>(mem)->mark(markStack);
-                break;
-            case Mark_Pointer: {
-//                    qDebug() << "marking pointer at " << mem;
-                Heap::Base *p = *reinterpret_cast<Heap::Base **>(mem);
-                if (p)
-                    p->mark(markStack);
-                break;
-            }
-            case Mark_ValueArray: {
-                Q_ASSERT(m == Mark_ValueArray);
-//                    qDebug() << "marking Value Array at offset" << hex << (mem - reinterpret_cast<void **>(h));
-                ValueArray<0> *a = reinterpret_cast<ValueArray<0> *>(mem);
-                Value *v = a->values;
-                const Value *end = v + a->alloc;
-                if (a->alloc > 32*1024) {
-                    // drain from time to time to avoid overflows in the js stack
-                    Heap::Base **currentBase = markStack->top;
-                    while (v < end) {
-                        v->mark(markStack);
-                        ++v;
-                        if (markStack->top >= currentBase + 32*1024) {
-                            Heap::Base **oldBase = markStack->base;
-                            markStack->base = currentBase;
-                            markStack->drain();
-                            markStack->base = oldBase;
-                        }
-                    }
-                } else {
-                    while (v < end) {
-                        v->mark(markStack);
-                        ++v;
-                    }
-                }
-                break;
-            }
-            }
-
-            m >>= 2;
-            ++mem;
-        }
-    }
-}
-
 // Stores a classname -> freed count mapping.
 typedef QHash<const char*, int> MMStatsHash;
 Q_GLOBAL_STATIC(MMStatsHash, freedObjectStatsGlobal)
@@ -400,6 +342,9 @@ bool Chunk::sweep(ExecutionEngine *engine)
                 v->destroy(b);
                 b->_checkIsDestroyed();
             }
+#ifdef V4_USE_HEAPTRACK
+            heaptrack_report_free(itemToFree);
+#endif
         }
         Q_V4_PROFILE_DEALLOC(engine, qPopulationCount((objectBitmap[i] | extendsBitmap[i])
                                                       - (blackBitmap[i] | e)) * Chunk::SlotSize,
@@ -448,6 +393,9 @@ void Chunk::freeAll(ExecutionEngine *engine)
                 b->vtable()->destroy(b);
                 b->_checkIsDestroyed();
             }
+#ifdef V4_USE_HEAPTRACK
+            heaptrack_report_free(itemToFree);
+#endif
         }
         Q_V4_PROFILE_DEALLOC(engine, (qPopulationCount(objectBitmap[i]|extendsBitmap[i])
                              - qPopulationCount(e)) * Chunk::SlotSize, Profiling::SmallItem);
@@ -565,51 +513,6 @@ void Chunk::sortIntoBins(HeapItem **bins, uint nBins)
 #endif
 }
 
-
-template<typename T>
-StackAllocator<T>::StackAllocator(ChunkAllocator *chunkAlloc)
-    : chunkAllocator(chunkAlloc)
-{
-    chunks.push_back(chunkAllocator->allocate());
-    firstInChunk = chunks.back()->first();
-    nextFree = firstInChunk;
-    lastInChunk = firstInChunk + (Chunk::AvailableSlots - 1)/requiredSlots*requiredSlots;
-}
-
-template<typename T>
-void StackAllocator<T>::freeAll()
-{
-    for (auto c : chunks)
-        chunkAllocator->free(c);
-}
-
-template<typename T>
-void StackAllocator<T>::nextChunk() {
-    Q_ASSERT(nextFree == lastInChunk);
-    ++currentChunk;
-    if (currentChunk >= chunks.size()) {
-        Chunk *newChunk = chunkAllocator->allocate();
-        chunks.push_back(newChunk);
-    }
-    firstInChunk = chunks.at(currentChunk)->first();
-    nextFree = firstInChunk;
-    lastInChunk = firstInChunk + (Chunk::AvailableSlots - 1)/requiredSlots*requiredSlots;
-}
-
-template<typename T>
-void QV4::StackAllocator<T>::prevChunk() {
-    Q_ASSERT(nextFree == firstInChunk);
-    Q_ASSERT(chunks.at(currentChunk) == nextFree->chunk());
-    Q_ASSERT(currentChunk > 0);
-    --currentChunk;
-    firstInChunk = chunks.at(currentChunk)->first();
-    lastInChunk = firstInChunk + (Chunk::AvailableSlots - 1)/requiredSlots*requiredSlots;
-    nextFree = lastInChunk;
-}
-
-template struct StackAllocator<Heap::CallContext>;
-
-
 HeapItem *BlockAllocator::allocate(size_t size, bool forceAllocation) {
     Q_ASSERT((size % Chunk::SlotSize) == 0);
     size_t slotsRequired = size >> Chunk::SlotSizeShift;
@@ -691,7 +594,7 @@ HeapItem *BlockAllocator::allocate(size_t size, bool forceAllocation) {
 
     if (!m) {
         if (!forceAllocation)
-            return 0;
+            return nullptr;
         Chunk *newChunk = chunkAllocator->allocate();
         Q_V4_PROFILE_ALLOC(engine, Chunk::DataSize, Profiling::HeapPage);
         chunks.push_back(newChunk);
@@ -705,13 +608,16 @@ HeapItem *BlockAllocator::allocate(size_t size, bool forceAllocation) {
 done:
     m->setAllocatedSlots(slotsRequired);
     Q_V4_PROFILE_ALLOC(engine, slotsRequired * Chunk::SlotSize, Profiling::SmallItem);
+#ifdef V4_USE_HEAPTRACK
+    heaptrack_report_alloc(m, slotsRequired * Chunk::SlotSize);
+#endif
     //        DEBUG << "   " << hex << m->chunk() << m->chunk()->objectBitmap[0] << m->chunk()->extendsBitmap[0] << (m - m->chunk()->realBase());
     return m;
 }
 
 void BlockAllocator::sweep()
 {
-    nextFree = 0;
+    nextFree = nullptr;
     nFree = 0;
     memset(freeBins, 0, sizeof(freeBins));
 
@@ -758,10 +664,26 @@ void BlockAllocator::collectGrayItems(MarkStack *markStack)
 }
 
 HeapItem *HugeItemAllocator::allocate(size_t size) {
-    Chunk *c = chunkAllocator->allocate(size);
-    chunks.push_back(HugeChunk{c, size});
+    MemorySegment *m = nullptr;
+    Chunk *c = nullptr;
+    if (size >= MemorySegment::SegmentSize/2) {
+        // too large to handle through the ChunkAllocator, let's get our own memory segement
+        size_t segmentSize = size + Chunk::HeaderSize; // space required for the Chunk header
+        size_t pageSize = WTF::pageSize();
+        segmentSize = (segmentSize + pageSize - 1) & ~(pageSize - 1); // align to page sizes
+        m = new MemorySegment(segmentSize);
+        size = (size + pageSize - 1) & ~(pageSize - 1); // align to page sizes
+        c = m->allocate(size);
+    } else {
+        c = chunkAllocator->allocate(size);
+    }
+    Q_ASSERT(c);
+    chunks.push_back(HugeChunk{m, c, size});
     Chunk::setBit(c->objectBitmap, c->first() - c->realBase());
     Q_V4_PROFILE_ALLOC(engine, size, Profiling::LargeItem);
+#ifdef V4_USE_HEAPTRACK
+    heaptrack_report_alloc(c, size);
+#endif
     return c->first();
 }
 
@@ -777,7 +699,16 @@ static void freeHugeChunk(ChunkAllocator *chunkAllocator, const HugeItemAllocato
         v->destroy(b);
         b->_checkIsDestroyed();
     }
-    chunkAllocator->free(c.chunk, c.size);
+    if (c.segment) {
+        // own memory segment
+        c.segment->free(c.chunk, c.size);
+        delete c.segment;
+    } else {
+        chunkAllocator->free(c.chunk, c.size);
+    }
+#ifdef V4_USE_HEAPTRACK
+    heaptrack_report_free(c.chunk);
+#endif
 }
 
 void HugeItemAllocator::sweep(ClassDestroyStatsCallback classCountPtr)
@@ -826,7 +757,6 @@ void HugeItemAllocator::freeAll()
 MemoryManager::MemoryManager(ExecutionEngine *engine)
     : engine(engine)
     , chunkAllocator(new ChunkAllocator)
-    , stackAllocator(chunkAllocator)
     , blockAllocator(chunkAllocator, engine)
     , hugeItemAllocator(chunkAllocator, engine)
     , m_persistentValues(new PersistentValueStorage(engine))
@@ -1263,7 +1193,6 @@ MemoryManager::~MemoryManager()
     sweep(/*lastSweep*/true);
     blockAllocator.freeAll();
     hugeItemAllocator.freeAll();
-    stackAllocator.freeAll();
 
     delete m_weakValues;
 #ifdef V4_USE_VALGRIND
@@ -1295,9 +1224,11 @@ void MemoryManager::collectFromJSStack(MarkStack *markStack) const
     Value *top = engine->jsStackTop;
     while (v < top) {
         Managed *m = v->managed();
-        if (m && m->inUse())
+        if (m) {
+            Q_ASSERT(m->inUse());
             // Skip pointers to already freed objects, they are bogus as well
             m->mark(markStack);
+        }
         ++v;
     }
 }

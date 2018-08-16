@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2017 The Qt Company Ltd.
+** Copyright (C) 2018 The Qt Company Ltd.
 ** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the QtQuick module of the Qt Toolkit.
@@ -60,9 +60,11 @@ QT_BEGIN_NAMESPACE
 
 Q_DECLARE_LOGGING_CATEGORY(lcPointerHandlerDispatch)
 
-class Q_QUICK_PRIVATE_EXPORT QQuickPointerHandler : public QObject
+class Q_QUICK_PRIVATE_EXPORT QQuickPointerHandler : public QObject, public QQmlParserStatus
 {
     Q_OBJECT
+    Q_INTERFACES(QQmlParserStatus)
+
     Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
     Q_PROPERTY(bool active READ active NOTIFY activeChanged)
     Q_PROPERTY(QQuickItem * target READ target WRITE setTarget NOTIFY targetChanged)
@@ -70,7 +72,7 @@ class Q_QUICK_PRIVATE_EXPORT QQuickPointerHandler : public QObject
     Q_PROPERTY(GrabPermissions grabPermissions READ grabPermissions WRITE setGrabPermissions NOTIFY grabPermissionChanged)
 
 public:
-    explicit QQuickPointerHandler(QObject *parent = 0);
+    explicit QQuickPointerHandler(QObject *parent = nullptr);
     virtual ~QQuickPointerHandler();
 
     enum GrabPermission {
@@ -113,6 +115,9 @@ Q_SIGNALS:
     void canceled(QQuickEventPoint *point);
 
 protected:
+    void classBegin() override;
+    void componentComplete() override;
+
     QQuickPointerEvent *currentEvent() { return m_currentEvent; }
     virtual bool wantsPointerEvent(QQuickPointerEvent *event);
     virtual void handlePointerEventImpl(QQuickPointerEvent *event);

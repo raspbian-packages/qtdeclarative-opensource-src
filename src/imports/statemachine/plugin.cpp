@@ -62,8 +62,8 @@ class QtQmlStateMachinePlugin : public QQmlExtensionPlugin
     Q_PLUGIN_METADATA(IID QQmlExtensionInterface_iid)
 
 public:
-    QtQmlStateMachinePlugin(QObject *parent = 0) : QQmlExtensionPlugin(parent) { initResources(); }
-    void registerTypes(const char *uri) Q_DECL_OVERRIDE
+    QtQmlStateMachinePlugin(QObject *parent = nullptr) : QQmlExtensionPlugin(parent) { initResources(); }
+    void registerTypes(const char *uri) override
     {
         qmlRegisterType<State>(uri, 1, 0, "State");
         qmlRegisterType<StateMachine>(uri, 1, 0, "StateMachine");
@@ -75,6 +75,9 @@ public:
         qmlRegisterCustomType<SignalTransition>(uri, 1, 0, "SignalTransition", new SignalTransitionParser);
         qmlRegisterType<TimeoutTransition>(uri, 1, 0, "TimeoutTransition");
         qmlProtectModule(uri, 1);
+
+        // Auto-increment the import to stay in sync with ALL future QtQuick minor versions from 5.11 onward
+        qmlRegisterModule(uri, 1, QT_VERSION_MINOR);
     }
 };
 

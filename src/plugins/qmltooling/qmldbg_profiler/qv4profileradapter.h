@@ -51,9 +51,10 @@
 // We mean it.
 //
 
+#include "qqmlprofilerservice.h"
+
 #include <private/qv4profiling_p.h>
 #include <private/qqmlabstractprofileradapter_p.h>
-#include "qqmldebugpacket.h"
 
 #include <QStack>
 #include <QList>

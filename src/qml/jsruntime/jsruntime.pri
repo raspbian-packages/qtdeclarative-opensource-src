@@ -33,6 +33,7 @@ SOURCES += \
     $$PWD/qv4variantobject.cpp \
     $$PWD/qv4objectiterator.cpp \
     $$PWD/qv4regexp.cpp \
+    $$PWD/qv4runtimecodegen.cpp \
     $$PWD/qv4serialize.cpp \
     $$PWD/qv4script.cpp \
     $$PWD/qv4sequenceobject.cpp \
@@ -40,9 +41,10 @@ SOURCES += \
     $$PWD/qv4qobjectwrapper.cpp \
     $$PWD/qv4arraybuffer.cpp \
     $$PWD/qv4typedarray.cpp \
-    $$PWD/qv4dataview.cpp
+    $$PWD/qv4dataview.cpp \
+    $$PWD/qv4vme_moth.cpp
 
-!contains(QT_CONFIG, no-qml-debug): SOURCES += $$PWD/qv4profiling.cpp
+qtConfig(qml-debug): SOURCES += $$PWD/qv4profiling.cpp
 
 HEADERS += \
     $$PWD/qv4global_p.h \
@@ -58,6 +60,7 @@ HEADERS += \
     $$PWD/qv4identifiertable_p.h \
     $$PWD/qv4managed_p.h \
     $$PWD/qv4internalclass_p.h \
+    $$PWD/qv4jscall_p.h \
     $$PWD/qv4sparsearray_p.h \
     $$PWD/qv4arraydata_p.h \
     $$PWD/qv4arrayobject_p.h \
@@ -76,6 +79,7 @@ HEADERS += \
     $$PWD/qv4objectproto_p.h \
     $$PWD/qv4qmlcontext_p.h \
     $$PWD/qv4regexpobject_p.h \
+    $$PWD/qv4runtimecodegen_p.h \
     $$PWD/qv4stringobject_p.h \
     $$PWD/qv4variantobject_p.h \
     $$PWD/qv4property_p.h \
@@ -91,14 +95,8 @@ HEADERS += \
     $$PWD/qv4profiling_p.h \
     $$PWD/qv4arraybuffer_p.h \
     $$PWD/qv4typedarray_p.h \
-    $$PWD/qv4dataview_p.h
-
-qtConfig(qml-interpreter) {
-    HEADERS += \
-        $$PWD/qv4vme_moth_p.h
-    SOURCES += \
-        $$PWD/qv4vme_moth.cpp
-}
+    $$PWD/qv4dataview_p.h \
+    $$PWD/qv4vme_moth_p.h
 
 }
 

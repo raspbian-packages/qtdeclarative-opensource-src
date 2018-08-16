@@ -14,24 +14,23 @@ qmldbg_native.depends = packetprotocol
 qmldbg_server.depends = packetprotocol
 
 qtConfig(qml-network) {
+    qtConfig(localserver): SUBDIRS += qmldbg_local
+
     SUBDIRS += \
-        qmldbg_local \
         qmldbg_tcp
 }
 
-qtConfig(qml-interpreter) {
-    # Services
-    SUBDIRS += \
-        qmldbg_debugger \
-        qmldbg_profiler \
-        qmldbg_messages \
-        qmldbg_nativedebugger
+# Services
+SUBDIRS += \
+    qmldbg_messages \
+    qmldbg_profiler \
+    qmldbg_debugger \
+    qmldbg_nativedebugger
 
-    qmldbg_debugger.depends = packetprotocol
-    qmldbg_profiler.depends = packetprotocol
-    qmldbg_messages.depends = packetprotocol
-    qmldbg_nativedebugger.depends = packetprotocol
-}
+qmldbg_messages.depends = packetprotocol
+qmldbg_profiler.depends = packetprotocol
+qmldbg_debugger.depends = packetprotocol
+qmldbg_nativedebugger.depends = packetprotocol
 
 qtHaveModule(quick) {
     SUBDIRS += \

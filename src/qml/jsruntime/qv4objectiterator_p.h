@@ -73,7 +73,7 @@ struct Q_QML_EXPORT ObjectIteratorData
     uint memberIndex;
     uint flags;
 };
-V4_ASSERT_IS_TRIVIAL(ObjectIteratorData)
+Q_STATIC_ASSERT(std::is_trivial< ObjectIteratorData >::value);
 
 struct Q_QML_EXPORT ObjectIterator: ObjectIteratorData
 {
@@ -101,7 +101,7 @@ struct Q_QML_EXPORT ObjectIterator: ObjectIteratorData
         init(o);
     }
 
-    void next(Value *name, uint *index, Property *pd, PropertyAttributes *attributes = 0);
+    void next(Value *name, uint *index, Property *pd, PropertyAttributes *attributes = nullptr);
     ReturnedValue nextPropertyName(Value *value);
     ReturnedValue nextPropertyNameAsString(Value *value);
     ReturnedValue nextPropertyNameAsString();
@@ -116,6 +116,7 @@ struct ForEachIteratorObject : Object {
     ObjectIterator &it() { return *reinterpret_cast<ObjectIterator*>(&itData); }
     Value workArea[2];
 
+    static void markObjects(Heap::Base *that, MarkStack *markStack);
 private:
     ObjectIteratorData itData;
 };
@@ -127,9 +128,6 @@ struct ForEachIteratorObject: Object {
     Q_MANAGED_TYPE(ForeachIteratorObject)
 
     ReturnedValue nextPropertyName() { return d()->it().nextPropertyNameAsString(); }
-
-protected:
-    static void markObjects(Heap::Base *that, MarkStack *markStack);
 };
 
 inline

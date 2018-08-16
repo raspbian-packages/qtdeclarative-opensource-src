@@ -134,13 +134,13 @@ Item {
 
     It contains a bitwise combination of:
     \list
-    \li Qt.NoModifier - No modifier key is pressed.
-    \li Qt.ShiftModifier - A Shift key on the keyboard is pressed.
-    \li Qt.ControlModifier - A Ctrl key on the keyboard is pressed.
-    \li Qt.AltModifier - An Alt key on the keyboard is pressed.
-    \li Qt.MetaModifier - A Meta key on the keyboard is pressed.
-    \li Qt.KeypadModifier - A keypad button is pressed.
-    \li Qt.GroupSwitchModifier - X11 only. A Mode_switch key on the keyboard is pressed.
+    \li \l {Qt::NoModifier} {Qt.NoModifier} - No modifier key is pressed.
+    \li \l {Qt::ShiftModifier} {Qt.ShiftModifier} - A Shift key on the keyboard is pressed.
+    \li \l {Qt::ControlModifier} {Qt.ControlModifier} - A Ctrl key on the keyboard is pressed.
+    \li \l {Qt::AltModifier} {Qt.AltModifier} - An Alt key on the keyboard is pressed.
+    \li \l {Qt::MetaModifier} {Qt.MetaModifier} - A Meta key on the keyboard is pressed.
+    \li \l {Qt::KeypadModifier} {Qt.KeypadModifier} - A keypad button is pressed.
+    \li \l {Qt::GroupSwitchModifier} {Qt.GroupSwitchModifier} - X11 only. A Mode_switch key on the keyboard is pressed.
     \endlist
 
     For example, to react to a Shift key + Enter key combination:
@@ -184,7 +184,7 @@ Item {
 
     \brief Provides information about a mouse event
 
-    The position of the mouse can be found via the \l x and \l y properties.
+    The position of the mouse can be found via the \l {Item::x} {x} and \l {Item::y} {y} properties.
     The button that caused the event is available via the \l button property.
 
     \sa MouseArea
@@ -218,17 +218,17 @@ Item {
 
     This property holds the button that caused the event.  It can be one of:
     \list
-    \li Qt.LeftButton
-    \li Qt.RightButton
-    \li Qt.MiddleButton
+    \li \l {Qt::LeftButton} {Qt.LeftButton}
+    \li \l {Qt::RightButton} {Qt.RightButton}
+    \li \l {Qt::MiddleButton} {Qt.MiddleButton}
     \endlist
 */
 
 /*!
     \qmlproperty bool QtQuick::MouseEvent::wasHeld
 
-    This property is true if the mouse button has been held pressed longer the
-    threshold (800ms).
+    This property is true if the mouse button has been held pressed longer
+    than the threshold (800ms).
 */
 
 /*!
@@ -241,9 +241,9 @@ Item {
 
     It contains a bitwise combination of:
     \list
-    \li Qt.LeftButton
-    \li Qt.RightButton
-    \li Qt.MiddleButton
+    \li \l {Qt::LeftButton} {Qt.LeftButton}
+    \li \l {Qt::RightButton} {Qt.RightButton}
+    \li \l {Qt::MiddleButton} {Qt.MiddleButton}
     \endlist
 */
 
@@ -255,12 +255,12 @@ Item {
 
     It contains a bitwise combination of:
     \list
-    \li Qt.NoModifier - No modifier key is pressed.
-    \li Qt.ShiftModifier - A Shift key on the keyboard is pressed.
-    \li Qt.ControlModifier - A Ctrl key on the keyboard is pressed.
-    \li Qt.AltModifier - An Alt key on the keyboard is pressed.
-    \li Qt.MetaModifier - A Meta key on the keyboard is pressed.
-    \li Qt.KeypadModifier - A keypad button is pressed.
+    \li \l {Qt::NoModifier} {Qt.NoModifier} - No modifier key is pressed.
+    \li \l {Qt::ShiftModifier} {Qt.ShiftModifier} - A Shift key on the keyboard is pressed.
+    \li \l {Qt::ControlModifier} {Qt.ControlModifier} - A Ctrl key on the keyboard is pressed.
+    \li \l {Qt::AltModifier} {Qt.AltModifier} - An Alt key on the keyboard is pressed.
+    \li \l {Qt::MetaModifier} {Qt.MetaModifier} - A Meta key on the keyboard is pressed.
+    \li \l {Qt::KeypadModifier} {Qt.KeypadModifier} - A keypad button is pressed.
     \endlist
 
     For example, to react to a Shift key + Left mouse button click:
@@ -288,20 +288,24 @@ Item {
 
     The value can be one of:
 
-    \value Qt.MouseEventNotSynthesized The most common value. On platforms where
-    such information is available, this value indicates that the event
-    represents a genuine mouse event from the system.
+    \list
+    \li \l{Qt::MouseEventNotSynthesized} {Qt.MouseEventNotSynthesized}
+    - The most common value. On platforms where such information is
+    available, this value indicates that the event represents a genuine
+    mouse event from the system.
 
-    \value Qt.MouseEventSynthesizedBySystem Indicates that the mouse event was
+    \li \l{Qt::MouseEventSynthesizedBySystem} {Qt.MouseEventSynthesizedBySystem} - Indicates that the mouse event was
     synthesized from a touch or tablet event by the platform.
 
-    \value Qt.MouseEventSynthesizedByQt Indicates that the mouse event was
-    synthesized from an unhandled touch or tablet event by Qt.
+    \li \l{Qt::MouseEventSynthesizedByQt} {Qt.MouseEventSynthesizedByQt}
+    - Indicates that the mouse event was synthesized from an unhandled
+    touch or tablet event by Qt.
 
-    \value Qt.MouseEventSynthesizedByApplication Indicates that the mouse event
-    was synthesized by the application. This allows distinguishing
-    application-generated mouse events from the ones that are coming from the
-    system or are synthesized by Qt.
+    \li \l{Qt::MouseEventSynthesizedByApplication} {Qt.MouseEventSynthesizedByApplication}
+    - Indicates that the mouse event was synthesized by the application.
+    This allows distinguishing application-generated mouse events from
+    the ones that are coming from the system or are synthesized by Qt.
+    \endlist
 
     For example, to react only to events which come from an actual mouse:
     \qml
@@ -326,13 +330,29 @@ Item {
 */
 
 /*!
+    \qmlproperty int QtQuick::MouseEvent::flags
+    \since 5.11
+
+    This property holds the flags that provide additional information about the
+    mouse event.
+
+    \list
+    \li \l {Qt::MouseEventCreatedDoubleClick} {Qt.MouseEventCreatedDoubleClick}
+    - Indicates that Qt has created a double click event from this event.
+    This flag is set in the event originating from a button press, and not
+    in the resulting double click event.
+    \endlist
+*/
+
+/*!
     \qmltype WheelEvent
     \instantiates QQuickWheelEvent
     \inqmlmodule QtQuick
     \ingroup qtquick-input-events
     \brief Provides information about a mouse wheel event
 
-    The position of the mouse can be found via the \l x and \l y properties.
+    The position of the mouse can be found via the
+    \l {Item::x} {x} and \l {Item::y} {y} properties.
 
     \sa MouseArea
 */
@@ -366,9 +386,9 @@ Item {
 
     It contains a bitwise combination of:
     \list
-    \li Qt.LeftButton
-    \li Qt.RightButton
-    \li Qt.MiddleButton
+    \li \l {Qt::LeftButton} {Qt.LeftButton}
+    \li \l {Qt::RightButton} {Qt.RightButton}
+    \li \l {Qt::MiddleButton} {Qt.MiddleButton}
     \endlist
 */
 
@@ -406,12 +426,12 @@ Item {
 
     It contains a bitwise combination of:
     \list
-    \li Qt.NoModifier - No modifier key is pressed.
-    \li Qt.ShiftModifier - A Shift key on the keyboard is pressed.
-    \li Qt.ControlModifier - A Ctrl key on the keyboard is pressed.
-    \li Qt.AltModifier - An Alt key on the keyboard is pressed.
-    \li Qt.MetaModifier - A Meta key on the keyboard is pressed.
-    \li Qt.KeypadModifier - A keypad button is pressed.
+    \li \l {Qt::NoModifier} {Qt.NoModifier} - No modifier key is pressed.
+    \li \l {Qt::ShiftModifier} {Qt.ShiftModifier} - A Shift key on the keyboard is pressed.
+    \li \l {Qt::ControlModifier} {Qt.ControlModifier} - A Ctrl key on the keyboard is pressed.
+    \li \l {Qt::AltModifier} {Qt.AltModifier} - An Alt key on the keyboard is pressed.
+    \li \l {Qt::MetaModifier} {Qt.MetaModifier} - A Meta key on the keyboard is pressed.
+    \li \l {Qt::KeypadModifier} {Qt.KeypadModifier} - A keypad button is pressed.
     \endlist
 
     For example, to react to a Control key pressed during the wheel event:
@@ -485,10 +505,43 @@ Item {
         \l {QTabletEvent::tangentialPressure}{tangentialPressure}
     \value DeviceType.Puck
         a device that is similar to a flat mouse with a
-        transparent circle with cross-hairs (same as \l QTabletEvent::Puck)
+        transparent circle with cross-hairs
+        (same as \l {QTabletEvent::Puck} {Puck})
+    \value DeviceType.AllDevices
+        any of the above; used as a default value for construction
 
     \sa QTouchDevice::DeviceType
 */
+
+/*!
+    \readonly
+    \qmlproperty enumeration QtQuick::PointerDevice::pointerType
+
+    This property holds a value indicating what is interacting with
+    the device. Think of the device as having a planar 2D surface, and
+    the value of this property as identifying what interacts with the
+    device.
+
+    There is some redundancy between this property and \l {PointerDevice::type}.
+    If a tocuchscreen is used, then the device is TouchScreen and
+    pointerType is Finger (always).
+
+    Valid values are:
+
+    \value PointerDevice.GenericPointer
+        a mouse or something acting like a mouse (the core pointer on X11)
+    \value PointerDevice.Finger
+        the user's finger
+    \value PointerDevice.Pen
+        the drawing end of a stylus
+    \value PointerDevice.Eraser
+        the other end of the stylus (if it has a virtual eraser on the other end)
+    \value PointerDevice.Cursor
+        a cursor in the pre-computer sense of the word
+    \value PointerDevice.AllPointerTypes
+        any of the above (used as a default value in constructors)
+*/
+
 
 /*!
     \readonly
@@ -508,11 +561,11 @@ Item {
     \value CapabilityFlag.Pressure
         the \l {QtQuick::EventTouchPoint::pressure}{pressure} property
     \value CapabilityFlag.Velocity
-        the \l {QtQuick::PointerEvent::velocity}{velocity} property
+        the \l {QtQuick::EventPoint::velocity}{velocity} property
     \value CapabilityFlag.Scroll
-        a \l {QtQuick::PointerDevice::DeviceType::Mouse}{Mouse} has a wheel, or the
+        a \l {QtQuick::PointerDevice::type}{Mouse} has a wheel, or the
         operating system recognizes scroll gestures on a
-        \l {QtQuick::PointerDevice::DeviceType::TouchPad}{TouchPad}
+        \l {QtQuick::PointerDevice::type}{TouchPad}
     \value CapabilityFlag.Hover
         events are sent even when no button is pressed, or the finger or stylus
         is not in contact with the surface
@@ -572,8 +625,7 @@ QQuickPointerDevice *QQuickPointerDevice::touchDevice(const QTouchDevice *d)
     int maximumTouchPoints = 10;
     QQuickPointerDevice::Capabilities caps = QQuickPointerDevice::Capabilities(QTouchDevice::Position);
     if (d) {
-        QQuickPointerDevice::Capabilities caps =
-            static_cast<QQuickPointerDevice::Capabilities>(static_cast<int>(d->capabilities()) & 0x0F);
+        caps = static_cast<QQuickPointerDevice::Capabilities>(static_cast<int>(d->capabilities()) & 0xFF);
         if (d->type() == QTouchDevice::TouchPad) {
             type = QQuickPointerDevice::TouchPad;
             caps |= QQuickPointerDevice::Scroll;
@@ -639,8 +691,8 @@ QQuickPointerDevice *QQuickPointerDevice::tabletDevice(qint64 id)
     \qmlproperty point QtQuick::EventPoint::scenePosition
 
     This property holds the coordinates of the position supplied by the event,
-    relative to the scene. If a contact patch is available from the \l device,
-    this point represents its centroid.
+    relative to the scene. If a contact patch is available from the
+    \l {QtQuick::PointerEvent::device} {device}, this point represents its centroid.
 */
 
 /*!
@@ -698,7 +750,7 @@ QQuickPointerDevice *QQuickPointerDevice::tabletDevice(qint64 id)
     presses a finger against the touchscreen, it will be a larger number.
     In other cases, it will be -1.
 
-    \sa PointerDevice.uniqueId
+    \sa {QtQuick::EventTouchPoint::uniqueId}{uniqueId}
 */
 
 /*!
@@ -797,14 +849,16 @@ void QQuickEventPoint::setGrabberItem(QQuickItem *grabber)
             qCDebug(lcPointerGrab) << pointDeviceName(this) << "point" << hex << m_pointId << pointStateString(this)
                                    << ": grab" << m_exclusiveGrabber << "->" << grabber;
         }
+        QQuickItem *oldGrabberItem = grabberItem();
         m_exclusiveGrabber = QPointer<QObject>(grabber);
         m_grabberIsHandler = false;
         m_sceneGrabPos = m_scenePos;
-        QQuickItem *oldGrabberItem = grabberItem();
-        if (oldGrabberHandler)
+        if (oldGrabberHandler) {
             oldGrabberHandler->onGrabChanged(oldGrabberHandler, (grabber ? CancelGrabExclusive : UngrabExclusive), this);
-        else if (oldGrabberItem && oldGrabberItem != grabber && grabber && pointerEvent()->asPointerTouchEvent())
-            oldGrabberItem->touchUngrabEvent();
+        } else if (oldGrabberItem && oldGrabberItem != grabber && grabber && grabber->window()) {
+            QQuickWindowPrivate *windowPriv = QQuickWindowPrivate::get(grabber->window());
+            windowPriv->sendUngrabEvent(oldGrabberItem, windowPriv->isDeliveringTouchAsMouse());
+        }
         for (QPointer<QQuickPointerHandler> passiveGrabber : m_passiveGrabbers)
             passiveGrabber->onGrabChanged(passiveGrabber, OverrideGrabPassive, this);
     }
@@ -1032,22 +1086,27 @@ void QQuickEventPoint::setAccepted(bool accepted)
     \qmlproperty size QtQuick::EventTouchPoint::ellipseDiameters
 
     This property holds the diameters of the contact patch, if the event
-    comes from a touchpoint and the \l device provides this information.
+    comes from a touchpoint and the \l {QtQuick::PointerEvent::device} {device}
+    provides this information.
 
-    A touchpoint is modeled as an elliptical area where the finger is pressed
-    against the touchscreen. (In fact, it could also be modeled as a bitmap; but
-    in that case we expect an elliptical bounding estimate to be fitted to the
-    contact patch before the event is sent.) The harder the user presses, the
-    larger the contact patch; so, these diameters provide an alternate way of
-    detecting pressure, in case the device does not include a separate pressure
-    sensor. The ellipse is centered on \l scenePos (\l pos in the PointerHandler's
+    A touchpoint is modeled as an elliptical area where the finger is
+    pressed against the touchscreen. (In fact, it could also be
+    modeled as a bitmap; but in that case we expect an elliptical
+    bounding estimate to be fitted to the contact patch before the
+    event is sent.) The harder the user presses, the larger the
+    contact patch; so, these diameters provide an alternate way of
+    detecting pressure, in case the device does not include a separate
+    pressure sensor. The ellipse is centered on
+    \l {QtQuick::EventPoint::scenePosition} {scenePosition}
+    (\l {QtQuick::EventPoint::position} {position} in the PointerHandler's
     Item's local coordinates).  The \l rotation property provides the
-    rotation of the ellipse, if known.  It is expected that if the \l rotation
-    is zero, the verticalDiameter of the ellipse is the larger one (the major axis),
-    because of the usual hand position, reaching upward or outward across the surface.
+    rotation of the ellipse, if known.  It is expected that if the
+    \l rotation is zero, the verticalDiameter of the ellipse is the
+    larger one (the major axis), because of the usual hand position,
+    reaching upward or outward across the surface.
 
-    If the contact patch is unknown, or the \l device is not a touchscreen,
-    these values will be zero.
+    If the contact patch is unknown, or the \l {QtQuick::PointerEvent::device} {device}
+    is not a touchscreen, these values will be zero.
 */
 
 QQuickEventTouchPoint::QQuickEventTouchPoint(QQuickPointerTouchEvent *parent)
@@ -1131,8 +1190,8 @@ QVector2D QQuickEventPoint::estimatedVelocity() const
 
     A PointerEvent is an event describing contact or movement across a surface,
     provided by a mouse, a touchpoint (single finger on a touchscreen), or a
-    stylus on a graphics tablet. The \l device property provides more
-    information about where the event came from.
+    stylus on a graphics tablet. The \l {QtQuick::PointerEvent::device} {device}
+    property provides more information about where the event came from.
 
     \sa PointerHandler
 
@@ -1158,8 +1217,8 @@ QVector2D QQuickEventPoint::estimatedVelocity() const
     \qmlproperty enumeration QtQuick::PointerEvent::button
 
     This property holds the \l {Qt::MouseButton}{button} that caused the event,
-    if any. If the \l device does not have buttons, or the event is a hover
-    event, it will be \c Qt.NoButton.
+    if any. If the \l {QtQuick::PointerEvent::device} {device} does not have
+    buttons, or the event is a hover event, it will be \c Qt.NoButton.
 */
 
 /*!
@@ -1331,6 +1390,7 @@ void QQuickPointerTouchEvent::localize(QQuickItem *target)
         point->localizePosition(target);
 }
 
+#if QT_CONFIG(gestures)
 QQuickPointerEvent *QQuickPointerNativeGestureEvent::reset(QEvent *event)
 {
     auto ev = static_cast<QNativeGestureEvent*>(event);
@@ -1360,6 +1420,7 @@ void QQuickPointerNativeGestureEvent::localize(QQuickItem *target)
 {
     m_gesturePoint->localizePosition(target);
 }
+#endif // QT_CONFIG(gestures)
 
 QQuickEventPoint *QQuickPointerMouseEvent::point(int i) const {
     if (i == 0)
@@ -1373,11 +1434,13 @@ QQuickEventPoint *QQuickPointerTouchEvent::point(int i) const {
     return nullptr;
 }
 
+#if QT_CONFIG(gestures)
 QQuickEventPoint *QQuickPointerNativeGestureEvent::point(int i) const {
     if (i == 0)
         return m_gesturePoint;
     return nullptr;
 }
+#endif // QT_CONFIG(gestures)
 
 QQuickEventPoint::QQuickEventPoint(QQuickPointerEvent *parent)
   : QObject(parent), m_pointId(0), m_exclusiveGrabber(nullptr), m_timestamp(0), m_pressTimestamp(0),
@@ -1515,6 +1578,13 @@ void QQuickPointerTouchEvent::clearGrabbers() const {
     }
 }
 
+Qt::TouchPointStates QQuickPointerTouchEvent::touchPointStates() const
+{
+    return m_event
+        ? static_cast<QTouchEvent*>(m_event)->touchPointStates()
+        : Qt::TouchPointStates();
+}
+
 /*!
     Returns whether the given \a handler is the exclusive grabber of any
     touchpoint within this event.
@@ -1529,17 +1599,17 @@ bool QQuickPointerTouchEvent::hasExclusiveGrabber(const QQuickPointerHandler *ha
 
 bool QQuickPointerTouchEvent::isPressEvent() const
 {
-    return static_cast<QTouchEvent*>(m_event)->touchPointStates() & Qt::TouchPointPressed;
+    return touchPointStates() & Qt::TouchPointPressed;
 }
 
 bool QQuickPointerTouchEvent::isUpdateEvent() const
 {
-    return static_cast<QTouchEvent*>(m_event)->touchPointStates() & (Qt::TouchPointMoved | Qt::TouchPointStationary);
+    return touchPointStates() & (Qt::TouchPointMoved | Qt::TouchPointStationary);
 }
 
 bool QQuickPointerTouchEvent::isReleaseEvent() const
 {
-    return static_cast<QTouchEvent*>(m_event)->touchPointStates() & Qt::TouchPointReleased;
+    return touchPointStates() & Qt::TouchPointReleased;
 }
 
 QVector<QPointF> QQuickPointerEvent::unacceptedPressedPointScenePositions() const
@@ -1598,6 +1668,7 @@ QMouseEvent *QQuickPointerTouchEvent::syntheticMouseEvent(int pointID, QQuickIte
     return &m_synthMouseEvent;
 }
 
+#if QT_CONFIG(gestures)
 /*!
     Returns the exclusive grabber of this event, if any, in a vector.
 */
@@ -1655,6 +1726,7 @@ qreal QQuickPointerNativeGestureEvent::value() const
 {
     return static_cast<QNativeGestureEvent *>(m_event)->value();
 }
+#endif // QT_CONFIG(gestures)
 
 /*!
     \internal
@@ -1678,12 +1750,13 @@ QQuickEventPoint *QQuickPointerTouchEvent::pointById(int pointId) const {
     return nullptr;
 }
 
+#if QT_CONFIG(gestures)
 QQuickEventPoint *QQuickPointerNativeGestureEvent::pointById(int pointId) const {
     if (m_gesturePoint && pointId == m_gesturePoint->pointId())
         return m_gesturePoint;
     return nullptr;
 }
-
+#endif
 
 /*!
     \internal
@@ -1802,6 +1875,7 @@ QTouchEvent *QQuickPointerTouchEvent::asTouchEvent() const
     return static_cast<QTouchEvent *>(m_event);
 }
 
+#if QT_CONFIG(gestures)
 bool QQuickPointerNativeGestureEvent::allPointsAccepted() const {
     return m_gesturePoint->isAccepted();
 }
@@ -1814,6 +1888,7 @@ bool QQuickPointerNativeGestureEvent::allPointsGrabbed() const
 {
     return m_gesturePoint->exclusiveGrabber() != nullptr;
 }
+#endif // QT_CONFIG(gestures)
 
 #ifndef QT_NO_DEBUG_STREAM
 

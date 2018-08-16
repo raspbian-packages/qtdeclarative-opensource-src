@@ -29,6 +29,7 @@
 
 #include "qqmldebugtestservice.h"
 #include "debugutil_p.h"
+#include "qqmldebugprocess_p.h"
 #include "../../../shared/util.h"
 
 #include <private/qqmldebugclient_p.h>
@@ -79,11 +80,11 @@ void tst_QQmlDebugService::initTestCase()
     m_service = new QQmlDebugTestService("tst_QQmlDebugService", 2);
 
     foreach (const QString &service, QQmlDebuggingEnabler::debuggerServices())
-        QCOMPARE(QQmlDebugConnector::instance()->service(service), (QQmlDebugService *)0);
+        QCOMPARE(QQmlDebugConnector::instance()->service(service), (QQmlDebugService *)nullptr);
     foreach (const QString &service, QQmlDebuggingEnabler::inspectorServices())
-        QCOMPARE(QQmlDebugConnector::instance()->service(service), (QQmlDebugService *)0);
+        QCOMPARE(QQmlDebugConnector::instance()->service(service), (QQmlDebugService *)nullptr);
     foreach (const QString &service, QQmlDebuggingEnabler::profilerServices())
-        QCOMPARE(QQmlDebugConnector::instance()->service(service), (QQmlDebugService *)0);
+        QCOMPARE(QQmlDebugConnector::instance()->service(service), (QQmlDebugService *)nullptr);
 
     const QString waitingMsg = QString("QML Debugger: Waiting for connection on port %1...").arg(PORT);
     QTest::ignoreMessage(QtDebugMsg, waitingMsg.toLatin1().constData());
@@ -206,7 +207,7 @@ void tst_QQmlDebugService::checkSupportForDataStreamVersion()
 
 void tst_QQmlDebugService::idForObject()
 {
-    QCOMPARE(QQmlDebugService::idForObject(0), -1);
+    QCOMPARE(QQmlDebugService::idForObject(nullptr), -1);
 
     QObject *objA = new QObject;
 
@@ -228,15 +229,15 @@ void tst_QQmlDebugService::idForObject()
 
 void tst_QQmlDebugService::objectForId()
 {
-    QCOMPARE(QQmlDebugService::objectForId(-1), static_cast<QObject*>(0));
-    QCOMPARE(QQmlDebugService::objectForId(1), static_cast<QObject*>(0));
+    QCOMPARE(QQmlDebugService::objectForId(-1), static_cast<QObject*>(nullptr));
+    QCOMPARE(QQmlDebugService::objectForId(1), static_cast<QObject*>(nullptr));
 
     QObject *obj = new QObject;
     int id = QQmlDebugService::idForObject(obj);
     QCOMPARE(QQmlDebugService::objectForId(id), obj);
 
     delete obj;
-    QCOMPARE(QQmlDebugService::objectForId(id), static_cast<QObject*>(0));
+    QCOMPARE(QQmlDebugService::objectForId(id), static_cast<QObject*>(nullptr));
 }
 
 void tst_QQmlDebugService::checkSupportForOldDataStreamVersion()

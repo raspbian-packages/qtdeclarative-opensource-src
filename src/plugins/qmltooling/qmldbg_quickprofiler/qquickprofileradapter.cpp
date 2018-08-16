@@ -38,12 +38,16 @@
 ****************************************************************************/
 
 #include "qquickprofileradapter.h"
-#include "qqmldebugpacket.h"
+
 #include <QCoreApplication>
+#include <private/qqmldebugconnector_p.h>
+#include <private/qversionedpacket_p.h>
 #include <private/qqmldebugserviceinterfaces_p.h>
 #include <private/qquickprofiler_p.h>
 
 QT_BEGIN_NAMESPACE
+
+using QQmlDebugPacket = QVersionedPacket<QQmlDebugConnector>;
 
 QQuickProfilerAdapter::QQuickProfilerAdapter(QObject *parent) :
     QQmlAbstractProfilerAdapter(parent), next(0)

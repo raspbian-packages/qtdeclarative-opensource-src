@@ -74,7 +74,9 @@
 #if QT_CONFIG(quick_positioners)
 #include "qquickpositioners_p.h"
 #endif
+#if QT_CONFIG(quick_repeater)
 #include "qquickrepeater_p.h"
+#endif
 #include "qquickloader_p.h"
 #if QT_CONFIG(quick_animatedimage)
 #include "qquickanimatedimage_p.h"
@@ -162,6 +164,9 @@ static void qt_quickitems_defineModule(const char *uri, int major, int minor)
     QQmlPrivate::RegisterAutoParent autoparent = { 0, &qquickitem_autoParent };
     QQmlPrivate::qmlregister(QQmlPrivate::AutoParentRegistration, &autoparent);
 
+    // Register the latest version, even if there are no new types or new revisions for existing types yet.
+    qmlRegisterModule(uri, 2, QT_VERSION_MINOR);
+
 #if !QT_CONFIG(quick_animatedimage)
     qmlRegisterTypeNotAvailable(uri,major,minor,"AnimatedImage", QCoreApplication::translate("QQuickAnimatedImage","Qt was built without support for QMovie"));
 #else
@@ -210,7 +215,9 @@ static void qt_quickitems_defineModule(const char *uri, int major, int minor)
     qmlRegisterType<QQuickPathView>(uri,major,minor,"PathView");
 #endif
     qmlRegisterType<QQuickRectangle>(uri,major,minor,"Rectangle");
+#if QT_CONFIG(quick_repeater)
     qmlRegisterType<QQuickRepeater>(uri,major,minor,"Repeater");
+#endif
     qmlRegisterType<QQuickTranslate>(uri,major,minor,"Translate");
     qmlRegisterType<QQuickRotation>(uri,major,minor,"Rotation");
     qmlRegisterType<QQuickScale>(uri,major,minor,"Scale");
@@ -406,6 +413,15 @@ static void qt_quickitems_defineModule(const char *uri, int major, int minor)
     qmlRegisterType<QQuickFlickable, 10>(uri, 2, 10, "Flickable");
     qmlRegisterType<QQuickTextEdit, 10>(uri, 2, 10, "TextEdit");
     qmlRegisterType<QQuickText, 10>(uri, 2, 10, "Text");
+
+#if QT_CONFIG(quick_path)
+    qmlRegisterType<QQuickPathAngleArc>(uri, 2, 11, "PathAngleArc");
+#endif
+
+#if QT_CONFIG(quick_animatedimage)
+    qmlRegisterType<QQuickAnimatedImage, 11>(uri, 2, 11,"AnimatedImage");
+#endif
+    qmlRegisterType<QQuickItem, 11>(uri, 2, 11,"Item");
 }
 
 static void initResources()

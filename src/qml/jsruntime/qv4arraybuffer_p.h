@@ -78,10 +78,10 @@ struct ArrayBufferCtor: FunctionObject
 {
     V4_OBJECT2(ArrayBufferCtor, FunctionObject)
 
-    static void construct(const Managed *m, Scope &scope, CallData *callData);
-    static void call(const Managed *that, Scope &scope, CallData *callData);
+    static ReturnedValue callAsConstructor(const FunctionObject *f, const Value *argv, int argc);
+    static ReturnedValue call(const FunctionObject *f, const Value *thisObject, const Value *argv, int argc);
 
-    static void method_isView(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static ReturnedValue method_isView(const FunctionObject *, const Value *thisObject, const Value *argv, int argc);
 
 };
 
@@ -93,8 +93,8 @@ struct Q_QML_PRIVATE_EXPORT ArrayBuffer : Object
 
     QByteArray asByteArray() const;
     uint byteLength() const { return d()->byteLength(); }
-    char *data() { detach(); return d()->data ? d()->data->data() : 0; }
-    const char *constData() { detach(); return d()->data ? d()->data->data() : 0; }
+    char *data() { detach(); return d()->data ? d()->data->data() : nullptr; }
+    const char *constData() { detach(); return d()->data ? d()->data->data() : nullptr; }
 
 private:
     void detach();
@@ -104,9 +104,9 @@ struct ArrayBufferPrototype: Object
 {
     void init(ExecutionEngine *engine, Object *ctor);
 
-    static void method_get_byteLength(const BuiltinFunction *, Scope &scope, CallData *callData);
-    static void method_slice(const BuiltinFunction *, Scope &scope, CallData *callData);
-    static void method_toString(const BuiltinFunction *, Scope &scope, CallData *callData);
+    static ReturnedValue method_get_byteLength(const FunctionObject *, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_slice(const FunctionObject *, const Value *thisObject, const Value *argv, int argc);
+    static ReturnedValue method_toString(const FunctionObject *, const Value *thisObject, const Value *argv, int argc);
 };
 
 

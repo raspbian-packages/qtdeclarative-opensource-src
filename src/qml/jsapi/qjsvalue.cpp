@@ -53,7 +53,7 @@
 #include "qv4errorobject_p.h"
 #include "private/qv8engine_p.h"
 #include <private/qv4mm_p.h>
-#include <private/qv4scopedvalue_p.h>
+#include <private/qv4jscall_p.h>
 #include <private/qv4qobjectwrapper_p.h>
 
 /*!
@@ -67,7 +67,7 @@
 
   QJSValue supports the types defined in the \l{ECMA-262}
   standard: The primitive types, which are Undefined, Null, Boolean,
-  Number, and String; and the Object type. Additionally, built-in
+  Number, and String; and the Object and Array types. Additionally, built-in
   support is provided for Qt/C++ types such as QVariant and QObject.
 
   For the object-based types (including Date and RegExp), use the
@@ -108,6 +108,38 @@
   script code, or QJSValueIterator in C++.
 
   \sa QJSEngine, QJSValueIterator
+
+  \section1 Working With Arrays
+
+  To create an array using QJSValue, use \l QJSEngine::newArray():
+
+  \code
+  // Assumes that this class was declared in QML.
+  QJSValue jsArray = engine->newArray(3);
+  \endcode
+
+  To set individual elements in the array, use
+  the \l {QJSValue::}{setProperty(quint32 arrayIndex, const QJSValue &value)}
+  overload. For example, to fill the array above with integers:
+
+  \code
+  for (int i = 0; i < 3; ++i) {
+      jsArray.setProperty(i, QRandomGenerator::global().generate());
+  }
+  \endcode
+
+  To determine the length of the array, access the \c "length" property.
+  To access array elements, use the
+  \l {QJSValue::}{property(quint32 arrayIndex)} overload. The following code
+  reads the array we created above back into a list:
+
+  \code
+  QVector<int> integers;
+  const int length = jsArray.property("length").toInt();
+  for (int i = 0; i < length; ++i) {
+      integers.append(jsArray.property(i).toInt());
+  }
+  \endcode
 */
 
 /*!
@@ -232,7 +264,7 @@ QJSValue::QJSValue(const QJSValue& other)
 */
 
 /*!
-    \fn QJSValue &operator=(QJSValue && other)
+    \fn QJSValue &QJSValue::operator=(QJSValue && other)
 
     Move-assigns \a other to this QJSValue object.
 */
@@ -377,7 +409,7 @@ bool QJSValue::isObject() const
     QV4::Value *val = QJSValuePrivate::getValue(this);
     if (!val)
         return false;
-    return val->as<Object>();
+    return val->as<QV4::Object>();
 }
 
 /*!
@@ -617,7 +649,7 @@ QVariant QJSValue::toVariant() const
     QV4::Value *val = QJSValuePrivate::valueForData(this, &scratch);
     Q_ASSERT(val);
 
-    if (Object *o = val->as<Object>())
+    if (QV4::Object *o = val->as<QV4::Object>())
         return o->engine()->toVariant(*val, /*typeHint*/ -1, /*createJSValueForObjects*/ false);
 
     if (String *s = val->stringValue())
@@ -630,7 +662,7 @@ QVariant QJSValue::toVariant() const
         return QVariant(val->asDouble());
     }
     if (val->isNull())
-        return QVariant(QMetaType::Nullptr, 0);
+        return QVariant(QMetaType::Nullptr, nullptr);
     Q_ASSERT(val->isUndefined());
     return QVariant();
 }
@@ -664,21 +696,21 @@ QJSValue QJSValue::call(const QJSValueList &args)
     Q_ASSERT(engine);
 
     Scope scope(engine);
-    ScopedCallData callData(scope, args.length());
-    callData->thisObject = engine->globalObject;
+    JSCallData jsCallData(scope, args.length());
+    *jsCallData->thisObject = engine->globalObject;
     for (int i = 0; i < args.size(); ++i) {
         if (!QJSValuePrivate::checkEngine(engine, args.at(i))) {
             qWarning("QJSValue::call() failed: cannot call function with argument created in a different engine");
             return QJSValue();
         }
-        callData->args[i] = QJSValuePrivate::convertedToValue(engine, args.at(i));
+        jsCallData->args[i] = QJSValuePrivate::convertedToValue(engine, args.at(i));
     }
 
-    f->call(scope, callData);
+    ScopedValue result(scope, f->call(jsCallData));
     if (engine->hasException)
-        scope.result = engine->catchException();
+        result = engine->catchException();
 
-    return QJSValue(engine, scope.result.asReturnedValue());
+    return QJSValue(engine, result->asReturnedValue());
 }
 
 /*!
@@ -720,21 +752,21 @@ QJSValue QJSValue::callWithInstance(const QJSValue &instance, const QJSValueList
         return QJSValue();
     }
 
-    ScopedCallData callData(scope, args.size());
-    callData->thisObject = QJSValuePrivate::convertedToValue(engine, instance);
+    JSCallData jsCallData(scope, args.size());
+    *jsCallData->thisObject = QJSValuePrivate::convertedToValue(engine, instance);
     for (int i = 0; i < args.size(); ++i) {
         if (!QJSValuePrivate::checkEngine(engine, args.at(i))) {
             qWarning("QJSValue::call() failed: cannot call function with argument created in a different engine");
             return QJSValue();
         }
-        callData->args[i] = QJSValuePrivate::convertedToValue(engine, args.at(i));
+        jsCallData->args[i] = QJSValuePrivate::convertedToValue(engine, args.at(i));
     }
 
-    f->call(scope, callData);
+    ScopedValue result(scope, f->call(jsCallData));
     if (engine->hasException)
-        scope.result = engine->catchException();
+        result = engine->catchException();
 
-    return QJSValue(engine, scope.result.asReturnedValue());
+    return QJSValue(engine, result->asReturnedValue());
 }
 
 /*!
@@ -769,20 +801,20 @@ QJSValue QJSValue::callAsConstructor(const QJSValueList &args)
     Q_ASSERT(engine);
 
     Scope scope(engine);
-    ScopedCallData callData(scope, args.size());
+    JSCallData jsCallData(scope, args.size());
     for (int i = 0; i < args.size(); ++i) {
         if (!QJSValuePrivate::checkEngine(engine, args.at(i))) {
             qWarning("QJSValue::callAsConstructor() failed: cannot construct function with argument created in a different engine");
             return QJSValue();
         }
-        callData->args[i] = QJSValuePrivate::convertedToValue(engine, args.at(i));
+        jsCallData->args[i] = QJSValuePrivate::convertedToValue(engine, args.at(i));
     }
 
-    f->construct(scope, callData);
+    ScopedValue result(scope, f->callAsConstructor(jsCallData));
     if (engine->hasException)
-        scope.result = engine->catchException();
+        result = engine->catchException();
 
-    return QJSValue(engine, scope.result.asReturnedValue());
+    return QJSValue(engine, result->asReturnedValue());
 }
 
 #ifdef QT_DEPRECATED
@@ -799,7 +831,7 @@ QJSEngine* QJSValue::engine() const
     QV4::ExecutionEngine *engine = QJSValuePrivate::engine(this);
     if (engine)
         return engine->jsEngine();
-    return 0;
+    return nullptr;
 }
 
 #endif // QT_DEPRECATED
@@ -817,7 +849,7 @@ QJSValue QJSValue::prototype() const
     if (!engine)
         return QJSValue();
     QV4::Scope scope(engine);
-    ScopedObject o(scope, QJSValuePrivate::getValue(this)->as<Object>());
+    ScopedObject o(scope, QJSValuePrivate::getValue(this)->as<QV4::Object>());
     if (!o)
         return QJSValue();
     ScopedObject p(scope, o->prototype());
@@ -852,7 +884,7 @@ void QJSValue::setPrototype(const QJSValue& prototype)
     if (!val)
         return;
     if (val->isNull()) {
-        o->setPrototype(0);
+        o->setPrototype(nullptr);
         return;
     }
 
@@ -899,7 +931,7 @@ static bool js_equal(const QString &string, const QV4::Value &value)
         return RuntimeHelpers::stringToNumber(string) == value.asDouble();
     if (value.isBoolean())
         return RuntimeHelpers::stringToNumber(string) == double(value.booleanValue());
-    if (Object *o = value.objectValue()) {
+    if (QV4::Object *o = value.objectValue()) {
         Scope scope(o->engine());
         ScopedValue p(scope, RuntimeHelpers::toPrimitive(value, PREFERREDTYPE_HINT));
         return js_equal(string, p);
@@ -1008,6 +1040,10 @@ bool QJSValue::strictlyEquals(const QJSValue& other) const
   occurred, property() returns the value that was thrown (typically
   an \c{Error} object).
 
+  To access array elements, use the
+  \l {QJSValue::}{setProperty(quint32 arrayIndex, const QJSValue &value)}
+  overload instead.
+
   \sa setProperty(), hasProperty(), QJSValueIterator
 */
 QJSValue QJSValue::property(const QString& name) const
@@ -1039,8 +1075,25 @@ QJSValue QJSValue::property(const QString& name) const
 
   Returns the property at the given \a arrayIndex.
 
-  This function is provided for convenience and performance when
-  working with array objects.
+  It is possible to access elements in an array in two ways. The first is to
+  use the array index as the property name:
+
+  \code
+  qDebug() << jsValueArray.property(QLatin1String("4")).toString();
+  \endcode
+
+  The second is to use the overload that takes an index:
+
+  \code
+  qDebug() << jsValueArray.property(4).toString();
+  \endcode
+
+  Both of these approaches achieve the same result, except that the latter:
+
+  \list
+  \li Is easier to use (can use an integer directly)
+  \li Is faster (no conversion to integer)
+  \endlist
 
   If this QJSValue is not an Array object, this function behaves
   as if property() was called with the string representation of \a
@@ -1071,6 +1124,10 @@ QJSValue QJSValue::property(quint32 arrayIndex) const
 
   If this QJSValue does not already have a property with name \a name,
   a new property is created.
+
+  To modify array elements, use the
+  \l {QJSValue::}{setProperty(quint32 arrayIndex, const QJSValue &value)}
+  overload instead.
 
   \sa property(), deleteProperty()
 */
@@ -1109,12 +1166,31 @@ void QJSValue::setProperty(const QString& name, const QJSValue& value)
 
   Sets the property at the given \a arrayIndex to the given \a value.
 
-  This function is provided for convenience and performance when
-  working with array objects.
+  It is possible to modify elements in an array in two ways. The first is to
+  use the array index as the property name:
+
+  \code
+  jsValueArray.setProperty(QLatin1String("4"), value);
+  \endcode
+
+  The second is to use the overload that takes an index:
+
+  \code
+  jsValueArray.setProperty(4, value);
+  \endcode
+
+  Both of these approaches achieve the same result, except that the latter:
+
+  \list
+  \li Is easier to use (can use an integer directly)
+  \li Is faster (no conversion to integer)
+  \endlist
 
   If this QJSValue is not an Array object, this function behaves
   as if setProperty() was called with the string representation of \a
   arrayIndex.
+
+  \sa {QJSValue::}{property(quint32 arrayIndex)}, {Working With Arrays}
 */
 void QJSValue::setProperty(quint32 arrayIndex, const QJSValue& value)
 {
@@ -1173,10 +1249,7 @@ bool QJSValue::deleteProperty(const QString &name)
         return false;
 
     ScopedString s(scope, engine->newString(name));
-    bool b = o->deleteProperty(s);
-    if (engine->hasException)
-        engine->catchException();
-    return b;
+    return o->deleteProperty(s);
 }
 
 /*!
@@ -1235,11 +1308,11 @@ QObject *QJSValue::toQObject() const
 {
     QV4::ExecutionEngine *engine = QJSValuePrivate::engine(this);
     if (!engine)
-        return 0;
+        return nullptr;
     QV4::Scope scope(engine);
     QV4::Scoped<QV4::QObjectWrapper> wrapper(scope, QJSValuePrivate::getValue(this));
     if (!wrapper)
-        return 0;
+        return nullptr;
 
     return wrapper->object();
 }
@@ -1256,11 +1329,11 @@ const QMetaObject *QJSValue::toQMetaObject() const
 {
     QV4::ExecutionEngine *engine = QJSValuePrivate::engine(this);
     if (!engine)
-        return 0;
+        return nullptr;
     QV4::Scope scope(engine);
     QV4::Scoped<QV4::QMetaObjectWrapper> wrapper(scope, QJSValuePrivate::getValue(this));
     if (!wrapper)
-        return 0;
+        return nullptr;
 
     return wrapper->metaObject();
 }
@@ -1316,7 +1389,7 @@ bool QJSValue::isRegExp() const
 bool QJSValue::isQObject() const
 {
     QV4::Value *val = QJSValuePrivate::getValue(this);
-    return val && val->as<QV4::QObjectWrapper>() != 0;
+    return val && val->as<QV4::QObjectWrapper>() != nullptr;
 }
 
 /*!
@@ -1330,7 +1403,7 @@ bool QJSValue::isQObject() const
 bool QJSValue::isQMetaObject() const
 {
     QV4::Value *val = QJSValuePrivate::getValue(this);
-    return val && val->as<QV4::QMetaObjectWrapper>() != 0;
+    return val && val->as<QV4::QMetaObjectWrapper>() != nullptr;
 }
 
 QT_END_NAMESPACE

@@ -36,7 +36,7 @@
 #include <QQmlEngine>
 #include <QQmlError>
 
-static QtMessageHandler testlibMsgHandler = 0;
+static QtMessageHandler testlibMsgHandler = nullptr;
 void msgHandlerFilter(QtMsgType type, const QMessageLogContext &ctxt, const QString &msg)
 {
     if (type == QtCriticalMsg || type == QtFatalMsg)
@@ -86,6 +86,7 @@ tst_examples::tst_examples()
     excludedDirs << "snippets/qml/visualdatamodel_rootindex";
     excludedDirs << "snippets/qml/qtbinding";
     excludedDirs << "snippets/qml/imports";
+    excludedFiles << "snippets/qml/image-ext.qml";
     excludedFiles << "examples/quick/shapes/content/main.qml"; // relies on resources
     excludedFiles << "examples/quick/shapes/content/interactive.qml"; // relies on resources
 

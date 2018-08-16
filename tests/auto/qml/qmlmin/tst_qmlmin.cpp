@@ -64,7 +64,7 @@ tst_qmlmin::tst_qmlmin()
 
 void tst_qmlmin::initTestCase()
 {
-    qmlminPath = QString(TESTBINDIR) + QLatin1String("/qmlmin");
+    qmlminPath = QStringLiteral(TESTBINDIR "/qmlmin");
 #ifdef Q_OS_WIN
     qmlminPath += QLatin1String(".exe");
 #endif

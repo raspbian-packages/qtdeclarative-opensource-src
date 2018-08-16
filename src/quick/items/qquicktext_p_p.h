@@ -78,12 +78,12 @@ public:
     void updateLayout();
     bool determineHorizontalAlignment();
     bool setHAlign(QQuickText::HAlignment, bool forceAlign = false);
-    void mirrorChange() Q_DECL_OVERRIDE;
+    void mirrorChange() override;
     bool isLineLaidOutConnected();
     void setLineGeometry(QTextLine &line, qreal lineWidth, qreal &height);
 
     int lineHeightOffset() const;
-    QString elidedText(qreal lineWidth, const QTextLine &line, QTextLine *nextLine = 0) const;
+    QString elidedText(qreal lineWidth, const QTextLine &line, QTextLine *nextLine = nullptr) const;
     void elideFormats(int start, int length, int offset, QVector<QTextLayout::FormatRange> *elidedFormats);
     void clearFormats();
 
@@ -177,8 +177,8 @@ public:
 
     static const QChar elideChar;
 
-    qreal getImplicitWidth() const Q_DECL_OVERRIDE;
-    qreal getImplicitHeight() const Q_DECL_OVERRIDE;
+    qreal getImplicitWidth() const override;
+    qreal getImplicitHeight() const override;
 
     qreal availableWidth() const;
     qreal availableHeight() const;
