@@ -245,7 +245,7 @@ QQmlDebugTest::ConnectResult tst_QQmlProfilerService::connect(
 
     // ### Still using qmlscene due to QTBUG-33377
     return QQmlDebugTest::connect(
-                QLibraryInfo::location(QLibraryInfo::BinariesPath) + "/qmlscene",
+                TESTBINDIR "/qmlscene",
                 restrictServices ? "CanvasFrameRate,EngineControl,DebugMessages" : QString(),
                 testFile(file), block);
 }
