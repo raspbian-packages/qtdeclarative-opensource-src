@@ -1817,7 +1817,7 @@ Item {
             testList.sort()
         }
         var checkNames = (functionsToRun.length > 0)
-        for (var index in testList) {
+        for (var index = 0; index < testList.length; ++index) {
             var prop = testList[index]
             var datafunc = prop + "_data"
             var isBenchmark = (prop.indexOf("benchmark_") == 0)
@@ -1837,11 +1837,11 @@ Item {
                     var table = qtest_testCaseResult
                     var haveData = false
                     qtest_results.initTestTable()
-                    for (var index in table) {
+                    for (var rowIndex in table) {
                         haveData = true
-                        var row = table[index]
+                        var row = table[parseInt(rowIndex)]
                         if (!row.tag)
-                            row.tag = "row " + index    // Must have something
+                            row.tag = "row " + rowIndex    // Must have something
                         qtest_results.dataTag = row.tag
                         if (isBenchmark)
                             qtest_runBenchmarkFunction(prop, row)
