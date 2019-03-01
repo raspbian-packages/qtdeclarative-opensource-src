@@ -502,7 +502,7 @@ Unit *CompilationUnit::createUnitData(QmlIR::Document *irDocument)
 
             for (QQmlJS::AST::FormalParameterList *parameters = changedSignalParameters.at(i);
                  parameters; parameters = parameters->next) {
-                signalParameterNameTable.append(stringTable.getStringId(parameters->name.toString()));
+                signalParameterNameTable.append(qToLittleEndian<quint32>(stringTable.getStringId(parameters->name.toString())));
                 function->nFormals = function->nFormals + 1;
             }
 
