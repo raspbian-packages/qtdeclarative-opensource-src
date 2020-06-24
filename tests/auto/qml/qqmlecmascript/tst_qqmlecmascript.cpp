@@ -9214,7 +9214,7 @@ void tst_qqmlecmascript::hugeStack()
 
 void tst_qqmlecmascript::gcCrashRegressionTest()
 {
-    const QString qmljs = QLibraryInfo::location(QLibraryInfo::BinariesPath) + "/qmljs";
+    const QString qmljs = QStringLiteral(TESTBINDIR "/qmljs");
     if (!QFile::exists(qmljs)) {
         QSKIP("Tets requires qmljs");
     }
