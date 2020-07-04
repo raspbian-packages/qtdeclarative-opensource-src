@@ -1,0 +1,2 @@
+usr/lib/*/libQt5Qml.so.*
+usr/lib/*/qt5/qml/builtins.qmltypes
