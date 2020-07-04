@@ -74,7 +74,7 @@ private slots:
 
 QQmlDebugTest::ConnectResult tst_QQmlPreview::startQmlProcess(const QString &qmlFile)
 {
-    return QQmlDebugTest::connect(QLibraryInfo::location(QLibraryInfo::BinariesPath) + "/qml",
+    return QQmlDebugTest::connect(QStringLiteral(TESTBINDIR "/qml"),
                                   QStringLiteral("QmlPreview"), testFile(qmlFile), true);
 }
 
