@@ -7,7 +7,6 @@ PUBLICTESTS += \
     qqmlenginedebugservice \
     qqmldebugjs \
     qqmlinspector \
-    qqmlprofilerservice \
     qpacketprotocol \
     qqmlenginedebuginspectorintegrationtest \
     qqmlenginecontrol \
