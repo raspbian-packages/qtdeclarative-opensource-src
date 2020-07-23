@@ -65,7 +65,7 @@ tst_qmlmin::tst_qmlmin()
 void tst_qmlmin::initTestCase()
 {
 #if QT_CONFIG(process) && !defined(QTEST_CROSS_COMPILED) // sources not available when cross compiled
-    qmlminPath = QLibraryInfo::location(QLibraryInfo::BinariesPath) + QLatin1String("/qmlmin");
+    qmlminPath = QStringLiteral(TESTBINDIR "/qmlmin");
 #ifdef Q_OS_WIN
     qmlminPath += QLatin1String(".exe");
 #endif

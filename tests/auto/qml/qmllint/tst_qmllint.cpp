@@ -51,7 +51,7 @@ private:
 void TestQmllint::initTestCase()
 {
     QQmlDataTest::initTestCase();
-    m_qmllintPath = QLibraryInfo::location(QLibraryInfo::BinariesPath) + QLatin1String("/qmllint");
+    m_qmllintPath = QLatin1String(TESTBINDIR "/qmllint");
 #ifdef Q_OS_WIN
     m_qmllintPath += QLatin1String(".exe");
 #endif
@@ -78,7 +78,7 @@ void TestQmllint::test_data()
 
 void TestQmllint::testUnqualified()
 {
-    auto qmlImportDir = QLibraryInfo::location(QLibraryInfo::Qml2ImportsPath);
+    auto qmlImportDir = QString::fromUtf8(qgetenv("QML2_IMPORT_PATH"));
     QFETCH(QString, filename);
     QFETCH(QString, warningMessage);
     QFETCH(int, warningLine);
@@ -122,7 +122,7 @@ void TestQmllint::testUnqualified_data()
 
 void TestQmllint::testUnqualifiedNoSpuriousParentWarning()
 {
-    auto qmlImportDir = QLibraryInfo::location(QLibraryInfo::Qml2ImportsPath);
+    auto qmlImportDir = QString::fromUtf8(qgetenv("QML2_IMPORT_PATH"));
     {
         QString filename = testFile("spuriousParentWarning.qml");
         QStringList args;
@@ -147,7 +147,7 @@ void TestQmllint::testUnqualifiedNoSpuriousParentWarning()
 
 void TestQmllint::catchIdentifierNoFalsePositive()
 {
-    auto qmlImportDir = QLibraryInfo::location(QLibraryInfo::Qml2ImportsPath);
+    auto qmlImportDir = QString::fromUtf8(qgetenv("QML2_IMPORT_PATH"));
     QString filename = QLatin1String("catchIdentifierNoWarning.qml");
     filename.prepend(QStringLiteral("data/"));
     QStringList args;
