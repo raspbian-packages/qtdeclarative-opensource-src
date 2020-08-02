@@ -58,7 +58,7 @@ override_dh_link:
 	dh_link -pqml usr/lib/qt5/bin/qml usr/lib/$(DEB_HOST_MULTIARCH)/qt5/bin/qml
 
 override_dh_auto_test-arch:
-ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+ifeq (testsuitedisabled,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 	$(MAKE) install -Csrc/imports INSTALL_ROOT=$(CURDIR)/test_root
 	mkdir -p $(CURDIR)/.local/share/QtProject/tst_qqmlengine
 	# - hppa: QML engine is broken, bug missing
