@@ -1641,7 +1641,7 @@ libQt5Qml.so.5 libqt5qml5 #MINVER#
  _ZN3QV46Object26virtualResolveLookupSetterEPS0_PNS_15ExecutionEngineEPNS_6LookupERKNS_5ValueE@Qt_5_PRIVATE_API 5.12.3 1
  _ZN3QV46Object34defineReadonlyConfigurablePropertyEPNS_14StringOrSymbolERKNS_5ValueE@Qt_5_PRIVATE_API 5.12.2 1
  _ZN3QV46Object34defineReadonlyConfigurablePropertyERK7QStringRKNS_5ValueE@Qt_5_PRIVATE_API 5.10.0 1
- _ZN3QV46Object8arraySetEjPKNS_8PropertyENS_18PropertyAttributesE@Qt_5_PRIVATE_API 5.14.2 1
+ (optional=gcc10only)_ZN3QV46Object8arraySetEjPKNS_8PropertyENS_18PropertyAttributesE@Qt_5_PRIVATE_API 5.14.2 1
  (optional=inline|arch=i386)_ZN3QV46Object8arraySetEjRKNS_5ValueE@Qt_5_PRIVATE_API 5.14.2 1
  _ZN3QV46Object8putValueEjNS_18PropertyAttributesERKNS_5ValueE@Qt_5_PRIVATE_API 5.12.2 1
  _ZN3QV46Object9push_backERKNS_5ValueE@Qt_5_PRIVATE_API 5.12.2 1

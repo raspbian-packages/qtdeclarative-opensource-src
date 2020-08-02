@@ -3,7 +3,10 @@ qtdeclarative-opensource-src (5.14.2+dfsg-3+rpi1) bullseye-staging; urgency=medi
   [changes brought forward from 5.14.2+dfsg-2+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sat, 04 Jul 2020 19:53:58 +0000]
   * Update symbols file for raspbian.
 
- -- Raspbian forward porter <root@raspbian.org>  Sat, 01 Aug 2020 11:08:40 +0000
+  [changes introduced in 5.14.2+dfsg-3+rpi1 by Peter Michael Green]
+  * Mark a gcc 10 only symbol as optional.
+
+ -- Peter Michael Green <plugwash@raspbian.org>  Sun, 02 Aug 2020 01:10:42 +0000
 
 qtdeclarative-opensource-src (5.14.2+dfsg-3) unstable; urgency=medium
 
