@@ -90,7 +90,7 @@ SUBDIRS += $$METATYPETESTS
 qtConfig(process) {
     qtConfig(qml-debug): SUBDIRS += debugger
     !boot2qt {
-        SUBDIRS += qmllint qmlplugindump
+        SUBDIRS += qmlformat qmllint qmlplugindump
     }
 }
 
@@ -100,3 +100,6 @@ qtConfig(private_tests): \
 qtNomakeTools( \
     qmlplugindump \
 )
+
+!cross_compile: \
+    SUBDIRS += qmltyperegistrar

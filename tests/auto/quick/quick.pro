@@ -14,6 +14,8 @@ qtConfig(opengl(es1|es2)?) {
         qquickopenglinfo \
         qquickspritesequence \
         qquickshadereffect
+
+        qtHaveModule(opengl): QUICKTESTS += qquickrendercontrol
 }
 
 !cross_compile: PRIVATETESTS += examples
@@ -93,6 +95,8 @@ SUBDIRS += $$PUBLICTESTS
 boot2qt: QUICKTESTS -= qquickgridview qquicklistview qquicktableview qquickpositioners
 
 !qtConfig(accessibility):QUICKTESTS -= qquickaccessible
+
+!qtConfig(shortcut):QUICKTESTS -= qquickshortcut
 
 qtConfig(private_tests) {
     SUBDIRS += $$PRIVATETESTS

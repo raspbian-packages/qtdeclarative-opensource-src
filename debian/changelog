@@ -1,4 +1,4 @@
-qtdeclarative-opensource-src (5.14.2+dfsg-3+rpi1) bullseye-staging; urgency=medium
+qtdeclarative-opensource-src (5.15.1+dfsg-3+rpi1) bullseye-staging; urgency=medium
 
   [changes brought forward from 5.14.2+dfsg-2+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sat, 04 Jul 2020 19:53:58 +0000]
   * Update symbols file for raspbian.
@@ -7,7 +7,48 @@ qtdeclarative-opensource-src (5.14.2+dfsg-3+rpi1) bullseye-staging; urgency=medi
   * Mark a gcc 10 only symbol as optional.
   * Disable testsuite.
 
- -- Peter Michael Green <plugwash@raspbian.org>  Sun, 02 Aug 2020 08:41:48 +0000
+ -- Peter Michael Green <plugwash@raspbian.org>  Sun, 08 Nov 2020 08:00:49 +0000
+
+qtdeclarative-opensource-src (5.15.1+dfsg-3) unstable; urgency=medium
+
+  * Fix full (indep+arch) builds by deleting all Makefiles before building
+    the arch-dependent packages. Makefiles generated during indep build are
+    broken because they are generated before qmltypes.prf becomes available.
+  * Add alternative -gles dependencies to qtdeclarative5-dev package.
+  * Upload to unstable.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Wed, 28 Oct 2020 21:53:18 +0300
+
+qtdeclarative-opensource-src (5.15.1+dfsg-2) experimental; urgency=medium
+
+  * Fix duplicate entries for some files in debian/copyright.
+  * Override Lintian warnings about this-value-valid-date-min.js, "min" in
+    its name is not for "minified".
+  * Update symbols files from buildds’ logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 09 Oct 2020 20:46:06 +0300
+
+qtdeclarative-opensource-src (5.15.1+dfsg-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Rebase patches for the new release.
+  * Pass QMAKE_PYTHON=python3 to qmake.
+  * Bump Qt build-dependencies to 5.15.1.
+  * Update symbols files from buildds’ logs.
+  * Bump ABI version to qtdeclarative-abi-5-15-1.
+  * Update to debhelper compat level 13.
+    - Drop dh_missing override, --fail-missing is now default behavior.
+    - Stop exporting $HOME and $XDG_RUNTIME_DIR for tests, debhelper now
+      does that itself.
+    - Use ${DEB_HOST_MULTIARCH} substitution.
+  * Run install in all directories when installing files to test_root,
+    this is now needed to get plugins.qmltypes files installed.
+  * Update install files for the new release.
+  * Update symbols files from the current build log.
+  * Add Build-Depends-Package(s) fields to the symbols files.
+  * Minor debian/copyright updates.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 10 Sep 2020 21:28:43 +0300
 
 qtdeclarative-opensource-src (5.14.2+dfsg-3) unstable; urgency=medium
 
