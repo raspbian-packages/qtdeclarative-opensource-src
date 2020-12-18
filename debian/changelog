@@ -1,4 +1,4 @@
-qtdeclarative-opensource-src (5.15.1+dfsg-3+rpi1) bullseye-staging; urgency=medium
+qtdeclarative-opensource-src (5.15.2+dfsg-2+rpi1) bullseye-staging; urgency=medium
 
   [changes brought forward from 5.14.2+dfsg-2+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sat, 04 Jul 2020 19:53:58 +0000]
   * Update symbols file for raspbian.
@@ -7,7 +7,24 @@ qtdeclarative-opensource-src (5.15.1+dfsg-3+rpi1) bullseye-staging; urgency=medi
   * Mark a gcc 10 only symbol as optional.
   * Disable testsuite.
 
- -- Peter Michael Green <plugwash@raspbian.org>  Sun, 08 Nov 2020 08:00:49 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Fri, 18 Dec 2020 17:55:43 +0000
+
+qtdeclarative-opensource-src (5.15.2+dfsg-2) unstable; urgency=medium
+
+  * Bump Standards-Version to 4.5.1, no changes needed.
+  * Upload to unstable.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 11 Dec 2020 11:31:45 +0300
+
+qtdeclarative-opensource-src (5.15.2+dfsg-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Bump Qt build-dependencies to 5.15.2.
+  * Refresh debian/patches/fix_test_remove_qlibraryinfo.patch.
+  * Bump ABI version to qtdeclarative-abi-5-15-2.
+  * Update symbols files from the current build logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 21 Nov 2020 16:46:44 +0300
 
 qtdeclarative-opensource-src (5.15.1+dfsg-3) unstable; urgency=medium
 
