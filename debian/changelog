@@ -1,4 +1,4 @@
-qtdeclarative-opensource-src (5.15.2+dfsg-2+rpi1) bullseye-staging; urgency=medium
+qtdeclarative-opensource-src (5.15.2+dfsg-3+rpi1) bullseye-staging; urgency=medium
 
   [changes brought forward from 5.14.2+dfsg-2+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sat, 04 Jul 2020 19:53:58 +0000]
   * Update symbols file for raspbian.
@@ -7,7 +7,20 @@ qtdeclarative-opensource-src (5.15.2+dfsg-2+rpi1) bullseye-staging; urgency=medi
   * Mark a gcc 10 only symbol as optional.
   * Disable testsuite.
 
- -- Raspbian forward porter <root@raspbian.org>  Fri, 18 Dec 2020 17:55:43 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Fri, 05 Feb 2021 04:13:26 +0000
+
+qtdeclarative-opensource-src (5.15.2+dfsg-3) unstable; urgency=medium
+
+  [ Alexander Volkov ]
+  * Backport upstream patch to build qmltime as a tool.
+
+  [ Dmitry Shachnev ]
+  * Backport upstream patch to fix QML property cache leaks of delegate
+    items.
+  * Backport upstream patch to fix build with GCC 11.
+  * Update debian/watch: use format 4, and track only 5.15.x releases.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 28 Jan 2021 13:25:24 +0300
 
 qtdeclarative-opensource-src (5.15.2+dfsg-2) unstable; urgency=medium
 
