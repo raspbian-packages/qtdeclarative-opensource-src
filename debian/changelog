@@ -1,4 +1,4 @@
-qtdeclarative-opensource-src (5.15.2+dfsg-3+rpi1) bullseye-staging; urgency=medium
+qtdeclarative-opensource-src (5.15.2+dfsg-4+rpi1) bullseye-staging; urgency=medium
 
   [changes brought forward from 5.14.2+dfsg-2+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sat, 04 Jul 2020 19:53:58 +0000]
   * Update symbols file for raspbian.
@@ -7,7 +7,14 @@ qtdeclarative-opensource-src (5.15.2+dfsg-3+rpi1) bullseye-staging; urgency=medi
   * Mark a gcc 10 only symbol as optional.
   * Disable testsuite.
 
- -- Raspbian forward porter <root@raspbian.org>  Fri, 05 Feb 2021 04:13:26 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Wed, 10 Feb 2021 04:55:14 +0000
+
+qtdeclarative-opensource-src (5.15.2+dfsg-4) unstable; urgency=medium
+
+  * Add Conflicts: against the -gles packages, to make that relation mutual.
+    (Thanks to David Kalnischkies for the suggestion; see also #976389.)
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 04 Feb 2021 20:36:43 +0300
 
 qtdeclarative-opensource-src (5.15.2+dfsg-3) unstable; urgency=medium
 
