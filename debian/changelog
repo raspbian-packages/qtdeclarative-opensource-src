@@ -1,4 +1,4 @@
-qtdeclarative-opensource-src (5.15.2+dfsg-4+rpi1) bullseye-staging; urgency=medium
+qtdeclarative-opensource-src (5.15.2+dfsg-5+rpi1) bullseye-staging; urgency=medium
 
   [changes brought forward from 5.14.2+dfsg-2+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sat, 04 Jul 2020 19:53:58 +0000]
   * Update symbols file for raspbian.
@@ -7,7 +7,15 @@ qtdeclarative-opensource-src (5.15.2+dfsg-4+rpi1) bullseye-staging; urgency=medi
   * Mark a gcc 10 only symbol as optional.
   * Disable testsuite.
 
- -- Raspbian forward porter <root@raspbian.org>  Wed, 10 Feb 2021 04:55:14 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Tue, 30 Mar 2021 18:23:28 +0000
+
+qtdeclarative-opensource-src (5.15.2+dfsg-5) unstable; urgency=medium
+
+  * Add a patch to make tst_qmldiskcache::regenerateAfterChange() pass on
+    big endian systems.
+  * Add missing dependencies to qtdeclarative5-dev (closes: #985500).
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 19 Mar 2021 20:46:16 +0300
 
 qtdeclarative-opensource-src (5.15.2+dfsg-4) unstable; urgency=medium
 
