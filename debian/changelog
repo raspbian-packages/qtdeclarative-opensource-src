@@ -1,4 +1,4 @@
-qtdeclarative-opensource-src (5.15.2+dfsg-9+rpi1) bookworm-staging; urgency=medium
+qtdeclarative-opensource-src (5.15.2+dfsg-10+rpi1) bookworm-staging; urgency=medium
 
   [changes brought forward from 5.14.2+dfsg-2+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sat, 04 Jul 2020 19:53:58 +0000]
   * Update symbols file for raspbian.
@@ -7,7 +7,14 @@ qtdeclarative-opensource-src (5.15.2+dfsg-9+rpi1) bookworm-staging; urgency=medi
   * Mark a gcc 10 only symbol as optional.
   * Disable testsuite.
 
- -- Raspbian forward porter <root@raspbian.org>  Fri, 24 Dec 2021 12:47:42 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Mon, 21 Feb 2022 09:27:56 +0000
+
+qtdeclarative-opensource-src (5.15.2+dfsg-10) unstable; urgency=medium
+
+  * Backport upstream patch to fix sweep step for tainted QObject JavaScript
+    wrappers.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 13 Feb 2022 21:04:16 +0300
 
 qtdeclarative-opensource-src (5.15.2+dfsg-9) unstable; urgency=medium
 
