@@ -1,0 +1,15 @@
+# Backported patches
+gcc_11.patch
+tst_qmldiskcache_big_endian.patch
+support_apos_in_styled_text.patch
+fix_sweep_step.patch
+fix_flickable_wheel_velocity_calculation.patch
+use_delay_properly_in_mousewheel.patch
+
+# Debian patches
+disableopengltests.patch
+fix_test_remove_qlibraryinfo.patch
+wait_for_window_exposed.patch
+remove_youtube_iframe.patch
+riscv64-latomic.patch
+python3.patch
