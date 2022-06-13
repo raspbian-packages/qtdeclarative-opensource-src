@@ -84,7 +84,7 @@ private:
 void TestQmlformat::initTestCase()
 {
     QQmlDataTest::initTestCase();
-    m_qmlformatPath = QLibraryInfo::location(QLibraryInfo::BinariesPath) + QLatin1String("/qmlformat");
+    m_qmlformatPath = QStringLiteral(TESTBINDIR "/qmlformat");
 #ifdef Q_OS_WIN
     m_qmlformatPath += QLatin1String(".exe");
 #endif
