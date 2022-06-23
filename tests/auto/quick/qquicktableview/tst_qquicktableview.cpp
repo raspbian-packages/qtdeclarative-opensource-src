@@ -121,7 +121,9 @@ private slots:
     void checkForceLayoutFunction();
     void checkForceLayoutEndUpDoingALayout();
     void checkForceLayoutDuringModelChange();
+    void checkForceLayoutWhenAllItemsAreHidden();
     void checkContentWidthAndHeight();
+    void checkContentWidthAndHeightForSmallTables();
     void checkPageFlicking();
     void checkExplicitContentWidthAndHeight();
     void checkExtents_origin();
@@ -176,6 +178,7 @@ private slots:
     void checkSyncView_connect_late_data();
     void checkSyncView_connect_late();
     void checkSyncView_pageFlicking();
+    void checkSyncView_emptyModel();
     void delegateWithRequiredProperties();
     void checkThatFetchMoreIsCalledWhenScrolledToTheEndOfTable();
     void replaceModel();
@@ -624,6 +627,38 @@ void tst_QQuickTableView::checkForceLayoutDuringModelChange()
     QCOMPARE(tableView->rows(), initialRowCount + 1);
 }
 
+void tst_QQuickTableView::checkForceLayoutWhenAllItemsAreHidden()
+{
+    // Check that you can have a TableView where all columns are
+    // initially hidden, and then show some columns and call
+    // forceLayout(). This should make the columns become visible.
+    LOAD_TABLEVIEW("forcelayout.qml");
+
+    // Tell all columns to be hidden
+    const char *propertyName = "columnWidths";
+    view->rootObject()->setProperty(propertyName, 0);
+
+    const int rows = 3;
+    const int columns = 3;
+    auto model = TestModelAsVariant(rows, columns);
+    tableView->setModel(model);
+
+    WAIT_UNTIL_POLISHED;
+
+    // Check that the we have no items loaded
+    QCOMPARE(tableViewPrivate->loadedColumns.count(), 0);
+    QCOMPARE(tableViewPrivate->loadedRows.count(), 0);
+    QCOMPARE(tableViewPrivate->loadedItems.count(), 0);
+
+    // Tell all columns to be visible
+    view->rootObject()->setProperty(propertyName, 10);
+    tableView->forceLayout();
+
+    QCOMPARE(tableViewPrivate->loadedRows.count(), rows);
+    QCOMPARE(tableViewPrivate->loadedColumns.count(), columns);
+    QCOMPARE(tableViewPrivate->loadedItems.count(), rows * columns);
+}
+
 void tst_QQuickTableView::checkContentWidthAndHeight()
 {
     // Check that contentWidth/Height reports the correct size of the
@@ -670,6 +705,30 @@ void tst_QQuickTableView::checkContentWidthAndHeight()
     // We should still have the same content width/height as when we started
     QCOMPARE(tableView->contentWidth(), expectedSizeInit);
     QCOMPARE(tableView->contentHeight(), expectedSizeInit);
+}
+
+void tst_QQuickTableView::checkContentWidthAndHeightForSmallTables()
+{
+    // For tables where all the columns in the model are loaded, we know
+    // the exact table width, and can therefore update the content width
+    // if e.g new rows are added or removed. The same is true for rows.
+    // This test will check that we do so.
+    LOAD_TABLEVIEW("sizefromdelegate.qml");
+
+    TestModel model(3, 3);
+    tableView->setModel(QVariant::fromValue(&model));
+    WAIT_UNTIL_POLISHED;
+
+    const qreal initialContentWidth = tableView->contentWidth();
+    const qreal initialContentHeight = tableView->contentHeight();
+    const QString longText = QStringLiteral("Adding a row with a very long text");
+    model.insertRow(0);
+    model.setModelData(QPoint(0, 0), QSize(1, 1), longText);
+
+    WAIT_UNTIL_POLISHED;
+
+    QVERIFY(tableView->contentWidth() > initialContentWidth);
+    QVERIFY(tableView->contentHeight() > initialContentHeight);
 }
 
 void tst_QQuickTableView::checkPageFlicking()
@@ -2729,6 +2788,48 @@ void tst_QQuickTableView::checkSyncView_pageFlicking()
     QVERIFY(tableViewPrivate->scheduledRebuildOptions & QQuickTableViewPrivate::RebuildOption::ViewportOnly);
     QVERIFY(!(tableViewPrivate->scheduledRebuildOptions & QQuickTableViewPrivate::RebuildOption::CalculateNewTopLeftColumn));
     QVERIFY(tableViewPrivate->scheduledRebuildOptions & QQuickTableViewPrivate::RebuildOption::CalculateNewTopLeftRow);
+}
+
+void tst_QQuickTableView::checkSyncView_emptyModel()
+{
+    // When a tableview has a syncview with an empty model then it should still be
+    // showing the tableview without depending on the syncview. This is particularly
+    // important for headerviews for example
+    LOAD_TABLEVIEW("syncviewsimple.qml");
+    GET_QML_TABLEVIEW(tableViewH);
+    GET_QML_TABLEVIEW(tableViewV);
+    GET_QML_TABLEVIEW(tableViewHV);
+    QQuickTableView *views[] = {tableViewH, tableViewV, tableViewHV};
+
+    auto model = TestModelAsVariant(100, 100);
+
+    for (auto view : views)
+        view->setModel(model);
+
+    WAIT_UNTIL_POLISHED_ARG(tableViewHV);
+
+    // Check that geometry properties are mirrored
+    QCOMPARE(tableViewH->columnSpacing(), tableView->columnSpacing());
+    QCOMPARE(tableViewH->rowSpacing(), 0);
+    QCOMPARE(tableViewH->contentWidth(), tableView->contentWidth());
+    QVERIFY(tableViewH->contentHeight() > 0);
+    QCOMPARE(tableViewV->columnSpacing(), 0);
+    QCOMPARE(tableViewV->rowSpacing(), tableView->rowSpacing());
+    QCOMPARE(tableViewV->contentHeight(), tableView->contentHeight());
+    QVERIFY(tableViewV->contentWidth() > 0);
+
+    QCOMPARE(tableViewH->contentX(), tableView->contentX());
+    QCOMPARE(tableViewH->contentY(), 0);
+    QCOMPARE(tableViewV->contentX(), 0);
+    QCOMPARE(tableViewV->contentY(), tableView->contentY());
+    QCOMPARE(tableViewHV->contentX(), tableView->contentX());
+    QCOMPARE(tableViewHV->contentY(), tableView->contentY());
+
+    QCOMPARE(tableViewHPrivate->loadedTableOuterRect.left(), tableViewPrivate->loadedTableOuterRect.left());
+    QCOMPARE(tableViewHPrivate->loadedTableOuterRect.top(), 0);
+
+    QCOMPARE(tableViewVPrivate->loadedTableOuterRect.top(), tableViewPrivate->loadedTableOuterRect.top());
+    QCOMPARE(tableViewVPrivate->loadedTableOuterRect.left(), 0);
 }
 
 void tst_QQuickTableView::checkThatFetchMoreIsCalledWhenScrolledToTheEndOfTable()

@@ -164,7 +164,7 @@ protected:
 
 public slots:
     void incubate() {
-        if (incubatingObjectCount()) {
+        if (m_renderLoop && incubatingObjectCount()) {
             if (m_renderLoop->interleaveIncubation()) {
                 incubateFor(m_incubation_time);
             } else {
@@ -180,12 +180,12 @@ public slots:
 protected:
     void incubatingObjectCountChanged(int count) override
     {
-        if (count && !m_renderLoop->interleaveIncubation())
+        if (count && m_renderLoop && !m_renderLoop->interleaveIncubation())
             incubateAgain();
     }
 
 private:
-    QSGRenderLoop *m_renderLoop;
+    QPointer<QSGRenderLoop> m_renderLoop;
     int m_incubation_time;
     int m_timer;
 };
@@ -450,15 +450,14 @@ void QQuickWindow::physicalDpiChanged()
 void QQuickWindow::handleScreenChanged(QScreen *screen)
 {
     Q_D(QQuickWindow);
+    disconnect(d->physicalDpiChangedConnection);
     if (screen) {
         physicalDpiChanged();
         // When physical DPI changes on the same screen, either the resolution or the device pixel
         // ratio changed. We must check what it is. Device pixel ratio does not have its own
         // ...Changed() signal.
-        d->physicalDpiChangedConnection = connect(screen, SIGNAL(physicalDotsPerInchChanged(qreal)),
-                                                  this, SLOT(physicalDpiChanged()));
-    } else {
-        disconnect(d->physicalDpiChangedConnection);
+        d->physicalDpiChangedConnection = connect(screen, &QScreen::physicalDotsPerInchChanged,
+                                                  this, &QQuickWindow::physicalDpiChanged);
     }
 
     d->forcePolish();
@@ -2864,6 +2863,14 @@ void QQuickWindowPrivate::deliverMatchingPointsToItem(QQuickItem *item, QQuickPo
 {
     Q_Q(QQuickWindow);
     QQuickItemPrivate *itemPrivate = QQuickItemPrivate::get(item);
+#if defined(Q_OS_ANDROID) && QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    // QTBUG-85379
+    // In QT_VERSION below 6.0.0 touchEnabled for QtQuickItems is set by default to true
+    // It causes delivering touch events to Items which are not interested
+    // In some cases (like using Material Style in Android) it may cause a crash
+    if (itemPrivate->wasDeleted)
+        return;
+#endif
     pointerEvent->localize(item);
 
     // Let the Item's handlers (if any) have the event first.

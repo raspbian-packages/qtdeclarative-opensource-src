@@ -1609,7 +1609,7 @@ void QQmlDelegateModelPrivate::itemsRemoved(
         removed[i] = 0;
 
     for (const Compositor::Remove &remove : removes) {
-        for (; cacheIndex < remove.cacheIndex; ++cacheIndex)
+        for (; cacheIndex < remove.cacheIndex && cacheIndex < m_cache.size(); ++cacheIndex)
             incrementIndexes(m_cache.at(cacheIndex), m_groupCount, removed);
 
         for (int i = 1; i < m_groupCount; ++i) {
@@ -1875,6 +1875,9 @@ void QQmlDelegateModel::_q_modelReset()
         d->m_count = d->adaptorModelCount();
 
         const QList<QQmlDelegateModelItem *> cache = d->m_cache;
+        for (QQmlDelegateModelItem *item : cache)
+            item->referenceObject();
+
         for (int i = 0, c = cache.count();  i < c; ++i) {
             QQmlDelegateModelItem *item = cache.at(i);
             // layout change triggered by changing the modelIndex might have
@@ -1886,6 +1889,8 @@ void QQmlDelegateModel::_q_modelReset()
                 item->setModelIndex(-1, -1, -1);
         }
 
+        for (QQmlDelegateModelItem *item : cache)
+            item->releaseObject();
         QVector<Compositor::Remove> removes;
         QVector<Compositor::Insert> inserts;
         if (oldCount)
