@@ -1,0 +1,1623 @@
+qtdeclarative-opensource-src (5.15.4+dfsg-4) unstable; urgency=medium
+
+  [ Jonah Brüchert ]
+  * Backport upstream patch to fix asynchronous loaders loading when inactive
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 01 Jul 2022 23:08:41 +0300
+
+qtdeclarative-opensource-src (5.15.4+dfsg-3) unstable; urgency=medium
+
+  * Upload to unstable.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Mon, 13 Jun 2022 21:36:23 +0300
+
+qtdeclarative-opensource-src (5.15.4+dfsg-2) experimental; urgency=medium
+
+  * Use symver directive to catch all private symbols at once.
+  * Backport upstream patch to fix Flickable wheel velocity calculation
+    (closes: #1011253, thanks Wolfgang Frisch).
+  * Backport one more patch to make the tests pass.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Mon, 23 May 2022 00:40:09 +0300
+
+qtdeclarative-opensource-src (5.15.4+dfsg-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Bump Qt build-dependencies to 5.15.4.
+  * Refresh fix_test_remove_qlibraryinfo.patch.
+  * Bump ABI version to qtdeclarative-abi-5-15-4.
+  * Bump Standards-Version to 4.6.1, no changes needed.
+  * Add two new symbols to debian/libqt5quick5.symbols.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 13 May 2022 22:50:27 +0300
+
+qtdeclarative-opensource-src (5.15.3+dfsg-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Update debian/watch for new file names.
+  * Drop patches that are included in the new release:
+    - qmltime-tool.patch
+    - fix_qml_property_cache_leaks.patch
+  * Refresh other patches.
+  * Bump Qt build-dependencies to 5.15.3.
+  * Bump ABI version to qtdeclarative-abi-5-15-3.
+  * Update symbols files from the current build log.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 05 Mar 2022 19:32:15 +0300
+
+qtdeclarative-opensource-src (5.15.2+dfsg-10) unstable; urgency=medium
+
+  * Backport upstream patch to fix sweep step for tainted QObject JavaScript
+    wrappers.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 13 Feb 2022 21:04:16 +0300
+
+qtdeclarative-opensource-src (5.15.2+dfsg-9) unstable; urgency=medium
+
+  * Remove unneeded libgl1-mesa-dri Build-Depends and Depends.
+  * Update debian/source/lintian-overrides for Lintian 2.109.
+  * Bump Standards-Version to 4.6.0, no changes needed.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 18 Dec 2021 15:47:05 +0300
+
+qtdeclarative-opensource-src (5.15.2+dfsg-8) unstable; urgency=medium
+
+  * Include <limits> in Yarr.h to fix FTBFS with GCC 11 on arm64 and i386.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Wed, 18 Aug 2021 14:21:46 +0300
+
+qtdeclarative-opensource-src (5.15.2+dfsg-7) unstable; urgency=medium
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * Fix typos in previous changelog entry.
+
+  [ Dmitry Shachnev ]
+  * Amend gcc_11.patch with one more fix for GCC 11 (closes: #984313).
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Mon, 16 Aug 2021 12:02:36 +0300
+
+qtdeclarative-opensource-src (5.15.2+dfsg-6) unstable; urgency=medium
+
+  * Backport patch to support &apos in styled text, along with its
+    documentation.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Tue, 01 Jun 2021 18:37:21 -0300
+
+qtdeclarative-opensource-src (5.15.2+dfsg-5) unstable; urgency=medium
+
+  * Add a patch to make tst_qmldiskcache::regenerateAfterChange() pass on
+    big endian systems.
+  * Add missing dependencies to qtdeclarative5-dev (closes: #985500).
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 19 Mar 2021 20:46:16 +0300
+
+qtdeclarative-opensource-src (5.15.2+dfsg-4) unstable; urgency=medium
+
+  * Add Conflicts: against the -gles packages, to make that relation mutual.
+    (Thanks to David Kalnischkies for the suggestion; see also #976389.)
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 04 Feb 2021 20:36:43 +0300
+
+qtdeclarative-opensource-src (5.15.2+dfsg-3) unstable; urgency=medium
+
+  [ Alexander Volkov ]
+  * Backport upstream patch to build qmltime as a tool.
+
+  [ Dmitry Shachnev ]
+  * Backport upstream patch to fix QML property cache leaks of delegate
+    items.
+  * Backport upstream patch to fix build with GCC 11.
+  * Update debian/watch: use format 4, and track only 5.15.x releases.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 28 Jan 2021 13:25:24 +0300
+
+qtdeclarative-opensource-src (5.15.2+dfsg-2) unstable; urgency=medium
+
+  * Bump Standards-Version to 4.5.1, no changes needed.
+  * Upload to unstable.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 11 Dec 2020 11:31:45 +0300
+
+qtdeclarative-opensource-src (5.15.2+dfsg-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Bump Qt build-dependencies to 5.15.2.
+  * Refresh debian/patches/fix_test_remove_qlibraryinfo.patch.
+  * Bump ABI version to qtdeclarative-abi-5-15-2.
+  * Update symbols files from the current build logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 21 Nov 2020 16:46:44 +0300
+
+qtdeclarative-opensource-src (5.15.1+dfsg-3) unstable; urgency=medium
+
+  * Fix full (indep+arch) builds by deleting all Makefiles before building
+    the arch-dependent packages. Makefiles generated during indep build are
+    broken because they are generated before qmltypes.prf becomes available.
+  * Add alternative -gles dependencies to qtdeclarative5-dev package.
+  * Upload to unstable.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Wed, 28 Oct 2020 21:53:18 +0300
+
+qtdeclarative-opensource-src (5.15.1+dfsg-2) experimental; urgency=medium
+
+  * Fix duplicate entries for some files in debian/copyright.
+  * Override Lintian warnings about this-value-valid-date-min.js, "min" in
+    its name is not for "minified".
+  * Update symbols files from buildds’ logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 09 Oct 2020 20:46:06 +0300
+
+qtdeclarative-opensource-src (5.15.1+dfsg-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Rebase patches for the new release.
+  * Pass QMAKE_PYTHON=python3 to qmake.
+  * Bump Qt build-dependencies to 5.15.1.
+  * Update symbols files from buildds’ logs.
+  * Bump ABI version to qtdeclarative-abi-5-15-1.
+  * Update to debhelper compat level 13.
+    - Drop dh_missing override, --fail-missing is now default behavior.
+    - Stop exporting $HOME and $XDG_RUNTIME_DIR for tests, debhelper now
+      does that itself.
+    - Use ${DEB_HOST_MULTIARCH} substitution.
+  * Run install in all directories when installing files to test_root,
+    this is now needed to get plugins.qmltypes files installed.
+  * Update install files for the new release.
+  * Update symbols files from the current build log.
+  * Add Build-Depends-Package(s) fields to the symbols files.
+  * Minor debian/copyright updates.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 10 Sep 2020 21:28:43 +0300
+
+qtdeclarative-opensource-src (5.14.2+dfsg-3) unstable; urgency=medium
+
+  * Update symbols files for GCC 10 (closes: #957729).
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 23 Jul 2020 12:14:35 +0300
+
+qtdeclarative-opensource-src (5.14.2+dfsg-2) unstable; urgency=medium
+
+  * Upload to unstable.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Wed, 24 Jun 2020 11:23:21 +0300
+
+qtdeclarative-opensource-src (5.14.2+dfsg-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Bump Qt build-dependencies to 5.14.2.
+  * Drop debian/patches/escape_url_regex.patch, applied upstream.
+  * Refresh debian/patches/fix_test_remove_qlibraryinfo.patch.
+  * Bump ABI version to qtdeclarative-abi-5-14-2.
+  * Update symbols files from the current build log.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Mon, 27 Apr 2020 13:33:59 +0300
+
+qtdeclarative-opensource-src (5.14.1+dfsg-3) experimental; urgency=medium
+
+  * Install documentation for the new modules.
+  * Update symbols files from buildds’ powerpc log.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 01 Mar 2020 22:20:48 +0300
+
+qtdeclarative-opensource-src (5.14.1+dfsg-2) experimental; urgency=medium
+
+  * Update symbols files from buildds’ logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Wed, 26 Feb 2020 22:53:19 +0300
+
+qtdeclarative-opensource-src (5.14.1+dfsg-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Refresh patches for the new release.
+  * Bump Qt build-dependencies to 5.14.1.
+  * Bump ABI version to qtdeclarative-abi-5-14-1.
+  * Fix qmllint test by using import path from environment variable.
+  * Update .install files for existing packages.
+  * Add five new binary packages:
+    - libqt5qmlmodels5: QML Models support library.
+    - libqt5qmlworkerscript5: QML Worker Script support library.
+    - qml-module-qt-labs-animation: experimental QML types for animation.
+    - qml-module-qtqml: basic QML types.
+    - qml-module-qtqml-workerscript2: QML types for worker scripts.
+  * Update symbols files from the current build log.
+  * Update debian/copyright.
+  * Exclude minified jQuery without source from the tarball.
+  * Bump Standards-Version to 4.5.0, no changes needed.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Wed, 19 Feb 2020 18:15:30 +0300
+
+qtdeclarative-opensource-src (5.12.5-5) unstable; urgency=medium
+
+  * Link with -latomic on riscv64, based on a patch by Aurelien Jarno.
+  * Add a patch from OpenSUSE to build with Python 3 (closes: #938319).
+  * Upload to unstable.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 02 Jan 2020 14:25:07 +0300
+
+qtdeclarative-opensource-src (5.12.5-4) experimental; urgency=medium
+
+  * Update debian/libqt5qml5.symbols from buildds’ logs.
+  * Update symbols files of libqt5quick5 and libqt5quickparticles5
+    packages to add an alternative dependency on their -gles variants
+    that will provide the same ABI.
+  * Remove build paths from .prl files for reproducibility.
+  * Split the doxygen .tags files into a new qtdeclarative5-doc-dev
+    package (see #922707).
+  * Bump debhelper compat level to 12, use the new syntax.
+    - Drop dh_makeshlibs override, -V is now the default.
+  * Fix a typo in debian/qtdeclarative5-doc-html.doc-base.qtqml.
+  * Replace YouTube iframe with YouTube link in the documentation.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 19 Dec 2019 12:06:23 +0300
+
+qtdeclarative-opensource-src (5.12.5-3) unstable; urgency=medium
+
+  * Update symbols files from buildds’ logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Mon, 21 Oct 2019 20:12:14 +0300
+
+qtdeclarative-opensource-src (5.12.5-2) unstable; urgency=medium
+
+  * Update symbols files from buildds’ logs.
+  * Bump Standards-Version to 4.4.1, no changes needed.
+  * Upload to unstable.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 20 Oct 2019 22:44:39 +0300
+
+qtdeclarative-opensource-src (5.12.5-1) experimental; urgency=medium
+
+  [ Dmitry Shachnev ]
+  * Make tests fatal on architectures where they are currently passing.
+  * Add comments explaining the issues on other architectures.
+  * New upstream release.
+  * Drop ia64.patch, applied in the new release.
+  * Refresh fix_test_remove_qlibraryinfo.patch.
+  * Bump Qt build-dependencies to 5.12.5.
+  * Update symbols files from the current build logs.
+  * Bump ABI version to qtdeclarative-abi-5-12-5.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Sat, 14 Sep 2019 11:27:49 -0300
+
+qtdeclarative-opensource-src (5.12.4-1) experimental; urgency=medium
+
+  [ Scarlett Moore ]
+  * Update packaging to use doc-base as per policy 9.10.
+
+  [ Dmitry Shachnev ]
+  * New upstream release.
+  * Drop unused build-dependency on libqt5opengl5-dev.
+  * Add support for nocheck build profile.
+  * Bump qtbase build-dependencies to 5.12.4.
+  * Refresh fix_test_remove_qlibraryinfo.patch.
+  * Backport upstream patch with a workaround for ia64 (closes: #929682).
+  * Build-Depend-Indep on individual qdoc-qt5, qhelpgenerator-qt5 and
+    qtattributionsscanner-qt5 packages, instead of qttools5-doc-tools.
+  * Update symbols files from buildds’ and the current build logs.
+  * Bump ABI version to qtdeclarative-abi-5-12-4.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Wed, 19 Jun 2019 14:54:49 +0300
+
+qtdeclarative-opensource-src (5.12.3-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Refresh fix_test_remove_qlibraryinfo.patch.
+  * Bump Qt build-dependencies to 5.12.3.
+  * Update Homepage URL.
+  * Make qtdeclarative5-dev depend on libqt5quickshapes5 (closes: #927447).
+  * Update symbols files from buillds’ and the current build logs.
+  * Bump ABI version to qtdeclarative-abi-5-12-3.
+  * Add a patch to make SignalSpy test use qWaitForWindowExposed() function
+    instead of qWaitForWindowActive(), which does not work without a WM.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 21 Apr 2019 22:23:03 +0300
+
+qtdeclarative-opensource-src (5.12.2-2) experimental; urgency=medium
+
+  * Override symbols-declares-dependency-on-other-package Lintian warning
+    for the libqt5quickshapes5 package.
+  * Update symbols files from buildds’ logs.
+  * Drop testcase_array_iteration.patch. The iterating code was changed
+    upstream, and qtmultimedia tests no longer fail on Ubuntu arm64 without
+    this patch.
+  * Set QT_PLUGIN_PATH when running tests, to fix some debugger tests.
+  * Do not set QT_LOGGING_RULES, not needed with qtbase ≥ 5.9.2+dfsg-7.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 24 Mar 2019 19:30:55 +0300
+
+qtdeclarative-opensource-src (5.12.2-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Drop x32_no_jit.patch, applied upstream.
+  * Drop fix_crash_on_big_endian.patch, no longer needed.
+  * Refresh and rebase other patches.
+  * Stop building qml-module-qtquick-xmllistmodel package, it will be moved
+    to qtxmlpatterns source.
+  * Also drop libqt5xmlpatterns5-dev build-dependency, no longer needed.
+  * Bump Qt build-dependencies to 5.12.2.
+  * Update Lintian source-is-missing overrides to cover more test files.
+  * Update debian/copyright.
+  * Remove qml-module-qt-labs-handlers package. Its code was merged into
+    the main Qt Quick module.
+  * Add three new binary packages:
+    - libqt5quickshapes5: Qt Quick Shapes support library.
+    - qml-module-qt-labs-qmlmodels: experimental data models QML types.
+    - qml-module-qt-labs-wavefrontmesh: mesh based on Wavefront .obj files.
+  * Install the new qmlpreview tool in qtdeclarative5-dev-tools.
+  * Update symbols files from the current build log.
+  * Bump ABI version to qtdeclarative-abi-5-12-2.
+  * Update dependencies of qtdeclarative5-examples package.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 16 Mar 2019 11:17:38 +0300
+
+qtdeclarative-opensource-src (5.11.3-4) unstable; urgency=medium
+
+  * Add fix_crash_on_big_endian.patch to fix crash when loading AOT caches
+    on big endian platforms. Thanks Alexander Volkov!
+  * Update debian/libqt5qml5.symbols from x32 build log.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 01 Mar 2019 21:03:33 +0300
+
+qtdeclarative-opensource-src (5.11.3-3) unstable; urgency=medium
+
+  [ Dmitry Shachnev ]
+  * Fix build failure on x32 by disabling JIT there (closes: #918545).
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * libqt5qml5: libgl1-mesa-glx became a dummy transitional package, replace
+    it by the packages it depends upon, namely libgl1 and libglx-mesa0
+    (Closes: #921472). Thanks Gabriele Stilli for the bug report.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Thu, 07 Feb 2019 23:21:22 -0300
+
+qtdeclarative-opensource-src (5.11.3-2) unstable; urgency=medium
+
+  [ Simon Quigley ]
+  * Change my email to tsimonq2@debian.org now that I am a Debian Developer.
+  * Bump Standards-version to 4.3.0, no changes needed.
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * Upload to unstable.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Wed, 26 Dec 2018 16:16:50 -0300
+
+qtdeclarative-opensource-src (5.11.3-1) experimental; urgency=medium
+
+  * New upstream release.
+    - Bump Qt build dependencies.
+  * Refresh fix_test_remove_qlibraryinfo.patch.
+  * Update symbols files with current build log.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Fri, 07 Dec 2018 09:46:37 -0300
+
+qtdeclarative-opensource-src (5.11.2-3) unstable; urgency=medium
+
+  [ Dmitry Shachnev ]
+  * Update symbols files from mips64r6el build log (closes: #911601).
+
+  [ Helmut Grohne ]
+  * Fix FTCBFS: Annotate Build-Depends: python with :any. (Closes: #913243)
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 15 Nov 2018 12:53:51 +0300
+
+qtdeclarative-opensource-src (5.11.2-2) unstable; urgency=medium
+
+  * Upload to unstable.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Mon, 15 Oct 2018 21:16:04 +0300
+
+qtdeclarative-opensource-src (5.11.2-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Bump Qt build-dependencies to 5.11.2.
+  * Refresh fix_test_remove_qlibraryinfo.patch.
+  * Update debian/libqt5qml5.symbols from the current build log.
+  * Bump ABI version to qtdeclarative-abi-5-11-2.
+  * Bump Standards-Version to 4.2.1, no changes needed.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 23 Sep 2018 11:26:37 +0300
+
+qtdeclarative-opensource-src (5.11.1-6) unstable; urgency=medium
+
+  * Backport upstream patch to fix unaligned memory access on ARM.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Tue, 02 Oct 2018 19:12:20 +0300
+
+qtdeclarative-opensource-src (5.11.1-5) unstable; urgency=medium
+
+  * Update symbols files from buildds’ logs (closes: #906531, #907153).
+  * Remove unneeded command from debian/rules.
+  * Bump Standards-Version to 4.2.0, no changes needed.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 25 Aug 2018 15:08:52 +0300
+
+qtdeclarative-opensource-src (5.11.1-4) unstable; urgency=medium
+
+  * Update symbols files with buildds' logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Thu, 26 Jul 2018 22:09:16 -0300
+
+qtdeclarative-opensource-src (5.11.1-3) unstable; urgency=medium
+
+  * Upload to Sid.
+
+ -- Simon Quigley <tsimonq2@ubuntu.com>  Wed, 25 Jul 2018 04:49:31 -0500
+
+qtdeclarative-opensource-src (5.11.1-2) experimental; urgency=medium
+
+  * Remove the dbgsym migration section of debian/rules; it isn't needed
+    anymore.
+  * Bump the virtual ABI package to qtdeclarative-abi-5-11-0 because of
+    MISSING symbols.
+  * Update symbols from buildd logs.
+
+ -- Simon Quigley <tsimonq2@ubuntu.com>  Fri, 22 Jun 2018 14:06:24 -0500
+
+qtdeclarative-opensource-src (5.11.1-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Bump build dependencies to 5.11.1.
+  * Upstream testcase_array_iteration.patch from Ubuntu.
+  * Remove Do-not-make-lack-of-SSE2-support-on-x86-32-fatal.patch due to
+    it not being fixed in time.
+  * Refresh quilt patches.
+  * Update symbols from amd64 build logs.
+
+ -- Simon Quigley <tsimonq2@ubuntu.com>  Tue, 19 Jun 2018 16:26:32 -0500
+
+qtdeclarative-opensource-src (5.11.0-2) experimental; urgency=medium
+
+  [ Simon Quigley ]
+  * Update symbols from buildds' logs.
+
+  [ Dmitry Shachnev ]
+  * Restore fix_test_remove_qlibraryinfo.patch, it is still needed.
+
+ -- Simon Quigley <tsimonq2@ubuntu.com>  Tue, 19 Jun 2018 01:02:40 -0400
+
+qtdeclarative-opensource-src (5.11.0-1) experimental; urgency=medium
+
+  [ Dmitry Shachnev ]
+  * Update symbols files from buildds’ logs.
+  * Mark some symbols as optional to fix FTBFS with GCC 8 (closes: #897842).
+
+  [ Simon Quigley ]
+  * New upstream release.
+  * Bump build dependencies to 5.11.0.
+  * Add my name to the copyright for the packaging.
+  * Refresh patches for the new release:
+    - Remove reverse-applicable patches (or patches otherwise unneeded anymore):
+      + avoid-marking-hidden-windows-updatePending.patch
+      + disable_jit_on_mips.patch
+      + fix_test_remove_qlibraryinfo.patch
+    - Refresh all other patches.
+  * Update symbols from amd64 build logs.
+
+ -- Simon Quigley <tsimonq2@ubuntu.com>  Wed, 13 Jun 2018 02:03:31 -0500
+
+qtdeclarative-opensource-src (5.10.1-4) unstable; urgency=high
+
+  * Avoid marking hidden windows as updatePending in Gui render loop
+    (LP: #1761016).
+    - avoid-marking-hidden-windows-updatePending.patch
+  * Bump Standards-version to 4.1.4, no changes needed.
+  * Bump debhelper compat to 11, no changes needed.
+  * Add hardening rules in debian/rules.
+
+ -- Simon Quigley <tsimonq2@ubuntu.com>  Mon, 09 Apr 2018 18:44:03 -0500
+
+qtdeclarative-opensource-src (5.10.1-3) unstable; urgency=medium
+
+  * Update symbols files with buildds' logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Sat, 07 Apr 2018 17:05:42 -0300
+
+qtdeclarative-opensource-src (5.10.1-2) experimental; urgency=medium
+
+  * Make qml-module-qttest depend on qml-module-qtquick-window2,
+    following upstream changes in Qt 5.10.0.
+  * Update symbols files from buildds’ logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Tue, 20 Feb 2018 17:37:32 +0300
+
+qtdeclarative-opensource-src (5.10.1-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Refresh patches for the new release.
+  * Bump Qt build-dependencies to 5.10.1.
+  * Update Vcs fields for migration to salsa.debian.org.
+  * Update symbols files with 5.10.0 and current build logs.
+  * Install plugins.qmltypes in qml-module-qt-labs-handlers.install.
+  * Update debian/copyright.
+  * Bump qtdeclarative-abi version to 5-10-1.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Tue, 20 Feb 2018 01:10:02 +0300
+
+qtdeclarative-opensource-src (5.10.0-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Update debian/watch for the new tarball names.
+  * Drop revert_singletons_change.diff, QTBUG-64017 was fixed upstream.
+  * Bump Qt build-dependencies to 5.10.0.
+  * Use dh_auto_configure provided by debhelper.
+  * Refresh patches for the new release.
+  * Update debian/copyright.
+  * New packages: qml-module-qtquick-shapes, qml-module-qt-labs-handlers.
+  * Update symbols files from the current build logs.
+  * Bump qtdeclarative-abi version to 5-10-0.
+  * Bump Standards-Version to 4.1.3, no changes needed.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Tue, 16 Jan 2018 18:46:39 +0300
+
+qtdeclarative-opensource-src (5.9.2-3) unstable; urgency=medium
+
+  * Bump qtdeclarative-abi version to 5-9-2.
+  * Update debian/libqt5qml5.symbols from buildds’ logs.
+  * Temporarily revert upstream commit that caused issues in some KDE apps.
+  * Upload to unstable.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 26 Oct 2017 16:27:02 +0300
+
+qtdeclarative-opensource-src (5.9.2-2) experimental; urgency=medium
+
+  * Update for Qt binaries location change in qtbase 5.9.2+dfsg-3.
+    - Update .install files for qtdeclarative5-dev-tools, qmlscene and qml.
+    - Provide compatibility symlinks for the old location.
+    - Bump qtbase5-private-dev and qttools5-dev-tools build-dependencies.
+  * Bump Standards-Version to 4.1.1, stop using deprecated Priority: extra.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 20 Oct 2017 15:14:10 +0300
+
+qtdeclarative-opensource-src (5.9.2-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Drop patches, applied upstream:
+    - fix_image_source_memory_leak.patch
+    - rebuild-QmlDatapropertyCache-if-deleted.patch
+  * Refresh and rebase other patches.
+  * Update symbols files from the current build log.
+  * Bump Qt build-dependencies to 5.9.2.
+  * Use dh_missing instead of deprecated dh_install --fail-missing.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 15 Oct 2017 00:17:05 +0300
+
+qtdeclarative-opensource-src (5.9.1-6) unstable; urgency=medium
+
+  * Add fix_image_source_memory_leak.patch to fix QTBUG-61754 (Closes: #874581).
+  * Update symbols files with buildds' logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Thu, 07 Sep 2017 14:01:39 -0300
+
+qtdeclarative-opensource-src (5.9.1-5) unstable; urgency=medium
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * Bump qtdeclarative-abi to 5-9-1 so it matches' qtbase's versioning. Plus
+    it's the version we are pushing to unstable.
+
+  [ Dmitry Shachnev ]
+  * Update symbols files for GCC 7 symbols changes.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Tue, 15 Aug 2017 22:09:04 -0300
+
+qtdeclarative-opensource-src (5.9.1-4) experimental; urgency=medium
+
+  * Fix QTBUG-61681 (Rebuild QQmlData::propertyCache if deleted by another
+    engine) by including rebuild-QmlDatapropertyCache-if-deleted.patch.
+  * Add my name to Uploaders.
+  * Bump debhelper compat to 10.
+
+ -- Simon Quigley <tsimonq2@ubuntu.com>  Wed, 02 Aug 2017 04:35:07 -0500
+
+qtdeclarative-opensource-src (5.9.1-3) experimental; urgency=medium
+
+  * Due to QTBUG-58567 we are forced to turn off JIT on mips* until
+    upstream solves this issue.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Mon, 31 Jul 2017 17:46:40 -0300
+
+qtdeclarative-opensource-src (5.9.1-2) experimental; urgency=medium
+
+  * Add a patch to enable JIT only on mipsel, not on mips and mips64el.
+  * Update symbols files from buildds’ logs.
+  * Bump qtxmlpatterns and qttools build-dependencies to 5.9.1.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Wed, 05 Jul 2017 18:39:37 +0300
+
+qtdeclarative-opensource-src (5.9.1-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Drop big_endian.patch, applied upstream.
+  * Refresh other patches.
+  * Bump qtbase build-dependencies to 5.9.1.
+  * Update symbols files from buildds’ logs and the current build log.
+  * Bump Standards-Version to 4.0.0, no changes needed.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 01 Jul 2017 18:57:08 +0300
+
+qtdeclarative-opensource-src (5.9.0-2) experimental; urgency=medium
+
+  * Add a patch that should fix crashes on big endian systems.
+  * Add some new locations to fix_test_remove_qlibraryinfo.patch.
+  * Export QT_LOGGING_RULES when running tests, to override settings from
+    our new qtlogging.ini file.
+  * Fix a minor copyright issue, thanks to Scott Kitterman.
+  * Update symbols files from buildds’ logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Tue, 20 Jun 2017 13:43:53 +0300
+
+qtdeclarative-opensource-src (5.9.0-1) experimental; urgency=medium
+
+  [ Simon Quigley ]
+  * New upstream release.
+  * Remove qv4isel_always_export.patch as it's reverse-applicable.
+  * Some files were moved around and/or deleted; update the install files to
+    reflect that.
+  * Set XDG_RUNTIME_DIR in debian/rules to fix a lot of test failures.
+
+  [ Dmitry Shachnev ]
+  * Rename qml-module-qtquick-sharedimage to qml-module-qt-labs-sharedimage,
+    following upstream (see commit 4a4a8e911cfafcff).
+  * Update debian/copyright.
+  * Mark two symbols as optional to fix build with GCC 7 (closes: #853631).
+  * Drop the code to symlink private QmlDevTools headers, no longer needed.
+
+ -- Simon Quigley <tsimonq2@ubuntu.com>  Wed, 07 Jun 2017 23:31:12 +0300
+
+qtdeclarative-opensource-src (5.9.0~beta3-2) experimental; urgency=medium
+
+  * Update symbols files from buildds’ logs.
+  * Update qv4isel_always_export.patch to the proposed patch set 2.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 06 May 2017 15:18:33 +0300
+
+qtdeclarative-opensource-src (5.9.0~beta3-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Backport proposed upstream fix for build failure on non-JIT archs
+    (qv4isel_always_export.patch).
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 06 May 2017 09:52:34 +0300
+
+qtdeclarative-opensource-src (5.9.0~beta2-1) experimental; urgency=medium
+
+  [ Simon Quigley ]
+  * New upstream release.
+  * Bump dpkg-dev build-dependency to 1.17.14, for build profiles.
+  * Do not build the documentation packages when the nodoc profile is enabled.
+  * Drop fix_tst_qqmlapplicationengine.diff as it's reverse-applicable.
+  * Refresh patches:
+   - disableopengltests.patch
+   - fix_test_remove_qlibraryinfo.patch
+   - Do-not-make-lack-of-SSE2-support-on-x86-32-fatal.patch
+  * Add new binary package qml-module-qtquick-sharedimage.
+  * Update symbols from build logs.
+
+  [ Dmitry Shachnev ]
+  * Add Lintian overrides for new test JS files with long lines.
+  * Update debian/copyright.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 27 Apr 2017 22:00:12 +0300
+
+qtdeclarative-opensource-src (5.7.1-2) unstable; urgency=medium
+
+  [ Dmitry Shachnev ]
+  * Drop obsolete Breaks/Replaces. Qt versions before 5.3.2 were never part
+    of a stable release (Jessie and Wheezy-backports have 5.3.2).
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * Do not make lack of SSE2 support on x86-32 fatal by using Guillem Jover's
+    patch (Closes: #792594). Thanks Guillem!
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Mon, 02 Jan 2017 12:15:42 -0300
+
+qtdeclarative-opensource-src (5.7.1-1) unstable; urgency=medium
+
+  * New upstream final release.
+  * Drop revert_c9ffed92.diff, the issue has been properly fixed upstream.
+  * Drop fix_tags_types.diff, applied upstream.
+  * Bump qtbase build-dependencies to 5.7.1 final.
+  * Update symbols files from buildds’ logs and the current build log.
+  * Replace 5.7.1~20161021 with 5.7.1 in the symbols files.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Wed, 14 Dec 2016 22:58:14 +0300
+
+qtdeclarative-opensource-src (5.7.1~20161021-5) unstable; urgency=medium
+
+  * Revert upstream commit c9ffed92a0dee0ae, which broke Qt Quick Controls.
+    Update the symbols files accordingly. Closes: #843250.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 06 Nov 2016 17:01:42 +0300
+
+qtdeclarative-opensource-src (5.7.1~20161021-4) unstable; urgency=medium
+
+  * Update symbols files with buildds' logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Thu, 03 Nov 2016 11:51:14 -0300
+
+qtdeclarative-opensource-src (5.7.1~20161021-3) unstable; urgency=medium
+
+  * Update symbols files from buildds’ logs.
+  * Upload to unstable.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Tue, 01 Nov 2016 14:53:44 +0300
+
+qtdeclarative-opensource-src (5.7.1~20161021-2) experimental; urgency=medium
+
+  * Make tests non-fatal. We enabled test on the 5.7 round and discovered
+    that some of them where failing. As Dmitry Shachnev discovered this is no
+    regresion from 5.6 and we need to get 5.7 into testing before the
+    transition freeze we are making them non-fatal.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Sat, 29 Oct 2016 23:00:31 -0300
+
+qtdeclarative-opensource-src (5.7.1~20161021-1) experimental; urgency=medium
+
+  * New upstream snapshot.
+  * Drop the following patches, applied upstream:
+    - no_lifetime_dse.diff
+    - no_value_without_tag.diff
+    - fix_engine_64bits_big_endian.diff
+    - fix-V4-on-big-endian.patch
+    - use_49_address_bits.diff
+    - yarr_arm64.diff
+  * Refresh other patches.
+  * Bump Qt build-dependencies to 5.7.1~20161021.
+  * Update symbols files from buildds’ logs and from current amd64 build log.
+  * Update debian/copyright for file moves.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Tue, 25 Oct 2016 10:45:32 +0300
+
+qtdeclarative-opensource-src (5.7.0-7) experimental; urgency=medium
+
+  * Backport upstream patch to fix usage of QV4::Value tags/types
+    (fix_tags_types.diff).
+  * Re-enable qqmldebugjs test, it seems to pass now.
+  * Migrate to automatic dbgsym packages.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Tue, 18 Oct 2016 19:38:54 +0300
+
+qtdeclarative-opensource-src (5.7.0-6) experimental; urgency=medium
+
+  * Mark fix_tst_qqmlapplicationengine.diff as applied upstream.
+  * Update symbols files from buildds’ logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 14 Oct 2016 16:39:48 +0300
+
+qtdeclarative-opensource-src (5.7.0-5) experimental; urgency=medium
+
+  * Backport upstream patch to fix crashes on arm64 (yarr_arm64.diff).
+  * Update symbols files from buildds’ logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 07 Oct 2016 00:00:25 +0300
+
+qtdeclarative-opensource-src (5.7.0-4) experimental; urgency=medium
+
+  * Backport upstream patch to remove setTag() and setValue() methods, and
+    leave only setTagValue() (no_value_without_tag.diff). Without this patch
+    the current version of fix_engine_64bits_big_endian.diff did not make
+    any sense.
+  * Rebase fix_engine_64bits_big_endian.diff and fix-V4-on-big-endian.patch
+    on top of the above patch.
+  * Add a patch to make the qqmlapplicationengine test pass when JIT is not
+    available (fix_tst_qqmlapplicationengine.diff, forwarded upstream).
+  * Backport upstream patch to allow using 49 address bits in 64-bit mode
+    (use_49_address_bits.diff). This should fix issues on arm64.
+  * Update symbols files from amd64 build log.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 06 Oct 2016 08:27:43 +0300
+
+qtdeclarative-opensource-src (5.7.0-3) experimental; urgency=medium
+
+  * Merge 5.6.1-10 from unstable.
+  * Run make check with -k flag to get as much output as possible.
+  * Refresh the patches.
+  * Update symbols files from amd64 build log.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 02 Oct 2016 10:12:58 +0300
+
+qtdeclarative-opensource-src (5.7.0-2) experimental; urgency=medium
+
+  * Merge 5.6.1-5 from unstable; replace fix_engine_64bits_big_endian.diff
+    with a patch that got applied upstream.
+  * Update symbols files from buildds’ logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 21 Jul 2016 20:47:19 +0300
+
+qtdeclarative-opensource-src (5.7.0-1) experimental; urgency=medium
+
+  [ Harald Sitter ]
+  * New upstream release.
+  * Drop qml_only_release_types_if_they_arent_referenced_anymore.patch
+    (upstream)
+  * New package qml-module-qtquick-layouts (moved from qtquickcontrols)
+  * Update install files.
+  * qtdeclarative5-examples breaks/replaces qtquickcontrols5-examples because
+    of moved example files.
+  * qtdeclarative5-examples depends on the new layouts module
+
+  [ Dmitry Shachnev ]
+  * Drop check_system_double-conversion.patch and libdouble-conversion-dev
+    build-dependency, upstream no longer uses double-conversion.
+  * Bump Qt build-dependencies to 5.7.0.
+  * Update symbols files from amd64 and i386 build logs.
+  * Bump qtdeclarative-abi version to 5-7-0.
+  * Update debian/copyright.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Tue, 05 Jul 2016 15:53:55 +0300
+
+qtdeclarative-opensource-src (5.6.1-11) unstable; urgency=medium
+
+  * Run make check with -k flag to get as much output as possible.
+  * Update fix-V4-on-big-endian.patch with a fix for 32-bit big endian
+    architectures.
+  * Drop fix_engine_64bits_big_endian.diff, now redundant.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 07 Oct 2016 10:03:28 +0300
+
+qtdeclarative-opensource-src (5.6.1-10) unstable; urgency=medium
+
+  * Do not use dbus-launch during tests running, not needed (and wrong).
+  * Drop useless build-dependency on libgl1-mesa-glx.
+  * Set LD_LIBRARY_PATH when running tests, to fix failures on buildds.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 29 Sep 2016 11:57:15 +0300
+
+qtdeclarative-opensource-src (5.6.1-9) unstable; urgency=medium
+
+  [ Sandro Knauß ]
+  * Backport upstream change to fix V4 on big-endian (Closes: #836412)
+    (fix-V4-on-big-endian.patch; see QTBUG-55730)
+    (refresh fix_engine_64bits_big_endian.diff)
+  * Enable auto tests.
+  * Create patch to disable tests, that fails with xvfb
+    disableopengltests.patch
+  * Create patch to run the tests against own build binaries
+    fix_test_remove_qlibraryinfo.patch
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Tue, 27 Sep 2016 21:02:13 -0300
+
+qtdeclarative-opensource-src (5.6.1-8) unstable; urgency=medium
+
+  * Update symbols files with buildds' logs (Closes: #836379).
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Sun, 11 Sep 2016 09:30:31 -0300
+
+qtdeclarative-opensource-src (5.6.1-7) unstable; urgency=medium
+
+  * Update libqt5qml5.symbols from buildds’ logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Tue, 30 Aug 2016 14:00:17 +0300
+
+qtdeclarative-opensource-src (5.6.1-6) unstable; urgency=medium
+
+  * Backport upstream change to fix crashes when compiled with GCC 6
+    (no_lifetime_dse.diff; see QTBUG-55482).
+  * Update symbols files from buildds’ logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Mon, 29 Aug 2016 21:30:47 +0300
+
+qtdeclarative-opensource-src (5.6.1-5) unstable; urgency=medium
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * Update symbols files with buildds' logs (Closes: #830817).
+
+  [ Maximiliano Curia ]
+  * Add new patch: fix_engine_64bits_big_endian.diff
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Tue, 19 Jul 2016 12:09:46 -0300
+
+qtdeclarative-opensource-src (5.6.1-4) unstable; urgency=medium
+
+  * Backport qml_only_release_types_if_they_arent_referenced_anymore.patch,
+    it solves a nasty crash.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Thu, 16 Jun 2016 10:45:18 -0300
+
+qtdeclarative-opensource-src (5.6.1-3) unstable; urgency=medium
+
+  * Update symbols files with buildd's logs so hurd can also be part of the
+    transition.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Tue, 14 Jun 2016 11:26:47 -0300
+
+qtdeclarative-opensource-src (5.6.1-2) unstable; urgency=medium
+
+  * Upload to unstable.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Mon, 13 Jun 2016 09:51:07 -0300
+
+qtdeclarative-opensource-src (5.6.1-1) experimental; urgency=medium
+
+  * New upstream release.
+    - Bump Qt build dependencies.
+  * Update symbols files with buildds' and current build log.
+  * Mark private symbols as such.
+  * Update Standards-Version to 3.9.8, no changes required.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Thu, 09 Jun 2016 18:12:03 -0300
+
+qtdeclarative-opensource-src (5.6.0-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Drop the no longer needed hack to fix wrong path in pkgconfig files.
+  * No longer need to remove empty directories, qdoc 5.6 does not create them.
+  * Revert debian/watch to track final releases again.
+  * Update symbols files from buildds’ logs.
+  * Bump Qt build-dependencies to 5.6.0.
+  * Update debian/source/lintian-overrides to include more JavaScript files
+    which Lintian wrongly considers sourceless and prebuilt.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 18 Mar 2016 17:04:55 +0100
+
+qtdeclarative-opensource-src (5.6.0~rc-1) experimental; urgency=medium
+
+  [ Dmitry Shachnev ]
+  * New upstream release candidate.
+  * Drop qml-model-qtqml-models2 transitional package. It has already been
+    transitional in jessie (and wheezy-backports).
+  * Bump Qt build-dependencies to 5.6.0~rc.
+  * Use recommended https URIs for Vcs fields.
+  * Update symbols files from buildds’ and current build logs.
+  * Bump Standards-Version to 3.9.7, no changes needed.
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * Add qt5-qmltooling-plugins as a qtdeclarative5-dev dependency, it is
+    required by the CMake scripts (Closes: #812893).
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 05 Mar 2016 16:41:54 +0300
+
+qtdeclarative-opensource-src (5.6.0~beta-2) experimental; urgency=medium
+
+  * Re-enable building the documentation.
+  * Update debian/libqt5qml5.symbols with buildds’ logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 08 Jan 2016 14:56:13 +0300
+
+qtdeclarative-opensource-src (5.6.0~beta-1) experimental; urgency=medium
+
+  [ Diane Trout ]
+  * New upstream release.
+    - Bump Qt build dependencies.
+  * Bump qtdeclarative-abi to 5-6-0.
+  * Disable building documentation pending fixing Qt5.6 qdoc issues.
+  * Update watch file to use development_releases. (Change back after release)
+  * Install core QtQml qml metadata with libqt5qml5 package.
+  * Update qtdeclarative5-private-dev.install.
+
+  [ Dmitry Shachnev ]
+  * Sort the install files.
+  * Remove dependency on libqt5xmlpatterns5-private-dev. The private part of
+    qtxmlpatterns is not used, so libqt5xmlpatterns5-dev will be enough.
+  * Refresh debian/patches/check_system_double-conversion.patch.
+  * Update the symbols files using migrate-symbols.py script.
+  * Update the symbols files from the current build logs for amd64 and i386.
+  * Stop running pkgkde-mark-private-symbols script during build. The new way
+    is that the maintainers run pkgkde-mark-qt5-private-symbols --write-results
+    after each symbols update.
+  * Simplify qtdeclarative5-private-dev.install using globs.
+  * Update qtdeclarative5-dev.install.
+  * Do not hardcode abi package name in libqt5quickwidgets5.lintian-overrides,
+    so that it still applies.
+  * Split the qmltooling plugins into their own qt5-qmltooling-plugins package.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Tue, 05 Jan 2016 19:53:09 +0300
+
+qtdeclarative-opensource-src (5.5.1-3) unstable; urgency=medium
+
+  * Upload to unstable.
+  * Update symbols files with buildds' logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Wed, 21 Oct 2015 15:55:25 -0300
+
+qtdeclarative-opensource-src (5.5.1-2) experimental; urgency=medium
+
+  * Update symbols files with buildds' logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Sat, 17 Oct 2015 09:14:01 -0300
+
+qtdeclarative-opensource-src (5.5.1-1) experimental; urgency=medium
+
+  * New upstream release.
+    - Bump Qt build dependencies.
+  * Update symbols files with buildds' logs.
+  * Update symbols files with current build log.
+  * Do not ship empty directories.
+  * Add two lintian overrides for examples/quick/canvas/tiger/tiger.js. It is
+    not a minified javascript and is the preferred source of modification.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Fri, 16 Oct 2015 16:04:03 -0300
+
+qtdeclarative-opensource-src (5.5.0-2) experimental; urgency=medium
+
+  * Update symbols files with buildds’ logs.
+  * Symlink duplicate private headers in QtQml and QtQmlDevTools directories.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 22 Aug 2015 11:38:09 +0300
+
+qtdeclarative-opensource-src (5.5.0-1) experimental; urgency=medium
+
+  [ Dmitry Shachnev ]
+  * New upstream release.
+  * Bump Qt build-dependencies to 5.5.0.
+  * Drop avoid_calling_potentially_pure-virtual_method.patch, applied upstream.
+  * Refresh check_system_double-conversion.patch.
+  * Update debian/copyright for the new version.
+  * Update symbols file for 5.5.0. There are some missing non-private symbols,
+    but they are not exposed in public APIs.
+  * Bump ABI version to 5-5-0.
+  * Mark new private symbols.
+
+  [ Timo Jyrinki ]
+  * Update .install files.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 15 Aug 2015 17:05:06 +0300
+
+qtdeclarative-opensource-src (5.4.2-6) unstable; urgency=medium
+
+  * Update symbols files with buildds' logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Thu, 06 Aug 2015 12:13:38 -0300
+
+qtdeclarative-opensource-src (5.4.2-5) unstable; urgency=medium
+
+  * Update symbols files with current build log against gcc5.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Wed, 05 Aug 2015 18:17:46 -0300
+
+qtdeclarative-opensource-src (5.4.2-4) unstable; urgency=medium
+
+  * Backport avoid_calling_potentially_pure-virtual_method.patch to avoid
+    crashes. Thanks Diane for the hint!
+  * Update symbols files with buildds' logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Fri, 24 Jul 2015 14:08:32 -0300
+
+qtdeclarative-opensource-src (5.4.2-3) unstable; urgency=medium
+
+  * Update symbols files with buildds' logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Tue, 23 Jun 2015 16:05:25 -0300
+
+qtdeclarative-opensource-src (5.4.2-2) unstable; urgency=medium
+
+  * Upload to unstable.
+  * Update symbols files with buildds' logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Tue, 23 Jun 2015 10:40:41 -0300
+
+qtdeclarative-opensource-src (5.4.2-1) experimental; urgency=medium
+
+  [ Dmitry Shachnev ]
+  * Update debian/libqt5quick5.symbols for arm64.
+  * Remove all ia64-specific symbols from debian/libqt5qml5.symbols.
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * New upstream release (Closes: #778257, #778359).
+    - Bump Qt build dependencies.
+  * Clear up the list in Uploaders removing people who hasn't committed to the
+    repo in more than a year. They can re add themselves whenever they want
+    (and we really hope to see you back really soon!).
+  * Expose HTML documentation in /usr/share/doc (Closes: #751176).
+  * Make libqt5qml5 recommend libgl1-mesa-glx to get QML stuff properly
+    rendered (Closes: #779581).
+  * Use pkgkde-mark-private-symbols from pkg-kde-tools 0.15.17.
+  * Update symbols files with current build log.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Tue, 02 Jun 2015 17:29:00 -0300
+
+qtdeclarative-opensource-src (5.4.1-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Update debian/watch to use https://download.qt.io/.
+  * Bump Qt build-dependencies to 5.4.1.
+  * Pass -V to dh_makeshlibs, to make dpkg generate more tight
+    dependencies (like done in qtbase).
+  * Fix a typo in libqt5quickparticles5 description (closes: #771570,
+    thanks Davide Prina for noticing).
+  * debian/mark_private_symbols.sh:
+    - Strip out trailing colon from symbols names.
+    - Unmark private symbols before processing them (copied from
+      Lisandro's change in qtbase).
+  * Update symbols files:
+    - Mark destructors symbols missing with GCC 5 as optional
+      (closes: #778087).
+    - Update debian/libqt5quick5.symbols for 5.4.1 symbols changes.
+    - Bump ABI version to 5-4-1 because there is a removed symbol.
+    - Apply the changes from mark_private_symbols.sh update.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 27 Feb 2015 17:44:03 +0300
+
+qtdeclarative-opensource-src (5.4.0-5) experimental; urgency=medium
+
+  * Add check_system_double-conversion.patch to use the system's library
+    (Closes: #778644).
+    - Build depend upon libdouble-conversion-dev.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Wed, 18 Feb 2015 16:52:44 -0300
+
+qtdeclarative-opensource-src (5.4.0-4) experimental; urgency=medium
+
+  * Update symbols files with buildds’ logs.
+  * Enable qml-module-qtqml-statemachine package.
+  * Update debian/copyright.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 28 Dec 2014 21:11:05 +0300
+
+qtdeclarative-opensource-src (5.4.0-3) experimental; urgency=medium
+
+  * Update symbols files with buildds’ logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Mon, 22 Dec 2014 19:14:35 +0300
+
+qtdeclarative-opensource-src (5.4.0-2) experimental; urgency=medium
+
+  * Update symbols files with buildds’ logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 18 Dec 2014 11:14:59 +0300
+
+qtdeclarative-opensource-src (5.4.0-1) experimental; urgency=medium
+
+  [ Timo Jyrinki ]
+  * New upstream release
+  * Bump build dependencies to 5.4.0
+  * Add a new package qml-module-qtqml-statemachine
+  * Update .install files
+  * Bump ABI version to 5.4.0
+
+  [ Dmitry Shachnev ]
+  * Drop freebsd_registers.diff, no longer needed.
+  * Update debian/copyright.
+  * Update Vcs-Browser field to point to cgit interface.
+  * Bump Standards-Version to 3.9.6, no changes needed.
+  * Temporary disable building new qml-module-qtqml-statemachine package
+    to avoid blocking uploads of other Qt parts.
+  * Add myself to Uploaders.
+  * Drop no longer needed debian/source/lintian-overrides.
+  * Update symbols files.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Wed, 17 Dec 2014 19:43:00 +0300
+
+qtdeclarative-opensource-src (5.3.2-4) unstable; urgency=medium
+
+  * Remove CMake files for plugins, we don't need to ship them.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Wed, 24 Sep 2014 23:22:11 -0300
+
+qtdeclarative-opensource-src (5.3.2-3) unstable; urgency=medium
+
+  * Upload to unstable.
+  * Update symbols files with buildds' logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Sun, 21 Sep 2014 23:55:52 -0300
+
+qtdeclarative-opensource-src (5.3.2-2) experimental; urgency=medium
+
+  * Update symbols files with buildds' logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Thu, 18 Sep 2014 14:25:34 -0300
+
+qtdeclarative-opensource-src (5.3.2-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Bump Qt build dependencies.
+  * Update symbols files with the current build log.
+  * Bump qtdeclarative-abi to 5-3-2 due to missing private symbol.
+  * Mark a new private symbol as such.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Tue, 16 Sep 2014 21:18:19 -0300
+
+qtdeclarative-opensource-src (5.3.1-6) unstable; urgency=medium
+
+  * Update symbols files with buildd's logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Sat, 06 Sep 2014 17:35:32 -0300
+
+qtdeclarative-opensource-src (5.3.1-5) unstable; urgency=medium
+
+  * Update symbols files with buildd's logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Thu, 04 Sep 2014 10:32:22 -0300
+
+qtdeclarative-opensource-src (5.3.1-4) unstable; urgency=medium
+
+  * Update symbols files with buildd's logs (Closes: 756315).
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Sun, 31 Aug 2014 18:23:22 -0300
+
+qtdeclarative-opensource-src (5.3.1-3) unstable; urgency=medium
+
+  * Update symbols files with buildds' and mips64el's logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Mon, 30 Jun 2014 22:05:42 -0300
+
+qtdeclarative-opensource-src (5.3.1-2) unstable; urgency=medium
+
+  * Bump qtbase's build dependencies to depend upon qtbase-abi-5-3-1.
+  * Update symbols files with buildds' and mip64el's logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Sat, 28 Jun 2014 00:25:19 -0300
+
+qtdeclarative-opensource-src (5.3.1-1) unstable; urgency=medium
+
+  * New upstream release.
+  * Update symbols files with buildds' logs and mips64[el] logs.
+  * Bump Qt build depends.
+  * Remove v4_yarr_jit_push_pop_addressTempRegister.patch, applied upstream.
+  * Fix qtdeclarative5-provate-dev.install.
+  * Update symbols files with current log.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Thu, 26 Jun 2014 14:10:10 -0300
+
+qtdeclarative-opensource-src (5.3.0-10) unstable; urgency=medium
+
+  * Update symbols files. Again.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Fri, 20 Jun 2014 19:35:56 -0300
+
+qtdeclarative-opensource-src (5.3.0-9) unstable; urgency=medium
+
+  * Update symbols files with buildds' logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Thu, 19 Jun 2014 11:40:40 -0300
+
+qtdeclarative-opensource-src (5.3.0-8) unstable; urgency=medium
+
+  * Update symbols files with buildds' and current logs (Closes: #746900).
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Tue, 17 Jun 2014 10:40:47 -0300
+
+qtdeclarative-opensource-src (5.3.0-7) unstable; urgency=medium
+
+  * Update symbols files with buildds' logs.
+  * Mark some new private symbols as such.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Mon, 09 Jun 2014 10:20:20 -0300
+
+qtdeclarative-opensource-src (5.3.0-6) unstable; urgency=medium
+
+  * Update symbols files with buildds' logs (Closes: #750878).
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Sun, 08 Jun 2014 10:18:39 -0300
+
+qtdeclarative-opensource-src (5.3.0-5) unstable; urgency=medium
+
+  * Upload to unstable.
+  * Backport v4_yarr_jit_push_pop_addressTempRegister.patch to fix a bug
+    of the JIT compiler in arm. Thanks Scott Kitterman for pointing it out.
+  * Update symbols files with buildds' logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Thu, 05 Jun 2014 23:53:56 -0300
+
+qtdeclarative-opensource-src (5.3.0-4) experimental; urgency=medium
+
+  [ Timo Jyrinki ]
+  * Move a Quick Widgets private header to qtdeclarative5-private-dev.
+
+  [ Dmitry Shachnev ]
+  * Add freebsd_registers.diff to fix build failure on kFreeBSD.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Thu, 05 Jun 2014 19:01:51 -0300
+
+qtdeclarative-opensource-src (5.3.0-3) experimental; urgency=medium
+
+  * Add libqt5quickwidgets5 to qtdeclarative5-dev.
+  * Update symbols files with buildds' logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Sat, 24 May 2014 11:01:14 -0300
+
+qtdeclarative-opensource-src (5.3.0-2) experimental; urgency=medium
+
+  * Update symbols files with buildds' logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Thu, 22 May 2014 23:52:06 -0300
+
+qtdeclarative-opensource-src (5.3.0-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Update symbols files with buildds' and current logs.
+  * Update header's install path.
+  * Bump Qt build dependencies.
+  * Create new binary package libqt5quickwidgets5.
+    - Add a symbols file for it.
+    - Add a lintian override for the abi virtual package.
+  * Do not create qml-module-qtquick-privatewidgets and
+    qml-module-qtquick-dialogs anymore from this source, they have been moved
+    to src:qtquickcontrols-opensource-src.
+  * Update install files.
+  * Simplify doc installation. We do not build the compressed doc from this
+    source anymore.
+  * Bump qtdeclarative-abi to qtdeclarative-abi-5-3-0.
+  * Remove qml modules transitional packages. They have already landed in
+    testing and they never existed in stable, so it's safe to remove them.
+  * Mark private symbols as such.
+  * Mark private symbols at build time and produce a diff so as to be able to
+    get the changes from build logs.
+    - Modify mark_private_symbols.sh.
+    - Run mark_private_symbols.sh from debian/rules.
+  * Don't override dh_builddeb, xz compression is now the default method.
+  * Development packages are now Arch: any and Multi-Arch: same.
+  * qml-model-qtqml-models2 should have been named qml-module-qtqml-models2.
+    Create qml-module-qtqml-models2 and make qml-model-qtqml-models2 a
+    transitional dummy package.
+  * Update debian/copyright.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Thu, 22 May 2014 02:03:52 -0300
+
+qtdeclarative-opensource-src (5.2.1-5) unstable; urgency=medium
+
+  * Rename QML modules as such, creating the proper transitional packages and
+    renaming the necessary files:
+    - qtdeclarative5-dialogs-plugin → qml-module-qtquick-dialogs.
+    - qtdeclarative5-folderlistmodel-plugin →
+      qml-module-qt-labs-folderlistmodel.
+    - qtdeclarative5-localstorage-plugin → qml-module-qtquick-localstorage.
+    - qtdeclarative5-models-plugin → qml-model-qtqml-models2.
+    - qtdeclarative5-particles-plugin → qml-module-qtquick-particles2.
+    - qtdeclarative5-privatewidgets-plugin →
+      qml-module-qtquick-privatewidgets.
+    - qtdeclarative5-qtquick2-plugin → qml-module-qtquick2.
+    - qtdeclarative5-settings-plugin → qml-module-qt-labs-settings.
+    - qtdeclarative5-test-plugin → qml-module-qttest.
+    - qtdeclarative5-window-plugin → qml-module-qtquick-window2.
+    - qtdeclarative5-xmllistmodel-plugin → qml-module-qtquick-xmllistmodel.
+  * Override lintian for duplicated long description on transitional packages.
+  * Add qml-module-qtquick2 as qml-module-qttest dependency.
+  * Update symbols files with buildd's logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Thu, 03 Apr 2014 10:04:59 -0300
+
+qtdeclarative-opensource-src (5.2.1-4) unstable; urgency=medium
+
+  * Upload to unstable.
+  * Add license to mark_private_symbols.sh and corresponding entry in
+    debian/copyright.
+  * Update symbols files with buildd's logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Mon, 24 Mar 2014 21:45:21 -0300
+
+qtdeclarative-opensource-src (5.2.1-3) experimental; urgency=medium
+
+  [ Dmitry Shachnev ]
+  * Stop building qtdeclarative5-doc from this source, it will be
+    built from qttools-opensource-src instead. This allows us to drop
+    qttools5-dev-tools build-dependency and get rid of dependency loop.
+  * Update debian/libqt5qml5.symbols from buildds’ logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Tue, 11 Feb 2014 13:30:50 -0300
+
+qtdeclarative-opensource-src (5.2.1-2) experimental; urgency=medium
+
+  * Bump Qt build dependencies.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Mon, 10 Feb 2014 13:23:01 -0300
+
+qtdeclarative-opensource-src (5.2.1-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Update symbols files with:
+    - buildd's logs.
+    - Current build. There are private simbols missing: bump qtdeclarative-abi
+      to 5-2-1.
+    - Mark private symbols as such.
+  * Adjust qtdeclarative5-private-dev: new file present.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Mon, 10 Feb 2014 12:35:35 -0300
+
+qtdeclarative-opensource-src (5.2.0-8) unstable; urgency=medium
+
+  * Update symbols files with buildd's logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Mon, 03 Feb 2014 14:28:28 -0300
+
+qtdeclarative-opensource-src (5.2.0-7) unstable; urgency=medium
+
+  * Update symbols files with buildd's logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Sun, 02 Feb 2014 16:37:45 -0300
+
+qtdeclarative-opensource-src (5.2.0-6) unstable; urgency=medium
+
+  [ Philip Muškovac ]
+  * Make qtdeclarative5-dialogs-plugin depend on
+    qtdeclarative5-privatewidgets-plugin, as it uses modules from that.
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * Upload to unstable.
+  * Move mkspec files to their new location.
+    - B-D on qtbase5-private-dev 5.2.0+dfsg-7 which changed the location.
+  * Update symbols files with buildd's logs.
+  * Update Standards-Version to 3.9.5, no changes required.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Fri, 31 Jan 2014 15:13:12 -0300
+
+qtdeclarative-opensource-src (5.2.0-5) experimental; urgency=medium
+
+  [ Dmitry Shachnev ]
+  * Do not hardcode the version number in qtdeclarative5-private-dev.install.
+
+  [ Timo Jyrinki ]
+  * Separate the qml binary into its own package, likely to be used alone.
+
+  [ Pino Toscano ]
+  * Add proper breaks/replaces for qml move.
+  * Install the private qmake stuff in qtdeclarative5-private-dev and not
+    in qtdeclarative5-dev.
+  * Simplify qtdeclarative5-examples.install.
+  * Remove the Pre-Depends on dpkg >= 1.15.6~, since that version is available
+    in Squeeze already.
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * Update symbols files with buildds' logs.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Sat, 21 Dec 2013 21:43:39 -0300
+
+qtdeclarative-opensource-src (5.2.0-4) experimental; urgency=medium
+
+  [ Dmitry Shachnev ]
+  * Update symbols files again.
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * Build depend on pkg-kde-tools >= 0.15.12~, which fixes a qptrdiff
+    substitution on s390x.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Thu, 19 Dec 2013 12:41:59 -0300
+
+qtdeclarative-opensource-src (5.2.0-3) experimental; urgency=low
+
+  * s390x updated it's gcc version while we where updating it's symbols. Re
+    update them to avoid a FTBFS.
+  * Also update symbols files with current build log.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Mon, 16 Dec 2013 15:43:40 -0300
+
+qtdeclarative-opensource-src (5.2.0-2) experimental; urgency=medium
+
+  [ Dmitry Shachnev ]
+  * Update libqt5qml5.symbols with feedback from i386, s390x and powerpc
+    buildds.
+  * Make qtdeclarative5-examples depend on all plugins used by examples.
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * Mark private symbols as such.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Mon, 16 Dec 2013 13:29:28 -0300
+
+qtdeclarative-opensource-src (5.2.0-1) experimental; urgency=low
+
+  [ Dmitry Shachnev ]
+  * New upstream release.
+  * Drop build-dependency on libqt5v8-5-private-dev, no longer needed.
+  * Add copyright information for 3rdparty code to debian/copyright.
+  * Update .install files.
+  * Add new qtdeclarative5-settings-plugin package.
+  * Make libqt5qml5 provide qtdeclarative-abi-5-2-0.
+  * Update symbols files.
+  * Explicitly define DEB_HOST_MULTIARCH in debian/rules.
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * Add python as build dependency.
+  * Bump other Qt build-dependecies to 5.2.0.
+  * Adjust install files.
+  * Update symbols files:
+    - The symbols removed were either introduced with beta1 or private symbols.
+    - Regenerate symbols that used to have the qreal substitution.
+  * Mark private symbols as such.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Sat, 14 Dec 2013 09:13:18 -0300
+
+qtdeclarative-opensource-src (5.1.1-1) unstable; urgency=low
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * New upstream release.
+  * Update symbols file with buildds' logs.
+  * Remove fix_systemdialogs_path, applied upstream.
+  * Adjust examples install file.
+  * Update symbols files with current build.
+  * Tighten Qt 5 build dependencies.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Fri, 30 Aug 2013 22:09:43 -0300
+
+qtdeclarative-opensource-src (5.1.0-2) unstable; urgency=low
+
+  * Upload to unstable.
+  * Add missing license information for tests/auto/qml/parserstress/tests/ecma*
+    in debian/copyright. Thanks Scott Kitterman for the tip.
+  * Update symbols files.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Sat, 10 Aug 2013 21:19:34 -0300
+
+qtdeclarative-opensource-src (5.1.0-1) experimental; urgency=low
+
+  [ Timo Jyrinki ]
+  * New upstream release.
+  * Bump build dependencies to 5.1.0.
+  * Add new plugin packages Dialogs, Models, Private Widgets.
+  * Update install files.
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * Update watch file.
+  * Bump the build dependency on libqt5v8-5-private-dev to 5.1.0-2~,
+    as I wrongly removed the private headers in the previous version.
+  * Add fix_systemdialogs_path to allow installing the sistemdialogs
+    example binary in it's place. Upstream bug
+    https://bugreports.qt-project.org/browse/QTBUG-32359.
+  * Update symbols files.
+  * Mark private symbols to provide qtdeclarative-abi-5-1-0.
+    - Make libqt5qml5 provide qtdeclarative-abi-5-1-0.
+    - Add mark_private_symbols.sh to mark the symbols.
+    - Actually mark the symbols.
+    - Add lintian overrides for libqt5quickparticles5 and libqt5quick5.
+  * Add .qml to the list of file extensions that should not be executable.
+  * Check files permission in a broader path.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Thu, 11 Jul 2013 13:39:12 -0300
+
+qtdeclarative-opensource-src (5.0.2-6) experimental; urgency=low
+
+  * Update symbols files.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Wed, 26 Jun 2013 18:29:51 -0300
+
+qtdeclarative-opensource-src (5.0.2-5) experimental; urgency=low
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * Make every package that ships a binary managed by qtchooser depend on it.
+  * Build the documentation shipped with this submodule as a build-indep task:
+    - Add the necessary indep build dependencies:
+      * qttools5-dev-tools to use qhelpgenerator.
+      * libqt5sql5-sqlite to generate qch doc.
+    - Build and create packages for qch and HTML doc formats.
+  * Update symbols files.
+  * Set qtdeclarative5-dbg as M-A same, so it can be coinstalled with other
+    archs debugging symbols.
+
+  [ Timo Jyrinki ]
+  * Depend on libgl1-mesa-dri from the qtquick2 QML plugin
+    - Not depending may cause crashes due to lack of VBO support
+      (https://bugs.launchpad.net/bugs/1176199)
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Wed, 19 Jun 2013 21:33:20 -0300
+
+qtdeclarative-opensource-src (5.0.2-4) experimental; urgency=low
+
+  [ Pino Toscano ]
+  * debian/control: remove extra ${misc:Pre-Depends} from qmlscene and
+    qtdeclarative5-dev-tools.
+  * Update symbols files.
+  * Fix Vcs-* headers.
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * Update symbols with amd64 build.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Sat, 18 May 2013 21:25:40 -0300
+
+qtdeclarative-opensource-src (5.0.2-3) experimental; urgency=low
+
+  [ Pino Toscano ]
+  * Update symbols files.
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * Update symbols files.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Mon, 06 May 2013 14:53:19 -0300
+
+qtdeclarative-opensource-src (5.0.2-2) experimental; urgency=low
+
+  [ Lisandro Damián Nicanor Pérez Meyer ]
+  * Fix wrong permissions of examples.
+
+  [ Pino Toscano ]
+  * Update symbols files.
+  * qtdeclarative5-localstorage-plugin: depend on libqt5sql5-sqlite, as it is
+    used directly.
+  * Remove extra ${shlibs:Depends} from qtdeclarative5-private-dev.
+  * Bump the libqt5v8-5-private-dev and libqt5xmlpatterns5-private-dev build
+    dependencies to 5.0.2~.
+  * rules: use $(DEB_HOST_MULTIARCH) everywhere.
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Tue, 30 Apr 2013 20:45:49 -0300
+
+qtdeclarative-opensource-src (5.0.2-1) experimental; urgency=low
+
+  * Initial release. (Closes: #697509)
+
+ -- Lisandro Damián Nicanor Pérez Meyer <lisandro@debian.org>  Sun, 21 Apr 2013 21:46:50 -0300
