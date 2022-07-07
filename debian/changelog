@@ -1,4 +1,4 @@
-qtdeclarative-opensource-src (5.15.4+dfsg-3+rpi1) bookworm-staging; urgency=medium
+qtdeclarative-opensource-src (5.15.4+dfsg-4+rpi1) bookworm-staging; urgency=medium
 
   [changes brought forward from 5.14.2+dfsg-2+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sat, 04 Jul 2020 19:53:58 +0000]
   * Update symbols file for raspbian.
@@ -7,7 +7,14 @@ qtdeclarative-opensource-src (5.15.4+dfsg-3+rpi1) bookworm-staging; urgency=medi
   * Mark a gcc 10 only symbol as optional.
   * Disable testsuite.
 
- -- Raspbian forward porter <root@raspbian.org>  Thu, 23 Jun 2022 04:00:15 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Thu, 07 Jul 2022 13:21:30 +0000
+
+qtdeclarative-opensource-src (5.15.4+dfsg-4) unstable; urgency=medium
+
+  [ Jonah Brüchert ]
+  * Backport upstream patch to fix asynchronous loaders loading when inactive
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 01 Jul 2022 23:08:41 +0300
 
 qtdeclarative-opensource-src (5.15.4+dfsg-3) unstable; urgency=medium
 
