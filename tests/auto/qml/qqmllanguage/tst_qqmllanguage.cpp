@@ -146,6 +146,7 @@ private slots:
     void aliasProperties();
     void aliasPropertiesAndSignals();
     void aliasPropertyChangeSignals();
+    void qtbug_89822();
     void componentCompositeType();
     void i18n();
     void i18n_data();
@@ -333,6 +334,8 @@ private slots:
     void qualifiedScopeInCustomParser();
     void accessNullPointerPropertyCache();
     void bareInlineComponent();
+
+    void hangOnWarning();
 
 private:
     QQmlEngine engine;
@@ -2228,6 +2231,12 @@ void tst_qqmllanguage::aliasPropertiesAndSignals()
     QScopedPointer<QObject> o(component.create());
     QVERIFY(o);
     QCOMPARE(o->property("test").toBool(), true);
+}
+
+void tst_qqmllanguage::qtbug_89822()
+{
+    QQmlComponent component(&engine, testFileUrl("qtbug_89822.qml"));
+    VERIFY_ERRORS("qtbug_89822.errors.txt");
 }
 
 // Test that the root element in a composite type can be a Component
@@ -5839,6 +5848,16 @@ void tst_qqmllanguage::bareInlineComponent()
         }
     }
     QVERIFY(tab1Found);
+}
+
+void tst_qqmllanguage::hangOnWarning()
+{
+    QTest::ignoreMessage(QtWarningMsg,
+                         qPrintable(QStringLiteral("%1:3 : Ignored annotation")
+                                            .arg(testFileUrl("hangOnWarning.qml").toString())));
+    QQmlComponent component(&engine, testFileUrl("hangOnWarning.qml"));
+    QScopedPointer<QObject> object(component.create());
+    QVERIFY(object != nullptr);
 }
 
 QTEST_MAIN(tst_qqmllanguage)

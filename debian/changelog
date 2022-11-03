@@ -1,4 +1,4 @@
-qtdeclarative-opensource-src (5.15.4+dfsg-4+rpi1) bookworm-staging; urgency=medium
+qtdeclarative-opensource-src (5.15.6+dfsg-2+rpi1) bookworm-staging; urgency=medium
 
   [changes brought forward from 5.14.2+dfsg-2+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sat, 04 Jul 2020 19:53:58 +0000]
   * Update symbols file for raspbian.
@@ -7,7 +7,35 @@ qtdeclarative-opensource-src (5.15.4+dfsg-4+rpi1) bookworm-staging; urgency=medi
   * Mark a gcc 10 only symbol as optional.
   * Disable testsuite.
 
- -- Raspbian forward porter <root@raspbian.org>  Thu, 07 Jul 2022 13:21:30 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Thu, 03 Nov 2022 16:10:06 +0000
+
+qtdeclarative-opensource-src (5.15.6+dfsg-2) unstable; urgency=medium
+
+  * Update symbols files from buildds’ logs.
+  * Upload to unstable.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 29 Sep 2022 11:39:46 +0300
+
+qtdeclarative-opensource-src (5.15.6+dfsg-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Refresh fix_test_remove_qlibraryinfo.patch.
+  * Bump Qt build-dependencies to 5.15.6.
+  * Bump ABI version to 5-15-6.
+  * Update debian/source/lintian-overrides for Lintian pointed hints.
+  * Update debian/copyright.
+  * Update debian/libqt5qml5.symbols from the current build logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 11 Sep 2022 20:27:43 +0300
+
+qtdeclarative-opensource-src (5.15.5+dfsg-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Bump Qt build-dependencies to 5.15.5.
+  * Bump ABI version to 5-15-5.
+  * Refresh patches for the new release.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 03 Jul 2022 20:15:45 +0300
 
 qtdeclarative-opensource-src (5.15.4+dfsg-4) unstable; urgency=medium
 
