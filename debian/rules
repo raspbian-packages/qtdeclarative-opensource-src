@@ -51,6 +51,10 @@ override_dh_auto_install-arch:
 	-o -name '*.qml' \
 	\) -print0 | xargs -0 chmod a-x
 
+	# Explicitly remove a .bat file included in examples
+	# Per Debian Policy, we cannot ship a non-standard executable without recommending a corresponding runtime
+	rm -f debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/qt5/examples/quick/shadereffects/content/shaders/rhi/compile.bat
+
 override_dh_auto_install-indep:
 	dh_auto_build -- INSTALL_ROOT=$(CURDIR)/debian/tmp install_docs
 
@@ -74,6 +78,7 @@ ifneq (,$(filter $(DEB_HOST_ARCH),hppa ia64 mips mips64el mipsel powerpc ppc64 s
 	-xvfb-run -a \
 	         -s "-screen 0 1024x768x24 +extension RANDR +extension RENDER +extension GLX" \
 	         dh_auto_test --max-parallel=1 -- -k -Ctests/auto \
+	         TZ=UTC \
 	         QML2_IMPORT_PATH=$(CURDIR)/test_root/usr/lib/$(DEB_HOST_MULTIARCH)/qt5/qml \
 	         QT_PLUGIN_PATH=$(CURDIR)/plugins \
 	         LD_LIBRARY_PATH=$(CURDIR)/lib
@@ -81,6 +86,7 @@ else
 	xvfb-run -a \
 	         -s "-screen 0 1024x768x24 +extension RANDR +extension RENDER +extension GLX" \
 	         dh_auto_test --max-parallel=1 -- -k -Ctests/auto \
+	         TZ=UTC \
 	         QML2_IMPORT_PATH=$(CURDIR)/test_root/usr/lib/$(DEB_HOST_MULTIARCH)/qt5/qml \
 	         QT_PLUGIN_PATH=$(CURDIR)/plugins \
 	         LD_LIBRARY_PATH=$(CURDIR)/lib
