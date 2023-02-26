@@ -203,8 +203,7 @@ private:
 
     ConnectResult connectTo(bool block, const QString &file, bool recordFromStart = true,
                           uint flushInterval = 0, bool restrictServices = true,
-                          const QString &executable
-            = QLibraryInfo::location(QLibraryInfo::BinariesPath) + "/qmlscene");
+                          const QString &executable = QStringLiteral(TESTBINDIR "/qmlscene"));
     void checkProcessTerminated();
     void checkTraceReceived();
     void checkJsHeap();
