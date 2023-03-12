@@ -1,4 +1,4 @@
-qtdeclarative-opensource-src (5.15.8+dfsg-2+rpi1) bookworm-staging; urgency=medium
+qtdeclarative-opensource-src (5.15.8+dfsg-3+rpi1) bookworm-staging; urgency=medium
 
   [changes brought forward from 5.14.2+dfsg-2+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sat, 04 Jul 2020 19:53:58 +0000]
   * Update symbols file for raspbian.
@@ -7,7 +7,14 @@ qtdeclarative-opensource-src (5.15.8+dfsg-2+rpi1) bookworm-staging; urgency=medi
   * Mark a gcc 10 only symbol as optional.
   * Disable testsuite.
 
- -- Raspbian forward porter <root@raspbian.org>  Sun, 22 Jan 2023 19:47:09 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Sun, 12 Mar 2023 20:00:10 +0000
+
+qtdeclarative-opensource-src (5.15.8+dfsg-3) unstable; urgency=medium
+
+  * Backport upstream patch to fix crash when destructing QQuickItem
+    (closes: #983597).
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 26 Feb 2023 23:32:58 +0300
 
 qtdeclarative-opensource-src (5.15.8+dfsg-2) unstable; urgency=medium
 
