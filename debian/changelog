@@ -1,4 +1,4 @@
-qtdeclarative-opensource-src (5.15.8+dfsg-3+rpi1) bookworm-staging; urgency=medium
+qtdeclarative-opensource-src (5.15.10+dfsg-2+rpi1) trixie-staging; urgency=medium
 
   [changes brought forward from 5.14.2+dfsg-2+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sat, 04 Jul 2020 19:53:58 +0000]
   * Update symbols file for raspbian.
@@ -7,7 +7,36 @@ qtdeclarative-opensource-src (5.15.8+dfsg-3+rpi1) bookworm-staging; urgency=medi
   * Mark a gcc 10 only symbol as optional.
   * Disable testsuite.
 
- -- Raspbian forward porter <root@raspbian.org>  Sun, 12 Mar 2023 20:00:10 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Tue, 26 Sep 2023 13:49:42 +0000
+
+qtdeclarative-opensource-src (5.15.10+dfsg-2) unstable; urgency=medium
+
+  * Upload to unstable.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 08 Jul 2023 09:59:44 +0300
+
+qtdeclarative-opensource-src (5.15.10+dfsg-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Drop gcc_11.patch, included in the new release.
+  * Refresh fix_test_remove_qlibraryinfo.patch.
+  * Bump Qt build-dependencies to 5.15.10.
+  * Bump ABI version to qtdeclarative-abi-5-15-10.
+  * Update upstream copyright year.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 10 Jun 2023 20:17:27 +0300
+
+qtdeclarative-opensource-src (5.15.9+dfsg-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Bump Qt build-dependencies to 5.15.9.
+  * Bump ABI version to qtdeclarative-abi-5-15-9.
+  * Drop patches, included in the new release:
+    - support_apos_in_styled_text.patch
+    - fix_sweep_step.patch
+  * Minor debian/copyright updates.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 16 Apr 2023 19:19:48 +0300
 
 qtdeclarative-opensource-src (5.15.8+dfsg-3) unstable; urgency=medium
 
