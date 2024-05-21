@@ -66,7 +66,7 @@ QList<QQmlDebugClient *> tst_QQmlDebugTranslationService::createClients()
 
 void tst_QQmlDebugTranslationService::pluginConnection()
 {
-    auto executable = QLibraryInfo::location(QLibraryInfo::BinariesPath) + "/qml";
+    auto executable = QStringLiteral(TESTBINDIR "/qml");
     auto services = "DebugTranslation";
     auto extraArgs = testFile(QMLFILE);
     auto block = true;
