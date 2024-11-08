@@ -18,7 +18,7 @@ Last-Update: 2023-02-26
 
 --- a/src/quick/items/qquickitem.cpp
 +++ b/src/quick/items/qquickitem.cpp
-@@ -2326,6 +2326,7 @@ QQuickItem::QQuickItem(QQuickItemPrivate
+@@ -2328,6 +2328,7 @@ QQuickItem::QQuickItem(QQuickItemPrivate
  QQuickItem::~QQuickItem()
  {
      Q_D(QQuickItem);
@@ -26,7 +26,7 @@ Last-Update: 2023-02-26
  
      if (d->windowRefCount > 1)
          d->windowRefCount = 1; // Make sure window is set to null in next call to derefWindow().
-@@ -2689,9 +2690,8 @@ void QQuickItem::setParentItem(QQuickIte
+@@ -2695,9 +2696,8 @@ void QQuickItem::setParentItem(QQuickIte
  
          const bool wasVisible = isVisible();
          op->removeChild(this);
@@ -37,7 +37,7 @@ Last-Update: 2023-02-26
      } else if (d->window) {
          QQuickWindowPrivate::get(d->window)->parentlessItems.remove(this);
      }
-@@ -2768,8 +2768,9 @@ void QQuickItem::setParentItem(QQuickIte
+@@ -2774,8 +2774,9 @@ void QQuickItem::setParentItem(QQuickIte
  
      d->itemChange(ItemParentHasChanged, d->parentItem);
  
@@ -49,7 +49,7 @@ Last-Update: 2023-02-26
          emit d->parentItem->visibleChildrenChanged();
  }
  
-@@ -2965,7 +2966,8 @@ void QQuickItemPrivate::removeChild(QQui
+@@ -2971,7 +2972,8 @@ void QQuickItemPrivate::removeChild(QQui
  
      itemChange(QQuickItem::ItemChildRemovedChange, child);
  
@@ -59,7 +59,7 @@ Last-Update: 2023-02-26
  }
  
  void QQuickItemPrivate::refWindow(QQuickWindow *c)
-@@ -3194,6 +3196,7 @@ QQuickItemPrivate::QQuickItemPrivate()
+@@ -3200,6 +3202,7 @@ QQuickItemPrivate::QQuickItemPrivate()
      , touchEnabled(false)
  #endif
      , hasCursorHandler(false)
@@ -67,7 +67,7 @@ Last-Update: 2023-02-26
      , dirtyAttributes(0)
      , nextDirtyItem(nullptr)
      , prevDirtyItem(nullptr)
-@@ -6106,9 +6109,11 @@ bool QQuickItemPrivate::setEffectiveVisi
+@@ -6112,9 +6115,11 @@ bool QQuickItemPrivate::setEffectiveVisi
          QAccessible::updateAccessibility(&ev);
      }
  #endif
@@ -94,7 +94,7 @@ Last-Update: 2023-02-26
          TransformOrigin         = 0x00000001,
 --- a/tests/auto/quick/qquickitem2/tst_qquickitem.cpp
 +++ b/tests/auto/quick/qquickitem2/tst_qquickitem.cpp
-@@ -131,6 +131,8 @@ private slots:
+@@ -132,6 +132,8 @@ private slots:
  
      void grab();
  
@@ -103,7 +103,7 @@ Last-Update: 2023-02-26
  private:
      QQmlEngine engine;
      bool qt_tab_all_widgets() {
-@@ -3520,6 +3522,52 @@ void tst_QQuickItem::isAncestorOf()
+@@ -3532,6 +3534,52 @@ void tst_QQuickItem::isAncestorOf()
      QVERIFY(!sub2.isAncestorOf(&sub2));
  }
  

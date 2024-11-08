@@ -1,4 +1,4 @@
-qtdeclarative-opensource-src (5.15.13+dfsg-2+rpi1) trixie-staging; urgency=medium
+qtdeclarative-opensource-src (5.15.15+dfsg-2+rpi1) trixie-staging; urgency=medium
 
   [changes brought forward from 5.14.2+dfsg-2+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sat, 04 Jul 2020 19:53:58 +0000]
   * Update symbols file for raspbian.
@@ -7,7 +7,24 @@ qtdeclarative-opensource-src (5.15.13+dfsg-2+rpi1) trixie-staging; urgency=mediu
   * Mark a gcc 10 only symbol as optional.
   * Disable testsuite.
 
- -- Raspbian forward porter <root@raspbian.org>  Fri, 07 Jun 2024 21:44:06 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Fri, 08 Nov 2024 06:12:01 +0000
+
+qtdeclarative-opensource-src (5.15.15+dfsg-2) unstable; urgency=medium
+
+  * Upload to unstable.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 25 Oct 2024 12:41:19 +0300
+
+qtdeclarative-opensource-src (5.15.15+dfsg-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Bump Qt build-dependencies to 5.15.15.
+  * Bump ABI version to qtdeclarative-abi-5-15-15.
+  * Refresh patches for the new release.
+  * Bump Standards-Version to 4.7.0, no changes needed.
+  * Update symbols files from buildds’ and current build logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Mon, 02 Sep 2024 16:08:26 +0300
 
 qtdeclarative-opensource-src (5.15.13+dfsg-2) unstable; urgency=medium
 

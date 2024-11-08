@@ -1,6 +1,6 @@
-# SymbolsHelper-Confirmed: 5.15.4 amd64
+# SymbolsHelper-Confirmed: 5.15.15 amd64 i386
 libQt5Quick.so.5 libqt5quick5 #MINVER# | libqt5quick5-gles #MINVER#
-| libqt5quick5 #MINVER# | libqt5quick5-gles #MINVER#, qtdeclarative-abi-5-15-13
+| libqt5quick5 #MINVER# | libqt5quick5-gles #MINVER#, qtdeclarative-abi-5-15-15
 * Build-Depends-Packages: qtdeclarative5-dev, qtdeclarative5-private-dev
  Qt_5.0@Qt_5.0 5.6.0~beta
  Qt_5.10@Qt_5.10 5.10.0
@@ -802,6 +802,7 @@ libQt5Quick.so.5 libqt5quick5 #MINVER# | libqt5quick5-gles #MINVER#
  _ZNK9QSGEngine19createRectangleNodeEv@Qt_5 5.9.0~beta
  _ZNK9QSGEngine19createTextureFromIdEjRK5QSize6QFlagsINS_19CreateTextureOptionEE@Qt_5 5.4.0
  _ZNK9QSGEngine22createTextureFromImageERK6QImage6QFlagsINS_19CreateTextureOptionEE@Qt_5 5.4.0
+ (optional=templinst|subst)_ZNSt8__detail16_Hashtable_allocINSt3pmr21polymorphic_allocatorINS_10_Hash_nodeIP10QQuickItemLb0EEEEEE19_M_allocate_bucketsE{size_t}@Qt_5 5.15.15
  _ZTI10QQuickItem@Qt_5 5.0.2
  _ZTI10QQuickView@Qt_5 5.0.2
  _ZTI10QSGTexture@Qt_5 5.0.2

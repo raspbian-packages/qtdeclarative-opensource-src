@@ -59,6 +59,7 @@
 #include <QtCore/private/qnumeric_p.h>
 #include <QtGui/qpa/qplatformtheme.h>
 #include <QtCore/qloggingcategory.h>
+#include <QtCore/private/qduplicatetracker_p.h>
 
 #include <private/qqmlglobal_p.h>
 #include <private/qqmlengine_p.h>
@@ -69,6 +70,7 @@
 #include <QtQuick/private/qquickaccessibleattached_p.h>
 #include <QtQuick/private/qquickhoverhandler_p.h>
 #include <QtQuick/private/qquickpointerhandler_p.h>
+#include <QtQuick/private/qquickpointerhandler_p_p.h>
 
 #include <private/qv4engine_p.h>
 #include <private/qv4object_p.h>
@@ -2527,6 +2529,7 @@ QQuickItem* QQuickItemPrivate::nextPrevItemInTabFocusChain(QQuickItem *item, boo
     QQuickItem *current = item;
     qCDebug(DBG_FOCUS) << "QQuickItemPrivate::nextPrevItemInTabFocusChain: startItem:" << startItem;
     qCDebug(DBG_FOCUS) << "QQuickItemPrivate::nextPrevItemInTabFocusChain: firstFromItem:" << firstFromItem;
+    QDuplicateTracker<QQuickItem *> cycleDetector;
     do {
         qCDebug(DBG_FOCUS) << "QQuickItemPrivate::nextPrevItemInTabFocusChain: current:" << current;
         qCDebug(DBG_FOCUS) << "QQuickItemPrivate::nextPrevItemInTabFocusChain: from:" << from;
@@ -2593,7 +2596,10 @@ QQuickItem* QQuickItemPrivate::nextPrevItemInTabFocusChain(QQuickItem *item, boo
         // traversed all of the chain (by compare the [current] item with [startItem])
         // Since the [startItem] might be promoted to its parent if it is invisible,
         // we still have to check [current] item with original start item
-        if ((current == startItem || current == originalStartItem) && from == firstFromItem) {
+        // We might also run into a cycle before we reach firstFromItem again
+        // but note that we have to ignore current if we are meant to skip it
+        if (((current == startItem || current == originalStartItem) && from == firstFromItem) ||
+                (!skip && cycleDetector.hasSeen(current))) {
             // wrapped around, avoid endless loops
             if (item == contentItem) {
                 qCDebug(DBG_FOCUS) << "QQuickItemPrivate::nextPrevItemInTabFocusChain: looped, return contentItem";
@@ -6341,6 +6347,15 @@ void QQuickItemPrivate::itemChange(QQuickItem::ItemChange change, const QQuickIt
     }
     case QQuickItem::ItemSceneChange:
         q->itemChange(change, data);
+        if (hasPointerHandlers()) {
+            for (QQuickPointerHandler *handler : qAsConst(extra->pointerHandlers)) {
+                if (auto *currentEvent = handler->currentEvent()) {
+                    for (int i = 0; i < currentEvent->pointCount(); ++i)
+                        currentEvent->point(i)->cancelAllGrabs(handler);
+                }
+            }
+        }
+
         break;
     case QQuickItem::ItemVisibleHasChanged: {
         q->itemChange(change, data);
