@@ -1,4 +1,4 @@
-qtdeclarative-opensource-src (5.15.15+dfsg-2+rpi1) trixie-staging; urgency=medium
+qtdeclarative-opensource-src (5.15.15+dfsg-3+rpi1) trixie-staging; urgency=medium
 
   [changes brought forward from 5.14.2+dfsg-2+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sat, 04 Jul 2020 19:53:58 +0000]
   * Update symbols file for raspbian.
@@ -7,7 +7,14 @@ qtdeclarative-opensource-src (5.15.15+dfsg-2+rpi1) trixie-staging; urgency=mediu
   * Mark a gcc 10 only symbol as optional.
   * Disable testsuite.
 
- -- Raspbian forward porter <root@raspbian.org>  Fri, 08 Nov 2024 06:12:01 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Wed, 13 Nov 2024 04:02:45 +0000
+
+qtdeclarative-opensource-src (5.15.15+dfsg-3) unstable; urgency=medium
+
+  * Backport upstream patch to fortify qmlExecuteDeferred some more.
+  * Update debian/libqt5qml5.symbols from buildds’ logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 07 Nov 2024 11:47:17 +0300
 
 qtdeclarative-opensource-src (5.15.15+dfsg-2) unstable; urgency=medium
 

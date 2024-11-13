@@ -1,4 +1,4 @@
-# SymbolsHelper-Confirmed: 5.15.15 amd64 i386
+# SymbolsHelper-Confirmed: 5.15.15 amd64 arm64 armhf hppa i386 sh4
 libQt5Qml.so.5 libqt5qml5 #MINVER#
 | libqt5qml5 #MINVER#, qtdeclarative-abi-5-15-15
 * Build-Depends-Packages: qtdeclarative5-dev, qtdeclarative5-private-dev
@@ -827,9 +827,9 @@ libQt5Qml.so.5 libqt5qml5 #MINVER#
  (optional=templinst)_ZNSt6vectorI7QStringSaIS0_EE17_M_realloc_appendIJS0_EEEvDpOT_@Qt_5 5.15.15
  (optional=templinst|subst)_ZNSt6vectorI7QStringSaIS0_EE7reserveE{size_t}@Qt_5 5.14.1
  (optional=templinst)_ZNSt6vectorIbSaIbEE13_M_insert_auxESt13_Bit_iteratorb@Qt_5 5.10.0
- (optional=templinst|subst|arch=!alpha !mips64el !riscv64 !sparc64)_ZNSt6vectorIbSaIbEE13_M_reallocateE{size_t}@Qt_5 5.12.5
+ (optional=templinst|subst|arch=!alpha !hppa !mips64el !riscv64 !sh4 !sparc64)_ZNSt6vectorIbSaIbEE13_M_reallocateE{size_t}@Qt_5 5.12.5
  (optional=templinst|arch=amd64 arm64 armhf|subst)_ZNSt6vectorIcSaIcEE17_M_default_appendE{size_t}@Qt_5 5.14.1
- (optional=templinst|arch=amd64)_ZNSt6vectorIcSaIcEE17_M_realloc_appendIJRKcEEEvDpOT_@Qt_5 5.15.15
+ (optional=templinst|arch=amd64 arm64 armhf)_ZNSt6vectorIcSaIcEE17_M_realloc_appendIJRKcEEEvDpOT_@Qt_5 5.15.15
  (optional=templinst)_ZNSt6vectorIdSaIdEE17_M_realloc_appendIJRKdEEEvDpOT_@Qt_5 5.15.15
  (optional=templinst)_ZNSt6vectorIdSaIdEE17_M_realloc_appendIJdEEEvDpOT_@Qt_5 5.15.15
  (optional=templinst|subst)_ZNSt6vectorIdSaIdEE7reserveE{size_t}@Qt_5 5.14.1
