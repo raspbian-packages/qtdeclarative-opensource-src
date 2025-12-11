@@ -59,7 +59,7 @@ private:
 void TestQmllint::initTestCase()
 {
     QQmlDataTest::initTestCase();
-    m_qmllintPath = QLibraryInfo::location(QLibraryInfo::BinariesPath) + QLatin1String("/qmllint");
+    m_qmllintPath = QLatin1String(TESTBINDIR "/qmllint");
 #ifdef Q_OS_WIN
     m_qmllintPath += QLatin1String(".exe");
 #endif
@@ -214,7 +214,7 @@ void TestQmllint::cleanQmlCode()
 
 QString TestQmllint::runQmllint(const QString &fileToLint, bool shouldSucceed)
 {
-    auto qmlImportDir = QLibraryInfo::location(QLibraryInfo::Qml2ImportsPath);
+    auto qmlImportDir = QString::fromUtf8(qgetenv("QML2_IMPORT_PATH"));
     QStringList args;
     args << QStringLiteral("-U") << testFile(fileToLint)
          << QStringLiteral("-I") << qmlImportDir
