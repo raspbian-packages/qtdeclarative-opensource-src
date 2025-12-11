@@ -1,0 +1,16 @@
+# SymbolsHelper-Confirmed: 5.15.16 amd64
+libQt5QmlModels.so.5 libqt5qmlmodels5 #MINVER#
+| libqt5qmlmodels5 #MINVER#, qtdeclarative-abi-5-15-17
+* Build-Depends-Packages: qtdeclarative5-dev, qtdeclarative5-private-dev
+ Qt_5@Qt_5 5.14.1
+ (symver)Qt_5_PRIVATE_API 0 1
+ _Z31qml_register_types_QtQml_Modelsv@Qt_5 5.15.1
+ (optional=templinst|arch=alpha mips64el riscv64 sparc64)_ZNK3QV45Value2asINS_14FunctionObjectEEEPKT_v@Qt_5 5.15.2
+ _ZTI12QQmlRefCount@Qt_5 5.14.1
+ _ZTI16QQmlCustomParser@Qt_5 5.14.1
+ _ZTIN3QV415ExecutionEngine9DeletableE@Qt_5 5.14.1
+ _ZTS12QQmlRefCount@Qt_5 5.14.1
+ _ZTS16QQmlCustomParser@Qt_5 5.14.1
+ _ZTSN3QV415ExecutionEngine9DeletableE@Qt_5 5.14.1
+ _ZTV16QQmlCustomParser@Qt_5 5.14.1
+ _ZZZNK3QV414FunctionObject4callEPKNS_5ValueES3_iENKUlvE_clEvE15qstring_literal@Qt_5 5.14.1
