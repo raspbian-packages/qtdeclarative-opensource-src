@@ -1,4 +1,4 @@
-qtdeclarative-opensource-src (5.15.15+dfsg-3+rpi1) trixie-staging; urgency=medium
+qtdeclarative-opensource-src (5.15.17+dfsg-4+rpi1) forky-staging; urgency=medium
 
   [changes brought forward from 5.14.2+dfsg-2+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sat, 04 Jul 2020 19:53:58 +0000]
   * Update symbols file for raspbian.
@@ -7,7 +7,54 @@ qtdeclarative-opensource-src (5.15.15+dfsg-3+rpi1) trixie-staging; urgency=mediu
   * Mark a gcc 10 only symbol as optional.
   * Disable testsuite.
 
- -- Raspbian forward porter <root@raspbian.org>  Wed, 13 Nov 2024 04:02:45 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Sat, 24 Jan 2026 17:42:09 +0000
+
+qtdeclarative-opensource-src (5.15.17+dfsg-4) unstable; urgency=medium
+
+  * Backport upstream patches to fix CVE-2025-12385 (closes: #1122055).
+  * Update symbols files from buildds’ logs.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 11 Dec 2025 13:02:24 +0300
+
+qtdeclarative-opensource-src (5.15.17+dfsg-3) unstable; urgency=medium
+
+  * Backport upstream commit 136bd72b35907e53fc084ff6f735f29363026c75 to enable
+    the JIT on x86_64 Hurd (hurd-amd64); patch hurd_x86_64_jit.patch.
+  * Update the architectures on which consider the test suite as non-fatal:
+    - add hurd-amd64: it is the same situation as hurd-i386 (i.e. lack of DRI
+      for OpenGL)
+    - add x32: there seems to be failures
+    - drop ia64, and mipsel: discontinued architectures
+  * Remove all ia64-specific symbols from debian/libqt5qmlmodels5.symbols,
+    as the architecture is discontinued.
+
+ -- Pino Toscano <pino@debian.org>  Mon, 29 Sep 2025 22:29:03 +0200
+
+qtdeclarative-opensource-src (5.15.17+dfsg-2) unstable; urgency=medium
+
+  * Bump Standards-Version to 4.7.2, no changes needed.
+  * Upload to unstable.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Mon, 01 Sep 2025 22:51:52 +0300
+
+qtdeclarative-opensource-src (5.15.17+dfsg-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Bump Qt build-dependencies to 5.15.17.
+  * Bump ABI version to qtdeclarative-abi-5-15-17.
+  * Refresh fortify_qmlexecutedeferred.patch.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sat, 05 Jul 2025 12:43:04 +0300
+
+qtdeclarative-opensource-src (5.15.16+dfsg-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Bump Qt build-dependencies to 5.15.16.
+  * Bump ABI version to qtdeclarative-abi-5-15-16.
+  * Refresh fortify_qmlexecutedeferred.patch.
+  * Remove Qt_5.x symbols from the symbols files.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Mon, 03 Feb 2025 15:09:47 +0300
 
 qtdeclarative-opensource-src (5.15.15+dfsg-3) unstable; urgency=medium
 

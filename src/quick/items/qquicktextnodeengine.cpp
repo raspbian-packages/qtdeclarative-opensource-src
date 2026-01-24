@@ -47,6 +47,7 @@
 #include <QtGui/qtextobject.h>
 #include <QtGui/qtexttable.h>
 #include <QtGui/qtextlist.h>
+#include <QtGui/private/qimage_p.h>
 
 #include <private/qquicktext_p.h>
 #include <private/qquicktextdocument_p.h>
@@ -206,10 +207,7 @@ void QQuickTextNodeEngine::addTextDecorations(const QVarLengthArray<TextDecorati
 
         {
             QRectF &rect = textDecoration.rect;
-            rect.setY(qRound(rect.y()
-                             + m_currentLine.ascent()
-                             + (m_currentLine.leadingIncluded() ? m_currentLine.leading() : qreal(0.0f))
-                             + offset));
+            rect.setY(qRound(rect.y() + m_currentLine.ascent() + offset));
             rect.setHeight(thickness);
         }
 
@@ -467,12 +465,16 @@ void QQuickTextNodeEngine::addTextObject(const QTextBlock &block, const QPointF 
             }
         }
 
-        if (image.isNull()) {
-            image = QImage(size.toSize(), QImage::Format_ARGB32_Premultiplied);
-            image.fill(Qt::transparent);
-            {
-                QPainter painter(&image);
-                handler->drawObject(&painter, image.rect(), textDocument, pos, format);
+        if (image.isNull() && !size.isEmpty()) {
+            QImageData::ImageSizeParameters szp =
+                QImageData::calculateImageParameters(size.width(), size.height(), 32);
+            if (szp.isValid() && szp.totalSize <= 268435456L /* 256 MB */) {
+                image = QImage(size.toSize(), QImage::Format_ARGB32_Premultiplied);
+                image.fill(Qt::transparent);
+                {
+                    QPainter painter(&image);
+                    handler->drawObject(&painter, image.rect(), textDocument, pos, format);
+                }
             }
         }
 

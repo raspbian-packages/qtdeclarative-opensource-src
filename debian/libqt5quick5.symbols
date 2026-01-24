@@ -1,23 +1,7 @@
-# SymbolsHelper-Confirmed: 5.15.15 amd64 i386
+# SymbolsHelper-Confirmed: 5.15.17 alpha amd64 arm64 armhf hppa hurd-amd64 hurd-i386 i386 loong64 powerpc ppc64 ppc64el riscv64 s390x sh4 sparc64 x32
 libQt5Quick.so.5 libqt5quick5 #MINVER# | libqt5quick5-gles #MINVER#
-| libqt5quick5 #MINVER# | libqt5quick5-gles #MINVER#, qtdeclarative-abi-5-15-15
+| libqt5quick5 #MINVER# | libqt5quick5-gles #MINVER#, qtdeclarative-abi-5-15-17
 * Build-Depends-Packages: qtdeclarative5-dev, qtdeclarative5-private-dev
- Qt_5.0@Qt_5.0 5.6.0~beta
- Qt_5.10@Qt_5.10 5.10.0
- Qt_5.11@Qt_5.11 5.11.0
- Qt_5.12@Qt_5.12 5.12.0
- Qt_5.13@Qt_5.13 5.14.1
- Qt_5.14@Qt_5.14 5.14.1
- Qt_5.15@Qt_5.15 5.15.1
- Qt_5.1@Qt_5.1 5.6.0~beta
- Qt_5.2@Qt_5.2 5.6.0~beta
- Qt_5.3@Qt_5.3 5.6.0~beta
- Qt_5.4@Qt_5.4 5.6.0~beta
- Qt_5.5@Qt_5.5 5.6.0~beta
- Qt_5.6@Qt_5.6 5.6.0~beta
- Qt_5.7@Qt_5.7 5.7.0
- Qt_5.8@Qt_5.8 5.9.0~beta
- Qt_5.9@Qt_5.9 5.9.0~beta
  Qt_5@Qt_5 5.6.0~beta
  (symver)Qt_5_PRIVATE_API 0 1
  _Z20qt_color_from_stringRKN3QV45ValueE@Qt_5 5.10.0
@@ -802,6 +786,8 @@ libQt5Quick.so.5 libqt5quick5 #MINVER# | libqt5quick5-gles #MINVER#
  _ZNK9QSGEngine19createRectangleNodeEv@Qt_5 5.9.0~beta
  _ZNK9QSGEngine19createTextureFromIdEjRK5QSize6QFlagsINS_19CreateTextureOptionEE@Qt_5 5.4.0
  _ZNK9QSGEngine22createTextureFromImageERK6QImage6QFlagsINS_19CreateTextureOptionEE@Qt_5 5.4.0
+ (optional=templinst)_ZNSt10_HashtableIP10QQuickItemS1_NSt3pmr21polymorphic_allocatorIS1_EENSt8__detail9_IdentityESt8equal_toIS1_ESt4hashIS1_ENS5_18_Mod_range_hashingENS5_20_Default_ranged_hashENS5_20_Prime_rehash_policyENS5_17_Hashtable_traitsILb0ELb1ELb1EEEE15_M_emplace_uniqIJRKS1_EEESt4pairINS5_14_Node_iteratorIS1_Lb1ELb0EEEbEDpOT_@Qt_5 5.15.17
+ (optional=templinst|subst)_ZNSt10_HashtableIP10QQuickItemS1_NSt3pmr21polymorphic_allocatorIS1_EENSt8__detail9_IdentityESt8equal_toIS1_ESt4hashIS1_ENS5_18_Mod_range_hashingENS5_20_Default_ranged_hashENS5_20_Prime_rehash_policyENS5_17_Hashtable_traitsILb0ELb1ELb1EEEE21_M_insert_unique_nodeE{size_t}{size_t}PNS5_10_Hash_nodeIS1_Lb0EEE{size_t}@Qt_5 5.15.17
  (optional=templinst|subst)_ZNSt8__detail16_Hashtable_allocINSt3pmr21polymorphic_allocatorINS_10_Hash_nodeIP10QQuickItemLb0EEEEEE19_M_allocate_bucketsE{size_t}@Qt_5 5.15.15
  _ZTI10QQuickItem@Qt_5 5.0.2
  _ZTI10QQuickView@Qt_5 5.0.2

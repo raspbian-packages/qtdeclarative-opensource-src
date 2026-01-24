@@ -72,6 +72,9 @@ private slots:
     void outerContextObject();
     void contextObjectHierarchy();
     void destroyContextProperty();
+    void destroyContextObject();
+
+    void numericContextProperty();
 
 private:
     QQmlEngine engine;
@@ -916,6 +919,38 @@ void tst_qqmlcontext::destroyContextProperty()
 
     // We're not allowed to call context->contextProperty("b") anymore.
     // TODO: Or are we?
+}
+
+void tst_qqmlcontext::destroyContextObject()
+{
+    QQmlEngine engine;
+    QList<QQmlContextDataRef> contexts;
+    QQmlComponent component(&engine, testFileUrl("destroyContextObject.qml"));
+    QScopedPointer<QObject> root(component.create());
+
+    QPointer<QObject> a = root->property("a").value<QObject *>();
+    QVERIFY(a);
+
+    for (QQmlContextDataRef context = QQmlData::get(a)->ownContext;
+         context; context = context->parent) {
+        contexts.append(context);
+    }
+
+    QObject *deleted = a.data();
+    root.reset();
+
+    QVERIFY(a.isNull());
+
+    for (const auto &context : contexts)
+        QVERIFY(context->contextObject != deleted);
+}
+
+void tst_qqmlcontext::numericContextProperty()
+{
+    QQmlEngine engine;
+    auto context = engine.rootContext();
+    context->setContextProperty(QLatin1String("11"), 42);
+    QCOMPARE(context->contextProperty(QLatin1String("11")).toInt(), 42);
 }
 
 QTEST_MAIN(tst_qqmlcontext)

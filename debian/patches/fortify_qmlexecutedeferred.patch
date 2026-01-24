@@ -4,7 +4,7 @@ Last-Update: 2024-11-07
 
 --- a/src/qml/qml/qqmlengine.cpp
 +++ b/src/qml/qml/qqmlengine.cpp
-@@ -1588,17 +1588,23 @@ void qmlExecuteDeferred(QObject *object)
+@@ -1583,17 +1583,23 @@ void qmlExecuteDeferred(QObject *object)
  {
      QQmlData *data = QQmlData::get(object);
  
