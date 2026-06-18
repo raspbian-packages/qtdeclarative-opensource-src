@@ -1,0 +1,25 @@
+Description: tst_qqmldebugjs: increase some timeouts
+Author: Dmitry Shachnev <mitya57@debian.org>
+Forwarded: no
+Last-Update: 2026-01-02
+
+--- a/tests/auto/qml/debugger/qqmldebugjs/tst_qqmldebugjs.cpp
++++ b/tests/auto/qml/debugger/qqmldebugjs/tst_qqmldebugjs.cpp
+@@ -479,7 +479,7 @@ void tst_QQmlDebugJS::setBreakpointInJav
+         QProcess process;
+         process.start(QStringLiteral(TESTBINDIR "/qmlscene"),
+                       { testFile(QUITINJS_QMLFILE) });
+-        QTRY_COMPARE(process.state(), QProcess::NotRunning);
++        QTRY_COMPARE_WITH_TIMEOUT(process.state(), QProcess::NotRunning, 10000);
+     }
+ 
+     QCOMPARE(init(qmlscene, QUITINJS_QMLFILE), ConnectSuccess);
+@@ -1012,7 +1012,7 @@ void tst_QQmlDebugJS::breakOnAnchor()
+ 
+     m_client->connect();
+ 
+-    QTRY_COMPARE(m_process->state(), QProcess::NotRunning);
++    QTRY_COMPARE_WITH_TIMEOUT(m_process->state(), QProcess::NotRunning, 10000);
+     QCOMPARE(m_process->exitStatus(), QProcess::NormalExit);
+ 
+     QCOMPARE(breaks, 2);

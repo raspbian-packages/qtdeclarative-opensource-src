@@ -1,0 +1,10 @@
+# SymbolsHelper-Confirmed: 5.15.16 amd64
+libQt5QmlWorkerScript.so.5 libqt5qmlworkerscript5 #MINVER#
+| libqt5qmlworkerscript5 #MINVER#, qtdeclarative-abi-5-15-19
+* Build-Depends-Packages: qtdeclarative5-dev, qtdeclarative5-private-dev
+ Qt_5@Qt_5 5.14.1
+ (symver)Qt_5_PRIVATE_API 0 1
+ _Z37qml_register_types_QtQml_WorkerScriptv@Qt_5 5.15.1
+ _ZTIN3QV415ExecutionEngine9DeletableE@Qt_5 5.15.1
+ _ZTSN3QV415ExecutionEngine9DeletableE@Qt_5 5.15.1
+ _ZZZNK3QV414FunctionObject4callEPKNS_5ValueES3_iENKUlvE_clEvE15qstring_literal@Qt_5 5.14.1
