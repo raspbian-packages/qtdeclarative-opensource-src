@@ -1,0 +1,18 @@
+# SymbolsHelper-Confirmed: 5.15.16 amd64
+libQt5QuickTest.so.5 libqt5quicktest5 #MINVER#
+| libqt5quicktest5 #MINVER#, qtdeclarative-abi-5-15-19
+* Build-Depends-Packages: qtdeclarative5-dev, qtdeclarative5-private-dev
+ Qt_5@Qt_5 5.6.0~beta
+ (symver)Qt_5_PRIVATE_API 0 1
+ _Z15quick_test_mainiPPcPKcS2_@Qt_5 5.0.2
+ _Z26quick_test_main_with_setupiPPcPKcS2_P7QObject@Qt_5 5.11.0
+ _ZN10QQuickTest18qIsPolishScheduledEPK10QQuickItem@Qt_5 5.14.1
+ _ZN10QQuickTest20qWaitForItemPolishedEPK10QQuickItemi@Qt_5 5.14.1
+ _ZN20QuickTestImageObject11qt_metacallEN11QMetaObject4CallEiPPv@Qt_5 5.0.2
+ _ZN20QuickTestImageObject11qt_metacastEPKc@Qt_5 5.0.2
+ _ZN20QuickTestImageObject16staticMetaObjectE@Qt_5 5.0.2
+ _ZNK20QuickTestImageObject10metaObjectEv@Qt_5 5.0.2
+ _ZTI20QuickTestImageObject@Qt_5 5.0.2
+ _ZTS20QuickTestImageObject@Qt_5 5.0.2
+ _ZTV20QuickTestImageObject@Qt_5 5.0.2
+ _ZZZN20QuickTestImageObject4saveERK7QStringENKUlvE_clEvE15qstring_literal@Qt_5 5.10.0

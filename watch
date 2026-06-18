@@ -1,0 +1,6 @@
+Version: 5
+
+Source: https://download.qt.io/archive/qt/5.15/([\d\.]*)/submodules/
+Matching-Pattern: qtdeclarative-everywhere-opensource-src-([^-]*)\.tar\.xz
+Dversionmangle: s/\+dfsg//
+Repacksuffix: +dfsg
