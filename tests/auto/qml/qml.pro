@@ -25,7 +25,6 @@ PUBLICTESTS += \
     qqmlmoduleplugin \
     qqmlnotifier \
     qqmlqt \
-    qqmlxmlhttprequest \
     qqmlpromise \
     qtqmlmodules \
     qquickfolderlistmodel \
@@ -95,10 +94,6 @@ qtConfig(process) {
     !boot2qt {
         SUBDIRS += qmlformat qmllint qmlplugindump
     }
-}
-
-qtConfig(library) {
-    SUBDIRS += qqmlextensionplugin
 }
 
 qtConfig(private_tests): \
