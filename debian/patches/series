@@ -13,3 +13,4 @@ remove_youtube_iframe.patch
 riscv64-latomic.patch
 python3.patch
 hurd_x86_64_jit.patch
+increase_timeouts.patch

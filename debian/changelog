@@ -1,4 +1,4 @@
-qtdeclarative-opensource-src (5.15.17+dfsg-4+rpi1) forky-staging; urgency=medium
+qtdeclarative-opensource-src (5.15.19+dfsg-2+rpi1) forky-staging; urgency=medium
 
   [changes brought forward from 5.14.2+dfsg-2+rpi1 by Peter Michael Green <plugwash@raspbian.org> at Sat, 04 Jul 2020 19:53:58 +0000]
   * Update symbols file for raspbian.
@@ -7,7 +7,41 @@ qtdeclarative-opensource-src (5.15.17+dfsg-4+rpi1) forky-staging; urgency=medium
   * Mark a gcc 10 only symbol as optional.
   * Disable testsuite.
 
- -- Raspbian forward porter <root@raspbian.org>  Sat, 24 Jan 2026 17:42:09 +0000
+ -- Raspbian forward porter <root@raspbian.org>  Fri, 10 Jul 2026 01:20:13 +0000
+
+qtdeclarative-opensource-src (5.15.19+dfsg-2) unstable; urgency=medium
+
+  * Upload to unstable.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Thu, 18 Jun 2026 14:20:38 +0300
+
+qtdeclarative-opensource-src (5.15.19+dfsg-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Bump Qt build-dependencies to 5.15.19.
+  * Bump ABI version to qtdeclarative-abi-5-15-19.
+  * Drop ‘Priority: optional’, it became default in dpkg 1.22.12.
+  * Bump Standards-Version to 4.7.4, no changes needed.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Mon, 01 Jun 2026 12:49:17 +0300
+
+qtdeclarative-opensource-src (5.15.18+dfsg-2) experimental; urgency=medium
+
+  * Add a patch to increase timeouts in tst_QQmlDebugJS (closes: #1124529).
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Fri, 02 Jan 2026 21:56:26 +0300
+
+qtdeclarative-opensource-src (5.15.18+dfsg-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Bump Qt build-dependencies to 5.15.18.
+  * Bump ABI version to qtdeclarative-abi-5-15-18.
+  * Refresh disableopengltests.patch.
+  * Update debian/watch to version 5.
+  * Bump Standards-Version to 4.7.3, no changes needed.
+  * Fix Lintian old-fsf-address-in-copyright-file warning.
+
+ -- Dmitry Shachnev <mitya57@debian.org>  Sun, 28 Dec 2025 22:33:35 +0300
 
 qtdeclarative-opensource-src (5.15.17+dfsg-4) unstable; urgency=medium
 
